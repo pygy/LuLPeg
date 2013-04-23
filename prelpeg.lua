@@ -661,7 +661,7 @@ PL.warnings = true
 
 
 --[[---------------------------------------------------------------------------
-Patterns have the following fields:
+Patterns have the following, optional fields:
 
 - type: the pattern type. ~1 to 1 correspondance with the pattern constructors
     described in the LPeg documentation.
@@ -672,6 +672,9 @@ Patterns have the following fields:
     `*` pattern. In some cases, the data is pre-processed. in that case,
     the `as_is` field holds the data as passed to the constructor.
 - as_is: see aux.
+- meta: A table holding meta information about patterns, like their
+    minimal and maximal width, the form they can take when compiled, 
+    whether they are terminal or not (no V patterns), and so on.
 --]]---------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
@@ -1970,26 +1973,6 @@ end
 
 
 
--- local AAA = 1
--- compilers["choice"] = function (pt, ccache)
---     local choices, n = map(pt.data, compile, ccache), #pt.data
-
---     -- local AAAA = AAA
---     -- AAA = AAA + 1
---     return function (subject, index, cap_acc, cap_i, state)
---         -- print("Alternate"..AAAA, cap_acc, index) --, subject)
---         for i = 1, n do
---             -- print("ch"..AAAA, i)
---             local success
---             success, index, cap_i = choices[i](subject, index, cap_acc, cap_i, state)
---             if success then
---                 return true, index, cap_i
---             end
---         end
---         return false, index, cap_i
---     end
--- end
-
 -- Unroll the loop using a template:
 local choice_tpl = [[
             success, index, cap_i = XXXX(subject, index, cap_acc, cap_i, state)
@@ -2021,25 +2004,6 @@ compilers["choice"] = function (pt, ccache)
 end
 
 
--- local SSS = 1
--- compilers["sequence"] = function (pt, ccache)
---     local sequence, n = map(pt.data, compile, ccache), #pt.data
---     -- local SSSS = SSS
---     -- SSS = SSS + 1
---     return function (subject, index, cap_acc, cap_i, state)
---         -- print("Seqence"..SSSS,cap_acc, index) --, subject)
---         local nindex, new_i = index, cap_i
---         for i = 1, n do
---             -- print("seq"..SSSS, i)
---             local success
---             success, nindex, new_i = sequence[i](subject, nindex, cap_acc, new_i, state)
---             if not success then 
---                 return false, index, cap_i
---             end
---         end
---         return true, nindex, new_i
---     end
--- end
 
 local sequence_tpl = [[
              -- dprint("XXXX", nindex, cap_acc, new_i, state)
