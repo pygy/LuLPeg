@@ -1334,14 +1334,59 @@ function evaluate (capture, subject, index)
 end
 
 
-evaluators["Cb"] = function (capture, subject, acc, index)
+local
+function insert_all_caps (capture, subject, acc, index, inserter)
+    for i = 1, capture.n do
+        index = evaluators[capture[i].type](capture[i], subject, acc, index, insert_all_caps)
+    end
+    return index
+end
+
+local
+function insert_one_cap (capture, subject, acc, index, inserter)
+    return evaluators[capture[1].type](capture[1], subject, acc, index, insert_one_cap)
+end
+
+evaluators["insert"] = function (capture, subject, acc, index)
+    -- print("Insert", capture.start, capture.finish)
+    for i = 1, capture.n - 1 do
+        -- print(capture[i].type, capture[i].start, capture[i])
+            local c 
+            c, index = 
+                evaluators[capture[i].type](capture[i], subject, acc, index)
+            acc[#acc+1] = c
+    end
+    return nil, index
+end
+
+local
+function lookback(capture, tag, index)
+    local found
+    repeat
+    for i = index-1, 1, -1 do
+        if  capture[i].Ctag == tag then
+            found = cap
+            break
+        end
+    end
+    capture, index = capture.parent, capture.parent_i
+    until not capture end
+
+    if found then return found
+    else 
+        tag = type(tag) == string and "'"..tag.."." or tostring(tag)
+        error("back reference "..tag.." not found")
+    end
+end
+
+evaluators["Cb"] = function (capture, subject, acc, index, inserter)
     if is_subst_acc(acc) then
         acc[#acc+1] = s_sub(subject, index, capture.start - 1)
     end
-    local ref, backref_acc = capture.data, {}
-    local result = evaluators[ref.type](ref, subject, {}, ref.start)
+    local ref = lookback(capture.parent, capture.name, capture.parent_i)
+    evaluators[ref.type](ref, subject, acc, ref.start, inserter)
 
-    return result, index
+    return index
 end
 
 
@@ -1415,19 +1460,6 @@ evaluators["Cb"] = function (capture, subject, acc, index)
 
     return nil, index
 
-end
-
-
-evaluators["insert"] = function (capture, subject, acc, index)
-    -- print("Insert", capture.start, capture.finish)
-    for i = 1, capture.n - 1 do
-        -- print(capture[i].type, capture[i].start, capture[i])
-            local c 
-            c, index = 
-                evaluators[capture[i].type](capture[i], subject, acc, index)
-            acc[#acc+1] = c
-    end
-    return nil, index
 end
 
 
@@ -1644,7 +1676,9 @@ for k, v in pairs{
             local new_acc, nindex, success = {
                 type = "XXXX",
                 start = index,
-                aux = aux
+                aux = aux,
+                parent = cap_acc,
+                parent_i = cap_i
             }
             success, index, new_acc.n
                 = matcher(subject, index, new_acc, 1, state)
@@ -1684,7 +1718,7 @@ compilers["Cb"] = function (pt, ccache)
             type = "Cb",
             start = index,
             finish = index,
-            group = state.tags[tag]
+            tag = tag
         }
         return success, index, cap_i + 1
     end
@@ -1723,12 +1757,15 @@ compilers["Ctag"] = function (pt, ccache)
     return function (subject, index, cap_acc, cap_i, state)
         local new_acc = {
             type = "Cg", 
-            start = index
+            start = index,
+            parent = cap_acc,
+            parent_i = cap_i,
+            Ctag = tag
         }
         success, new_acc.finish, new_acc.n 
             = matcher(subject, index, new_acc, 1, state)
         if success then
-            state.tags[tag] = new_acc 
+            cap_acc[cap_i] = new_acc
             if cap_acc.type == "Ct" then
                 cap_acc.hash = cap_acc.hash or {}
                 cap_acc.hash[tag] = new_acc[1]
@@ -1753,7 +1790,11 @@ local function pack_Cmt_caps(i,...) return i, {...} end
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local new_acc, success, nindex = {type = "insert"}
+        local new_acc, success, nindex = {
+            type = "insert", 
+            parent = cap_acc, 
+            parent_i = cap_i
+        }
 
         success, nindex, new_acc.n = matcher(subject, index, new_acc, 1, state)
 
