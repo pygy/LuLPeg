@@ -1,1 +1,1 @@
-return require"src.init"
+
