@@ -40,8 +40,8 @@ local split_int, validate
 local ds = require"datastructures"
 local newrange, newset = ds.range.new, ds.set.new
 local u = require"util"
-local copy,   fold,   map,   t_unpack 
-    = u.copy, u.fold, u.map, u.unpack
+local copy,   fold,   map,   t_pack, t_unpack 
+    = u.copy, u.fold, u.map, u.pack, u.unpack
 
 local
 function PL_P (v)
@@ -384,7 +384,7 @@ PL.Cp = PL_Cp
 
 local
 function PL_Cc (...)
-    return true and constructors.none("Cc", nil, {...})
+    return true and constructors.none("Cc", nil, t_pack(...))
 end
 PL.Cc = PL_Cc
 

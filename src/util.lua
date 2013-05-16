@@ -53,6 +53,7 @@ if _VERSION == "Lua 5.1" and not jit then
 end
 
 util.unpack = table.unpack or unpack
+util.pack = table.pack or function(...) return { n = select('#', ...), ... } end
 
 local
 function setmode(t,mode)
