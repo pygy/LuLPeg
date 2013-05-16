@@ -36,10 +36,10 @@ function PL.match(pt, subject, index, ...)
         -- print("cap_i = ",cap_i)
         -- print("= $$$ captures $$$ =")
         -- PL.cprint(cap_acc)
-        local captures = PL_evaluate(cap_acc, subject, index)
-        if #captures == 0 
+        local cap_values, cap_i = PL_evaluate(cap_acc, subject, index)
+        if cap_i == 1
         then return nindex
-        else return t_unpack(captures) end
+        else return t_unpack(cap_values, 1, cap_i - 1) end
     else 
         return nil 
     end
