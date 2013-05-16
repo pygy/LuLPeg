@@ -9,8 +9,8 @@ local s_byte, s_sub
     , table.concat, table.insert, table.remove, unpack or table.unpack
 
 local u = require"util"
-local expose, load, map, map_all
-    = u.expose, u.load, u.map, u.map_all
+local expose, load, map, map_all, t_pack
+    = u.expose, u.load, u.map, u.map_all, u.pack
 
 
 local compilers = {}
@@ -129,7 +129,8 @@ compilers["Cc"] = function (pt, ccache)
             type = "values", 
             values = values,
             start = index,
-            finish = index
+            finish = index,
+            n = values.n
         } 
         return true, index, cap_i + 1
     end
@@ -178,7 +179,7 @@ compilers["/zero"] = function (pt, ccache)
 end
 
 
-local function pack_Cmt_caps(i,...) return i, {...} end
+local function pack_Cmt_caps(i,...) return i, t_pack(...) end
 
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
@@ -208,7 +209,8 @@ compilers["Cmt"] = function (pt, ccache)
                     type = "values",
                     values = values, 
                     start = index,
-                    finish = nnindex
+                    finish = nnindex,
+                    n = values.n
                 }
                 cap_i = cap_i + 1
             end
