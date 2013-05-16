@@ -67,21 +67,6 @@ end
 
 util.setmode = setmode
 
-function util.traceback ()
-    local level = 1
-    while true do
-        local info = debug.getinfo(level, "Sl")
-        if not info then break end
-        if info.what == "C" then   -- is a C function?
-            print(level, "C function")
-        else   -- a Lua function
-            print(string.format("[%s]:%d",
-                                info.short_src, info.currentline))
-        end
-        level = level + 1
-    end
-end
-
 function util.weakboth (t)
     return setmode(t,"kv")
 end

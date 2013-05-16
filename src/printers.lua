@@ -141,7 +141,7 @@ local cprinters = {}
 
 function PL.cprint (capture)
     print"Capture Printer\n==============="
-    print(capture)
+    -- print(capture)
     -- expose(capture)
     -- expose(capture[1])
     cprinters[capture.type](capture, "", "")

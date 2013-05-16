@@ -10,8 +10,8 @@ local pcall, setmetatable, tostring
 local s_sub, t_concat = string.sub, table.concat
 
 local u = require"util"
-local strip_mt, t_unpack, traceback
-    = u.strip_mt, u.unpack, u.traceback
+local expose, strip_mt, t_unpack
+    = u.expose, u.strip_mt, u.unpack
 
 local evaluators = {}
 
@@ -29,11 +29,8 @@ PL.evaluate = evaluate
 local fold_mt, group_mt, subst_mt, table_mt = {}, {}, {}, {}
 
 local function new_group_acc (t) return setmetatable(t, group_mt) end
-local function new_subst_acc (t) return setmetatable(t, subst_mt) end
 local function new_table_acc (t) return setmetatable(t, table_mt) end
 
-local function is_group_acc (t) return getmetatable(t) == group_mt end
-local function is_subst_acc (t) return getmetatable(t) == subst_mt end
 local function is_table_acc (t) return getmetatable(t) == table_mt end
 
 
@@ -72,10 +69,6 @@ function lookback(capture, tag, index)
 end
 
 evaluators["Cb"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
     local ref, Ctag = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
@@ -84,20 +77,10 @@ evaluators["Cb"] = function (capture, subject, acc, index, val_i)
 end
 
 
--- local level = 0
 evaluators["Cf"] = function (capture, subject, acc, index, val_i)
-    -- level = level + 1
-    -- print(level,"+++ == +++ Cf: level")
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
-    
     if capture.n == 0 then 
         error"No First Value"
     end
-    
-    -- print(level, "[ 1 ].type: ", capture[1] and capture[1].type or "none")
     
     local func, fold_acc, first_val_i, _ = capture.aux, {}
     _, index, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, index, 1)
@@ -107,32 +90,19 @@ evaluators["Cf"] = function (capture, subject, acc, index, val_i)
     end
     
     local result = fold_acc[1]
-    -- print("", "[1].value: ", result)
 
     for i = 2, capture.n - 1 do
         local fold_acc2, vi = {}
-        -- print(level, "[i].type: ", capture[i].type)
-        -- for j = 1, capture[i].n - 1 do 
-        --     print(level, "[i][j].type: ", capture[i][j].type)
-        -- end
-        -- print("i: ",i)
         _, index, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, index, 1)
-        -- print("fold_acc", fold_acc, "vi", vi, "values", fold_acc2[1], fold_acc2[2], t_unpack(fold_acc2, 1, vi - 1))
-        -- print(result)
         result = func(result, t_unpack(fold_acc2, 1, vi - 1))
     end
     acc[val_i] = result
-    -- level = level - 1
     return nil, capture.finish, val_i + 1
 end
 
 
 evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     local start, finish = capture.start, capture.finish
-    if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, start - 1)
-    end
-    -- print"- - - )))   Cg   ((( - - -"
     local group_acc = new_group_acc{}
 
     if capture.Ctag ~= nil  then
@@ -145,33 +115,20 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     end
 
     local _, index, group_val_i = evaluators.insert(capture, subject, group_acc, start, 1)
-    -- print("group_val_i", group_val_i)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
         return nil, finish, val_i + 1
-    elseif is_subst_acc(acc) then
-        acc[val_i] = group_acc[1]
-        return nil, finish, val_i + 1
     else
         for i = 1, group_val_i - 1 do
-            -- print("for group_acc: ", group_acc[i])
             val_i, acc[val_i] = val_i + 1, group_acc[i]
         end 
-        -- print("acc: ", acc, val_i)
         return nil, capture.finish, val_i
     end
 end
 
 
 evaluators["C"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        acc[val_i + 1] = s_sub(subject,capture.start, capture.finish - 1)
-        return nil, capture.finish, val_i + 2
-    end
-
     val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
-    -- print("C:", acc[val_i-1])
     local _
     _, _, val_i = evaluators.insert(capture, subject, acc, capture.start, val_i)
     return nil, capture.finish, val_i
@@ -179,27 +136,36 @@ end
 
 
 evaluators["Cs"] = function (capture, subject, acc, index, val_i)
-    -- print("SUB", capture.start, capture.finish)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
+    local start, finish, n = capture.start, capture.finish, capture.n
+    if n == 1 then
+        acc[val_i] = s_sub(subject, start, finish - 1)
+    else
+        local subst_acc, cap_i, subst_i = {}, 1, 1
+        repeat
+            local cap, tmp_acc, tmp_i, _ = capture[cap_i], {}
+
+            subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
+            subst_i = subst_i + 1
+
+            _, start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, index, 1)
+
+            if tmp_i > 1 then 
+                subst_acc[subst_i] = tmp_acc[1]
+                subst_i = subst_i + 1
+            end
+
+            cap_i = cap_i + 1
+        until cap_i == n
+        subst_acc[subst_i] = s_sub(subject, start, finish - 1)
+
+        acc[val_i] = t_concat(subst_acc)
     end
 
-    local subst_acc = new_subst_acc{}
-
-    local _, index, _ = evaluators.insert(capture, subject, subst_acc, capture.start, val_i)
-    subst_acc[#subst_acc + 1] = s_sub(subject, index, capture.finish - 1)
-    acc[val_i] = t_concat(subst_acc)
     return nil, capture.finish, val_i + 1
 end
 
 
 evaluators["Ct"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
-
     local tbl_acc = new_table_acc{}
     evaluators.insert(capture, subject, tbl_acc, capture.start, 1)
     acc[val_i] = strip_mt(tbl_acc)
@@ -208,11 +174,6 @@ end
 
 
 evaluators["value"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
-
     acc[val_i] = capture.value
     return nil, capture.finish, val_i + 1
 end
@@ -220,10 +181,6 @@ end
 
 evaluators["values"] = function (capture, subject, acc, index, val_i)
 local start, finish, values = capture.start, capture.finish, capture.values
-    if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, start - 1)
-    end
-
     for i = 1, values.n do
         val_i, acc[val_i] = val_i + 1, values[i]
     end
@@ -233,10 +190,6 @@ end
 
 evaluators["/string"] = function (capture, subject, acc, index, val_i)
     -- print("/string", capture.start, capture.finish)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
     local new_acc = {}
     local _, _, new_val_i = evaluators.insert(capture, subject, new_acc, capture.start, 1)
 
@@ -258,10 +211,6 @@ end
 
 
 evaluators["/number"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
     local new_acc = {}
     evaluators.insert(capture, subject, new_acc, capture.start, 1)
     acc[val_i] = new_acc[capture.aux]
@@ -270,11 +219,6 @@ end
 
 
 evaluators["/table"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
-
     local key
     if capture.n > 1 then
         local new_acc = {}
@@ -302,11 +246,6 @@ function insert_divfunc_results(acc, val_i, ...)
     return val_i
 end
 evaluators["/function"] = function (capture, subject, acc, index, val_i)
-    if is_subst_acc(acc) then
-        acc[val_i] = s_sub(subject, index, capture.start - 1)
-        val_i = val_i + 1
-    end
-
     local func, params, new_val_i = capture.aux
     if capture.n > 1 then
         params = {}
