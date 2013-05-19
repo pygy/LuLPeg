@@ -162,7 +162,9 @@ function utf8_get_int(subject, i)
     return val, i + offset + 1
 end
 
-local function split_generator (get)
+local
+function split_generator (get)
+    if not get then return end
     return function(subject)
         local res = {}
         local o, i = true
@@ -174,7 +176,9 @@ local function split_generator (get)
     end
 end
 
+local
 function merge_generator (char)
+    if not char then return end
     return function(ary)
         local res = {}
         for i = 1, #ary do
@@ -184,8 +188,19 @@ function merge_generator (char)
     end
 end
 
-utf8_split_char = split_generator(utf8_get_char)
-utf8_split_int = split_generator(utf8_split_int)
+local
+function build_charset (funcs)
+    return {
+        name = funcs.name,
+        split_int = split_generator(funcs.next_int),
+        split_char = split_generator(funcs.next_char),
+        next_int = funcs.next_int,
+        next_char = funcs.next_char,
+        merge = merge_generator(funcs.tochar),
+        tochar = funcs.tochar,
+        validate = funcs.validate
+    }
+end
 
 local
 function utf8_3bytes (b3, b2, b1) 
@@ -237,7 +252,7 @@ end
 local
 function utf8_char(c)
     if     c < 128 then
-        return --[[See there: --->]]                                                         s_char(c)
+        return --[[See the end of the line: --->]]                                           s_char(c)
     elseif c < 2048 then 
         return                                                          s_char(192 + c/64, 128 + c%64)
     elseif c < 65536 then
@@ -249,8 +264,8 @@ function utf8_char(c)
     elseif c < 2147483648 then 
         return s_char( 252 + c/1073741824, 
                    128 + c/16777216%64, 128 + c/262144%64, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
-    else error"Bad Unicode code point."
     end
+    error("Bad Unicode code point: "..c..".")
 end
 
 -------------------------------------------------------------------------------
@@ -258,30 +273,6 @@ end
 --
 
 -- See UTF-8 above for the API docs.
-
-local
-function ascii_validate (subject, start, finish)
-    start = start or 1
-    finish = finish or #subject
-
-    for i = start,finish do
-        b = s_byte(subject,i)
-        if b > 127 then return false, i - 1 end
-    end
-    return true, finish
-end
-
-local
-function printable_ascii_validate (subject, start, finish)
-    start = start or 1
-    finish = finish or #subject
-
-    for i = start,finish do
-        b = s_byte(subject,i)
-        if 32 > b or b >127 then return false, i - 1 end
-    end
-    return true, finish
-end
 
 local
 function binary_validate (subject, start, finish)
