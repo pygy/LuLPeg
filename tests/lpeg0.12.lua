@@ -695,13 +695,13 @@ t = {m.match(m.C(1)^0/g/g, "abc")}
 checkeq(t, {1, 1, "a", "b", "c"})
 t = {m.match(m.Cc(nil,nil,4) * m.Cc(nil,3) * m.Cc(nil, nil) / g / g, "")}
 t1 = {1,1,nil,nil,4,nil,3,nil,nil}
-print"skip"-- for i=1,10 do assert(t[i] == t1[i]) end
+for i=1,10 do assert(t[i] == t1[i]) end
 
 t = {m.match((m.C(1) / function (x) return x, x.."x" end)^0, "abc")}
 checkeq(t, {"a", "ax", "b", "bx", "c", "cx"})
 
 t = m.match(m.Ct((m.C(1) / function (x,y) return y, x end * m.Cc(1))^0), "abc")
-print"skip"-- checkeq(t, {nil, "a", 1, nil, "b", 1, nil, "c", 1})
+checkeq(t, {nil, "a", 1, nil, "b", 1, nil, "c", 1})
 
 -- tests for Query Replacements
 
@@ -786,10 +786,10 @@ checkeq(t, {a="b", c="du", xux="yuy"})
 -- errors in accumulator capture
 -- very long match (forces fold to be a pair open-close) producing with
 -- no initial capture
-print"skip"-- assert(not pcall(m.match, m.Cf(m.P(500), print), string.rep('a', 600)))
+assert(not pcall(m.match, m.Cf(m.P(500), print), string.rep('a', 600)))
 
 -- nested capture produces no initial value
-print"skip"-- assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
+assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
 
 
 -- tests for loop checker
@@ -1221,9 +1221,9 @@ assert(re.gsub("hi, how are you", "[aeiou]", string.upper) ==
 
 s = 'hi [[a comment[=]=] ending here]] and [=[another]]=]]'
 c = re.compile" '[' {:i: '='* :} '[' (!(']' =i ']') .)* ']' { =i } ']' "
-print"skip"-- assert(re.gsub(s, c, "%2") == 'hi  and =]')
+assert(re.gsub(s, c, "%2") == 'hi  and =]')
 assert(re.gsub(s, c, "%0") == s)
-print"skip"-- assert(re.gsub('[=[hi]=]', c, "%2") == '=')
+assert(re.gsub('[=[hi]=]', c, "%2") == '=')
 
 assert(re.find("", "!.") == 1)
 assert(re.find("alo", "!.") == 4)
@@ -1302,18 +1302,18 @@ assert(not p:match'bbb')
 assert(not p:match'aaabbba')
 
 -- testing groups
-print"skip"-- t = {re.match("abc", "{:S <- {:.:} {S} / '':}")}
--- checkeq(t, {"a", "bc", "b", "c", "c", ""})
-print"skip"-- t = re.match("1234", "{| {:a:.:} {:b:.:} {:c:.{.}:} |}")
--- checkeq(t, {a="1", b="2", c="4"})
-print"skip"-- t = re.match("1234", "{|{:a:.:} {:b:{.}{.}:} {:c:{.}:}|}")
--- checkeq(t, {a="1", b="2", c="4"})
-print"skip"-- t = re.match("12345", "{| {:.:} {:b:{.}{.}:} {:{.}{.}:} |}")
--- checkeq(t, {"1", b="2", "4", "5"})
-print"skip"-- t = re.match("12345", "{| {:.:} {:{:b:{.}{.}:}:} {:{.}{.}:} |}")
--- checkeq(t, {"1", "23", "4", "5"})
-print"skip"-- t = re.match("12345", "{| {:.:} {{:b:{.}{.}:}} {:{.}{.}:} |}")
--- checkeq(t, {"1", "23", "4", "5"})
+t = {re.match("abc", "{:S <- {:.:} {S} / '':}")}
+checkeq(t, {"a", "bc", "b", "c", "c", ""})
+t = re.match("1234", "{| {:a:.:} {:b:.:} {:c:.{.}:} |}")
+checkeq(t, {a="1", b="2", c="4"})
+t = re.match("1234", "{|{:a:.:} {:b:{.}{.}:} {:c:{.}:}|}")
+checkeq(t, {a="1", b="2", c="4"})
+t = re.match("12345", "{| {:.:} {:b:{.}{.}:} {:{.}{.}:} |}")
+checkeq(t, {"1", b="2", "4", "5"})
+t = re.match("12345", "{| {:.:} {:{:b:{.}{.}:}:} {:{.}{.}:} |}")
+checkeq(t, {"1", "23", "4", "5"})
+t = re.match("12345", "{| {:.:} {{:b:{.}{.}:}} {:{.}{.}:} |}")
+checkeq(t, {"1", "23", "4", "5"})
 
 
 -- testing pre-defined names
@@ -1380,11 +1380,11 @@ local function errmsg (p, err)
   local s, msg = pcall(re.compile, p)
   assert(not s and string.find(msg, err))
 end
-print"skip"-- errmsg('aaaa', "rule 'aaaa'")
-print"skip"-- errmsg('a', 'outside')
-print"skip"--  errmsg('b <- a', 'undefined')
-print"skip"-- errmsg("x <- 'a'  x <- 'b'", 'already defined')
-print"skip"-- errmsg("'a' -", "near '-'")
+errmsg('aaaa', "rule 'aaaa'")
+errmsg('a', 'outside')
+-- errmsg('b <- a', 'undefined')
+errmsg("x <- 'a'  x <- 'b'", 'already defined')
+errmsg("'a' -", "near '-'")
 
 
 print"OK"
