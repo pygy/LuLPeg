@@ -162,6 +162,31 @@ function utf8_get_int(subject, i)
     return val, i + offset + 1
 end
 
+local function split_generator (get)
+    return function(subject)
+        local res = {}
+        local o, i = true
+        while o do
+            o,i = get(subject, i)
+            res[#res] = o
+        end
+        return res
+    end
+end
+
+function merge_generator (char)
+    return function(ary)
+        local res = {}
+        for i = 1, #ary do
+            t_insert(res,char(ary[i]))
+        end
+        return t_concat(res)
+    end
+end
+
+utf8_split_char = split_generator(utf8_get_char)
+utf8_split_int = split_generator(utf8_split_int)
+
 local
 function utf8_3bytes (b3, b2, b1) 
     return (b3-224)*4096 + b2%64*64 + b1%64
