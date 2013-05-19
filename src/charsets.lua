@@ -203,39 +203,25 @@ function build_charset (funcs)
 end
 
 local
-function utf8_3bytes (b3, b2, b1) 
-    return (b3-224)*4096 + b2%64*64 + b1%64
-end
-
-local
-function utf8_4bytes (b4, b3, b2, b1) 
-    return (b4-240)*262144 + b3%64*4096 + b2%64*64 + b1%64
-end
-
-function utf8_5bytes (b5, b4, b3, b2, b1) 
-    return (b5-248)*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64
-end
-
-function utf8_6bytes (b6, b5, b4, b3, b2, b1) 
-    return (b6-252)*1073741824 + b5%64*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64
-end
-
-local
 function utf8_get_int2 (subject, i)
-    local byte = s_byte(subject, i)
+    local byte, b5, b4, b3, b2, b1 = s_byte(subject, i)
     if byte < 128 then return byte, i + 1
     elseif byte < 192 then
         error("Byte values between 0x80 to 0xBF cannot start a multibyte sequence")
     elseif byte < 224 then 
         return (byte - 192)*64 + s_byte(subject, i+1), i+2
     elseif byte < 240 then 
-        return utf8_3bytes(byte, s_byte(subject, i+1, i+2)), i+3
+            b2, b1 = s_byte(subject, i+1, i+2)
+        return (byte-224)*4096 + b2%64*64 + b1%64, i+3
     elseif byte < 248 then 
-        return utf8_3bytes(byte, s_byte(subject, i+1, i+2, 1+3)), i+4
+        b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3)
+        return (byte-240)*262144 + b3%64*4096 + b2%64*64 + b1%64, i+4
     elseif byte < 252 then 
-        return utf8_3bytes(byte, s_byte(subject, i+1, i+2, 1+3, i+4)), i+5
+        b4, b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3, i+4)
+        return (byte-248)*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64, i+5
     elseif byte < 254 then 
-        return utf8_3bytes(byte, s_byte(subject, i+1, i+2, 1+3, i+4, i+5)), i+6
+        b5, b4, b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3, i+4, i+5)
+        return (byte-252)*1073741824 + b5%64*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64, i+6
     else
         error("Byte values between 0xFE and OxFF cannot start a multibyte sequence")
     end
