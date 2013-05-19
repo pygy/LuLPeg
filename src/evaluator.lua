@@ -5,6 +5,8 @@
 
 return function(Builder, PL) -- Decorator wrapper
 
+local cprint = PL.cprint
+
 local pcall, setmetatable, tostring
     = pcall, setmetatable, tostring
 local s_sub, t_concat = string.sub, table.concat
@@ -17,6 +19,8 @@ local evaluators = {}
 
 local
 function evaluate (capture, subject, index)
+    -- print("*** Eval", index)
+    -- cprint(capture)
     local acc, val_i, _ = {}
     -- PL.cprint(capture)
     _, val_i = evaluators.insert(capture, subject, acc, index, 1)
@@ -34,7 +38,7 @@ local function new_table_acc (t) return setmetatable(t, table_mt) end
 local function is_table_acc (t) return getmetatable(t) == table_mt end
 
 
-evaluators["insert"] = function (capture, subject, acc, index, val_i)
+local function insert (capture, subject, acc, index, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
         -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
@@ -44,6 +48,7 @@ evaluators["insert"] = function (capture, subject, acc, index, val_i)
     end
     return index, val_i
 end
+evaluators["insert"] = insert 
 
 local
 function lookback(capture, tag, index)
@@ -106,15 +111,10 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     local group_acc = new_group_acc{}
 
     if capture.Ctag ~= nil  then
-        if is_table_acc(acc) then 
-            local index, val_i = evaluators.insert(capture, subject, group_acc, start, 1)
-            local val = (#group_acc == 0 and s_sub(subject, start, finish - 1) or group_acc[1])
-            acc[capture.Ctag] = val
-        end
         return start, val_i
     end
 
-    local index, group_val_i = evaluators.insert(capture, subject, group_acc, start, 1)
+    local index, group_val_i = insert(capture, subject, group_acc, start, 1)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
         return finish, val_i + 1
@@ -130,7 +130,7 @@ end
 evaluators["C"] = function (capture, subject, acc, index, val_i)
     val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
     local _
-    _, val_i = evaluators.insert(capture, subject, acc, capture.start, val_i)
+    _, val_i = insert(capture, subject, acc, capture.start, val_i)
     return capture.finish, val_i
 end
 
@@ -166,9 +166,21 @@ end
 
 
 evaluators["Ct"] = function (capture, subject, acc, index, val_i)
-    local tbl_acc = new_table_acc{}
-    evaluators.insert(capture, subject, tbl_acc, capture.start, 1)
-    acc[val_i] = strip_mt(tbl_acc)
+    local tbl_acc, new_val_i = {}, 1
+    for i = 1, capture.n - 1 do
+        local cap = capture[i]
+        if cap.Ctag ~= nil then
+            local tmp_acc = {}
+
+            insert(cap, subject, tmp_acc, cap.start, 1)
+            local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
+            tbl_acc[cap.Ctag] = val
+        else
+            -- print("Ct ttt; ",cap.type, new_val_i)
+            _, new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
+        end
+    end
+    acc[val_i] = tbl_acc
     return capture.finish, val_i + 1
 end
 
@@ -190,29 +202,33 @@ end
 
 evaluators["/string"] = function (capture, subject, acc, index, val_i)
     -- print("/string", capture.start, capture.finish)
-    local new_acc = {}
-    local _, new_val_i = evaluators.insert(capture, subject, new_acc, capture.start, 1)
-
-    local allmatch
-    local result = capture.aux:gsub("%%([%d%%])", function(n)
-        if n == "%" then return "%" end
-        n = tonumber(n)
-        if n == 0 then
-            allmatch = allmatch or s_sub(subject, capture.start, capture.finish - 1)
-            return allmatch
-        else
-            if n > #new_acc then error("No capture at index "..n.." in /string capture.") end
-            return new_acc[n]
+    local n, cached = capture.n, {}
+    acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
+        if d == "%" then return "%" end
+        d = tonumber(d)
+        if not cached[d] then
+            if d >= n then 
+                error("no capture at index "..d.." in /string capture.") 
+            end
+            if d == 0 then
+                cached[d] = s_sub(subject, capture.start, capture.finish - 1)
+            else
+                local tmp_acc, _, vi = {}
+                _, vi = evaluators[capture[d].type](capture[d], subject, tmp_acc, capture.start, 1)
+                if vi == 1 then error("no values in capture at index"..d.."in /string capture.") end
+                cached[d] = tmp_acc[1]
+            end
         end
+        return cached[d]
     end)
-    acc[val_i] = result
     return capture.finish, val_i + 1
 end
 
 
 evaluators["/number"] = function (capture, subject, acc, index, val_i)
-    local new_acc = {}
-    evaluators.insert(capture, subject, new_acc, capture.start, 1)
+    local new_acc, _, vi = {}
+    _, vi = insert(capture, subject, new_acc, capture.start, 1)
+    if capture.aux >= vi then error("no capture '"..capture.aux.."' in /number capture.") end
     acc[val_i] = new_acc[capture.aux]
     return capture.finish, val_i + 1
 end
@@ -222,7 +238,7 @@ evaluators["/table"] = function (capture, subject, acc, index, val_i)
     local key
     if capture.n > 1 then
         local new_acc = {}
-        evaluators.insert(capture, subject, new_acc, capture.start, 1)
+        insert(capture, subject, new_acc, capture.start, 1)
         key = new_acc[1]
     else
         key = s_sub(subject, capture.start, capture.finish - 1)
@@ -249,7 +265,7 @@ evaluators["/function"] = function (capture, subject, acc, index, val_i)
     local func, params, new_val_i = capture.aux
     if capture.n > 1 then
         params = {}
-        _, new_val_i = evaluators.insert(capture, subject, params, capture.start, 1)
+        _, new_val_i = insert(capture, subject, params, capture.start, 1)
     else
         new_val_i = 2
         params = {s_sub(subject, capture.start, capture.finish - 1)}

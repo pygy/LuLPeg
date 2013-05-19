@@ -1,29 +1,3 @@
--- local t_concat, t_insert, t_remove
---     , t_sort, t_unpack 
---     = table.concat, table.insert, table.remove
---     , table.sort, table.unpack or unpack
-
--- local s_byte, s_char, s_sub
---     = string.byte, string.char, string.sub
-
--- local m_max, m_min
---     = math.max, math.min
-
--- local u = require"util"
--- local weakkey, weakval, strip_mt
---     , expose, extend
---     , passprint, getuniqueid
---     , map, fold, compose
---     , all, any
---     , id, nop, get
---     , lt
---     = u.weakkey, u.weakval, u.strip_mt 
---     , u.expose, u.extend
---     , u.passprint, u.getuniqueid
---     , u.map, u.fold, u.compose
---     , u.all, u.any
---     , u.id, u.nop, u.get
---     , u.lt
 
 local pairs, ipairs = pairs, ipairs
 

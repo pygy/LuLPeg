@@ -34,7 +34,7 @@ function PL.match(pt, subject, index, ...)
     if success then
         cap_acc.n = cap_i
         -- print("cap_i = ",cap_i)
-        -- print("= $$$ captures $$$ =")
+        -- print("= $$$ captures $$$ =", cap_acc)
         -- PL.cprint(cap_acc)
         local cap_values, cap_i = PL_evaluate(cap_acc, subject, index)
         if cap_i == 1
