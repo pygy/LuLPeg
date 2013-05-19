@@ -19,7 +19,7 @@ local
 function evaluate (capture, subject, index)
     local acc, index = {}
     -- PL.cprint(capture)
-    evaluators.insert(capture, subject, acc, index)
+    evaluators.insert(capture, subject, acc, index, 1)
     return acc
 end
 PL.evaluate = evaluate
@@ -28,34 +28,24 @@ PL.evaluate = evaluate
 --
 local fold_mt, group_mt, subst_mt, table_mt = {}, {}, {}, {}
 
-local function new_fold_acc  (t) return setmetatable(t, fold_mt)  end
 local function new_group_acc (t) return setmetatable(t, group_mt) end
 local function new_subst_acc (t) return setmetatable(t, subst_mt) end
 local function new_table_acc (t) return setmetatable(t, table_mt) end
 
-local function is_fold_acc  (t) return getmetatable(t) == fold_mt  end
 local function is_group_acc (t) return getmetatable(t) == group_mt end
 local function is_subst_acc (t) return getmetatable(t) == subst_mt end
 local function is_table_acc (t) return getmetatable(t) == table_mt end
 
-local
-function insert_all_caps (capture, subject, acc, index, inserter)
-    for i = 1, capture.n do
-        index = evaluators[capture[i].type](capture[i], subject, acc, index, insert_all_caps)
-    end
-    return index
-end
 
-evaluators["insert"] = function (capture, subject, acc, index)
+evaluators["insert"] = function (capture, subject, acc, index, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
         -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
             local c 
-            c, index = 
-                evaluators[capture[i].type](capture[i], subject, acc, index)
-            acc[#acc+1] = c
+            c, index, val_i = 
+                evaluators[capture[i].type](capture[i], subject, acc, index, val_i)
     end
-    return nil, index
+    return nil, index, val_i
 end
 
 local
@@ -81,161 +71,174 @@ function lookback(capture, tag, index)
     end
 end
 
-evaluators["Cb"] = function (capture, subject, acc, index, inserter)
+evaluators["Cb"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
     local ref, Ctag = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
-    evaluators.Cg(ref, subject, acc, ref.start, inserter)
+    _, _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
     ref.Ctag = Ctag
-    return nil, index
+    return nil, index, val_i
 end
 
 
-evaluators["Cf"] = function (capture, subject, acc, index)
+-- local level = 0
+evaluators["Cf"] = function (capture, subject, acc, index, val_i)
+    -- level = level + 1
+    -- print(level,"+++ == +++ Cf: level")
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
+    
+    if capture.n == 0 then 
+        error"No First Value"
+    end
+    
+    -- print(level, "[ 1 ].type: ", capture[1] and capture[1].type or "none")
+    
+    local func, fold_acc, first_val_i, _ = capture.aux, {}
+    _, index, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, index, 1)
 
-    local func, fold_acc = capture.aux, new_fold_acc{}
-
-    evaluators.insert(capture, subject, fold_acc, index)
+    if first_val_i == 1 then 
+        error"No first value"
+    end
     
     local result = fold_acc[1]
-    if is_group_acc(result) then result = t_unpack(result) end
+    -- print("", "[1].value: ", result)
 
-    for i = 2, #fold_acc do
-        local val = fold_acc[i]
-        if is_group_acc(val) then
-            success, result = pcall(func, result, t_unpack(val))
-        else
-            success, result = pcall(func, result, val)
-        end
+    for i = 2, capture.n - 1 do
+        local fold_acc2, vi = {}
+        -- print(level, "[i].type: ", capture[i].type)
+        -- for j = 1, capture[i].n - 1 do 
+        --     print(level, "[i][j].type: ", capture[i][j].type)
+        -- end
+        -- print("i: ",i)
+        _, index, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, index, 1)
+        -- print("fold_acc", fold_acc, "vi", vi, "values", fold_acc2[1], fold_acc2[2], t_unpack(fold_acc2, 1, vi - 1))
+        -- print(result)
+        result = func(result, t_unpack(fold_acc2, 1, vi - 1))
     end
-    if not success then result = nil end
-    return result, capture.finish
+    acc[val_i] = result
+    -- level = level - 1
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["Cg"] = function (capture, subject, acc, index)
+evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     local start, finish = capture.start, capture.finish
     if is_subst_acc(acc) then
         acc[#acc+1] = s_sub(subject, index, start - 1)
     end
-
-
+    -- print"- - - )))   Cg   ((( - - -"
     local group_acc = new_group_acc{}
 
     if capture.Ctag ~= nil  then
         if is_table_acc(acc) then 
-            local _, index = evaluators.insert(capture, subject, group_acc, start)
+            local _, index, val_i = evaluators.insert(capture, subject, group_acc, start, 1)
             local val = (#group_acc == 0 and s_sub(subject, start, finish - 1) or group_acc[1])
             acc[capture.Ctag] = val
         end
-        return nil, finish
+        return nil, start, val_i
     end
 
-    local _, index = evaluators.insert(capture, subject, group_acc, start)
-
-    if #group_acc == 0 then
-        acc[#acc + 1] = s_sub(subject, start, finish - 1)
-        return nil, finish
+    local _, index, group_val_i = evaluators.insert(capture, subject, group_acc, start, 1)
+    -- print("group_val_i", group_val_i)
+    if group_val_i == 1 then
+        acc[val_i] = s_sub(subject, start, finish - 1)
+        return nil, finish, val_i + 1
     elseif is_subst_acc(acc) then
-        return group_acc[1], finish
-    elseif is_fold_acc(acc) then
-        return group_acc, finish
+        acc[val_i] = group_acc[1]
+        return nil, finish, val_i + 1
     else
-        if #group_acc == 0 then
-            acc[#acc + 1] = s_sub(subject, capture.start, capture.finish - 1)
-        else
-            for _, v in ipairs(group_acc) do
-                acc[#acc+1]=v
-            end 
-        end
-        return nil, capture.finish
-        -- error"What else? See: GROUP CAPTURE"
-        -- return group_acc[1], capture.finish
-        -- or?
-        -- fold(group_acc, t_insert, acc)
-        -- return nil, capture.finish
+        for i = 1, group_val_i - 1 do
+            -- print("for group_acc: ", group_acc[i])
+            val_i, acc[val_i] = val_i + 1, group_acc[i]
+        end 
+        -- print("acc: ", acc, val_i)
+        return nil, capture.finish, val_i
     end
-
 end
 
 
-evaluators["C"] = function (capture, subject, acc, index)
+evaluators["C"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
-        return s_sub(subject,capture.start, capture.finish - 1), capture.finish
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        acc[val_i + 1] = s_sub(subject,capture.start, capture.finish - 1)
+        return nil, capture.finish, val_i + 2
     end
 
-    acc[#acc+1] = s_sub(subject,capture.start, capture.finish - 1)
-
-    evaluators.insert(capture, subject, acc, capture.start)
-
-    return nil, capture.finish
+    val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
+    -- print("C:", acc[val_i-1])
+    local _
+    _, _, val_i = evaluators.insert(capture, subject, acc, capture.start, val_i)
+    return nil, capture.finish, val_i
 end
 
 
-evaluators["Cs"] = function (capture, subject, acc, index)
+evaluators["Cs"] = function (capture, subject, acc, index, val_i)
     -- print("SUB", capture.start, capture.finish)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
 
     local subst_acc = new_subst_acc{}
 
-    local _, index = evaluators.insert(capture, subject, subst_acc, capture.start)
+    local _, index, _ = evaluators.insert(capture, subject, subst_acc, capture.start, val_i)
     subst_acc[#subst_acc + 1] = s_sub(subject, index, capture.finish - 1)
-    acc[#acc + 1] = t_concat(subst_acc)
-
-    return nil, capture.finish
+    acc[val_i] = t_concat(subst_acc)
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["Ct"] = function (capture, subject, acc, index)
+evaluators["Ct"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
 
     local tbl_acc = new_table_acc{}
-    evaluators.insert(capture, subject, tbl_acc, capture.start)
-    
-    return strip_mt(tbl_acc), capture.finish
+    evaluators.insert(capture, subject, tbl_acc, capture.start, 1)
+    acc[val_i] = strip_mt(tbl_acc)
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["value"] = function (capture, subject, acc, index)
+evaluators["value"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
 
-    return capture.value, capture.finish
+    acc[val_i] = capture.value
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["values"] = function (capture, subject, acc, index)
+evaluators["values"] = function (capture, subject, acc, index, val_i)
 local start, finish, values = capture.start, capture.finish, capture.values
     if is_subst_acc(acc) then
         acc[#acc+1] = s_sub(subject, index, start - 1)
     end
-    if is_fold_acc(acc) then return new_group_acc(values), finish end
 
-    for i = 1, #values do
-        acc[#acc+1] = values[i]
+    for i = 1, values.n do
+        val_i, acc[val_i] = val_i + 1, values[i]
     end
-    return nil, finish
+    return nil, finish, val_i
 end
 
 
-evaluators["/string"] = function (capture, subject, acc, index)
+evaluators["/string"] = function (capture, subject, acc, index, val_i)
     -- print("/string", capture.start, capture.finish)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
     local new_acc = {}
-    evaluators.insert(capture, subject, new_acc, capture.start)
+    local _, _, new_val_i = evaluators.insert(capture, subject, new_acc, capture.start, 1)
 
     local allmatch
     local result = capture.aux:gsub("%%([%d%%])", function(n)
@@ -249,59 +252,71 @@ evaluators["/string"] = function (capture, subject, acc, index)
             return new_acc[n]
         end
     end)
-    return result, capture.finish
+    acc[val_i] = result
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["/number"] = function (capture, subject, acc, index)
+evaluators["/number"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
     local new_acc = {}
-    evaluators.insert(capture, subject, new_acc, capture.start)
-    return new_acc[capture.aux], capture.finish
+    evaluators.insert(capture, subject, new_acc, capture.start, 1)
+    acc[val_i] = new_acc[capture.aux]
+    return nil, capture.finish, val_i + 1
 end
 
 
-evaluators["/table"] = function (capture, subject, acc, index)
+evaluators["/table"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
+
     local key
-    if #capture > 0 then
+    if capture.n > 1 then
         local new_acc = {}
-        evaluators.insert(capture, subject, new_acc, capture.start)
+        evaluators.insert(capture, subject, new_acc, capture.start, 1)
         key = new_acc[1]
     else
         key = s_sub(subject, capture.start, capture.finish - 1)
     end
-    if capture.aux[key]
-    then return capture.aux[key], capture.finish 
-    else return nil, capture.start
-    end --or s_sub(subject, capture.start, capture.finish - 1)
+
+    if capture.aux[key] then 
+        acc[val_i] = capture.aux[key]
+        return nil, capture.finish, val_i + 1
+    else 
+        return nil, capture.start, val_i
+    end
 end
 
 
 local
-function insert_results(acc, ...)
-    for i = 1, select('#', ...) do
-        acc[#acc + 1] = select(i, ...)
+function insert_divfunc_results(acc, val_i, ...)
+    local n = select('#', ...)
+    for i = 1, n do
+        val_i, acc[val_i] = val_i + 1, select(i, ...)
     end
+    return val_i
 end
-evaluators["/function"] = function (capture, subject, acc, index)
+evaluators["/function"] = function (capture, subject, acc, index, val_i)
     if is_subst_acc(acc) then
-        acc[#acc+1] = s_sub(subject, index, capture.start - 1)
+        acc[val_i] = s_sub(subject, index, capture.start - 1)
+        val_i = val_i + 1
     end
 
-    local func, params = capture.aux
-    if #capture > 0 then
+    local func, params, new_val_i = capture.aux
+    if capture.n > 1 then
         params = {}
-        evaluators.insert(capture, subject, params, capture.start)
+        _, _, new_val_i = evaluators.insert(capture, subject, params, capture.start, 1)
     else
+        new_val_i = 2
         params = {s_sub(subject, capture.start, capture.finish - 1)}
     end
-    insert_results(acc, func(unpack(params)))
-    return nil, capture.finish
+    val_i = insert_divfunc_results(acc, val_i, func(t_unpack(params)))
+    return nil, capture.finish, val_i
 end
 
 end  -- Decorator wrapper
