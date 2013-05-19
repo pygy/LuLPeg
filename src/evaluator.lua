@@ -43,12 +43,12 @@ local function insert (capture, subject, acc, index, val_i)
     for i = 1, capture.n - 1 do
         -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
             local c 
-            index, val_i = 
+            index, val_i =
                 evaluators[capture[i].type](capture[i], subject, acc, index, val_i)
     end
     return index, val_i
 end
-evaluators["insert"] = insert 
+evaluators["insert"] = insert
 
 local
 function lookback(capture, tag, index)
@@ -83,10 +83,10 @@ end
 
 
 evaluators["Cf"] = function (capture, subject, acc, index, val_i)
-    if capture.n == 0 then 
+    if capture.n == 0 then
         error"No First Value"
     end
-    
+
     local func, fold_acc, first_val_i, _ = capture.aux, {}
     index, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, index, 1)
 
@@ -121,7 +121,7 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     else
         for i = 1, group_val_i - 1 do
             val_i, acc[val_i] = val_i + 1, group_acc[i]
-        end 
+        end
         return capture.finish, val_i
     end
 end
@@ -149,7 +149,7 @@ evaluators["Cs"] = function (capture, subject, acc, index, val_i)
 
             start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, index, 1)
 
-            if tmp_i > 1 then 
+            if tmp_i > 1 then
                 subst_acc[subst_i] = tmp_acc[1]
                 subst_i = subst_i + 1
             end
@@ -207,8 +207,8 @@ evaluators["/string"] = function (capture, subject, acc, index, val_i)
         if d == "%" then return "%" end
         d = tonumber(d)
         if not cached[d] then
-            if d >= n then 
-                error("no capture at index "..d.." in /string capture.") 
+            if d >= n then
+                error("no capture at index "..d.." in /string capture.")
             end
             if d == 0 then
                 cached[d] = s_sub(subject, capture.start, capture.finish - 1)
@@ -244,10 +244,10 @@ evaluators["/table"] = function (capture, subject, acc, index, val_i)
         key = s_sub(subject, capture.start, capture.finish - 1)
     end
 
-    if capture.aux[key] then 
+    if capture.aux[key] then
         acc[val_i] = capture.aux[key]
         return capture.finish, val_i + 1
-    else 
+    else
         return capture.start, val_i
     end
 end

@@ -40,7 +40,7 @@ local split_int, validate
 local ds = require"datastructures"
 local newrange, newset = ds.range.new, ds.set.new
 local u = require"util"
-local copy,   fold,   map,   t_pack, t_unpack 
+local copy,   fold,   map,   t_pack, t_unpack
     = u.copy, u.fold, u.map, u.pack, u.unpack
 
 local

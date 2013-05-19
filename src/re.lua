@@ -150,7 +150,7 @@ local function adddef (t, k, exp)
   return t
 end
 
-local function firstdef (n, r) 
+local function firstdef (n, r)
   -- print("First def: ", n)
   return adddef({n}, n, r)
   end
