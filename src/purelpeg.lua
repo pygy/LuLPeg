@@ -27,10 +27,12 @@ local map, nop, t_unpack = u.map, u.nop, u.unpack
 
 -- The module decorators.
 local API, charsets, compiler, constructors
-    , evaluator, locale, match, printers
+    , datastructures, evaluator, locale, match
+    , printers
     = t_unpack(map(require,
     { "API", "charsets", "compiler", "constructors"
-    , "evaluator", "locale", "match", "printers" }))
+    , "datastructures", "evaluator", "locale", "match"
+    , "printers" }))
 
 local 
 function PLPeg(options)
@@ -62,6 +64,7 @@ function PLPeg(options)
     end
 
     charsets(Builder, PL)
+    datastructures(Builder, PL)
     printers(Builder, PL)
     constructors(Builder, PL)
     API(Builder, PL)

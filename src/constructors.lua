@@ -82,8 +82,9 @@ local classpt = {
 return function(Builder, PL) --- module wrapper.
 --
 
-cs = Builder.charset
-local split_int = cs.split_int
+
+local split_int, S_tostring 
+    = Builder.charset.split_int, Builder.set.tostring
 
 
 -------------------------------------------------------------------------------
@@ -203,9 +204,7 @@ local getauxkey = {
     string = function(aux, as_is) return as_is end,
     table = copy,
     set = function(aux, as_is)
-        local t = split_int(as_is)
-        t_sort(t)
-        return t_concat(t, "|")
+        return S_tostring(aux)
     end,
     range = function(aux, as_is)
         return t_concat(as_is, "|")

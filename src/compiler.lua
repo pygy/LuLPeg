@@ -370,7 +370,7 @@ compilers["range"] = function (pt)
         local char, nindex = get_int(subject, index)
         for i = 1, #ranges do
             local r = ranges[i]
-            if char and r[1] <= char and char <= r[2] 
+            if char and r[char]
             then return true, nindex, cap_i end
         end
         return false, index, cap_i
@@ -387,6 +387,8 @@ compilers["set"] = function (pt)
         else return false, index, cap_i end
     end
 end
+
+-- compilers["range"] = compilers.set
 
 compilers["ref"] = function (pt, ccache)
     local name = pt.aux

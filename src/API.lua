@@ -25,11 +25,9 @@ local binary_split_int, cs = Builder.binary_split_int, Builder.charset
 local constructors, PL_ispattern
     = PL.constructors, PL.ispattern
 
-local truept, falsept, onept, eospt, Cppt 
+local truept, falsept, Cppt 
     = constructors.constant.truept
     , constructors.constant.falsept
-    , constructors.constant.onept
-    , constructors.constant.eospt
     , constructors.constant.Cppt 
 
 local t_insert, t_sort, type = table.insert, table.sort, type
@@ -37,8 +35,10 @@ local t_insert, t_sort, type = table.insert, table.sort, type
 local split_int, validate 
     = cs.split_int, cs.validate
 
-local ds = require"datastructures"
-local newrange, newset = ds.range.new, ds.set.new
+
+local Range, Set, S_union
+    = Builder.Range, Builder.set.new, Builder.set.union
+
 local u = require"util"
 local copy,   fold,   map,   t_pack, t_unpack 
     = u.copy, u.fold, u.map, u.pack, u.unpack
@@ -68,10 +68,6 @@ function PL_P (v)
     elseif type(v) == "number" then
         if v == 0 then
             return truept
-        elseif v == 1 then
-            return onept
-        elseif v == -1 then
-            return eospt
         elseif v > 0 then
             return true and constructors.aux("any", nil, v)
         else
@@ -90,7 +86,7 @@ function PL_S (set)
         if not success then 
             charset_error(index, charset)
         end
-        return true and constructors.aux("set", nil, newset(split_int(set)), set)
+        return true and constructors.aux("set", nil, Set(split_int(set)), set)
     end
 end
 PL.S = PL_S
@@ -108,7 +104,7 @@ function PL_R (...)
             if not success then 
                 charset_error(index, charset)
             end
-            acc[#acc + 1] = newrange(t_unpack(split_int(r)))
+            acc[#acc + 1] = Range(t_unpack(split_int(r)))
         end
 
         return true and constructors.aux("range", nil, acc, rng)
@@ -125,9 +121,9 @@ PL.V = PL_V
 
 
 do 
-    local one = newset{"set", "range", "one"}
-    local zero = newset{"true", "false", "lookahead", "unm"}
-    local forbidden = newset{
+    local one = Set{"set", "range", "one"}
+    local zero = Set{"true", "false", "lookahead", "unm"}
+    local forbidden = Set{
         "Carg", "Cb", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero",
         "Ctag", "Cmt", "Cc", "Cp",
@@ -290,7 +286,11 @@ do -- pt+pt, pt*pt and their optimisations.
         for i = 2,#ch1 do
             local p1, p2 = ch2[#ch2], ch1[i]
             if p1.ptype == "set" and p2.ptype == "set" then
-                ch2[#ch2] = PL_S(p1.as_is..p2.as_is)
+                ch2[#ch2] = constructors.aux(
+                    "set", nil, 
+                    S_union(p1.aux, p2.aux), 
+                    "Union( "..p1.as_is.." || "..p2.as_is.." )"
+                )
             else 
                 t_insert(ch2,p2)
             end
@@ -410,7 +410,7 @@ end
 PL.Cg = PL_Cg
 
 
-local valid_slash_type = newset{"string", "number", "table", "function"}
+local valid_slash_type = Set{"string", "number", "table", "function"}
 local
 function PL_slash (pt, aux)
     if PL_ispattern(aux) then 
