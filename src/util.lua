@@ -1,29 +1,3 @@
--- local t_concat, t_insert, t_remove
---     , t_sort, t_unpack 
---     = table.concat, table.insert, table.remove
---     , table.sort, table.unpack or unpack
-
--- local s_byte, s_char, s_sub
---     = string.byte, string.char, string.sub
-
--- local m_max, m_min
---     = math.max, math.min
-
--- local u = require"util"
--- local weakkey, weakval, strip_mt
---     , expose, extend
---     , passprint, getuniqueid
---     , map, fold, compose
---     , all, any
---     , id, nop, get
---     , lt
---     = u.weakkey, u.weakval, u.strip_mt 
---     , u.expose, u.extend
---     , u.passprint, u.getuniqueid
---     , u.map, u.fold, u.compose
---     , u.all, u.any
---     , u.id, u.nop, u.get
---     , u.lt
 
 local pairs, ipairs = pairs, ipairs
 
@@ -77,21 +51,6 @@ function setmode(t,mode)
 end
 
 util.setmode = setmode
-
-function util.traceback ()
-    local level = 1
-    while true do
-        local info = debug.getinfo(level, "Sl")
-        if not info then break end
-        if info.what == "C" then   -- is a C function?
-            print(level, "C function")
-        else   -- a Lua function
-            print(string.format("[%s]:%d",
-                                info.short_src, info.currentline))
-        end
-        level = level + 1
-    end
-end
 
 function util.weakboth (t)
     return setmode(t,"kv")

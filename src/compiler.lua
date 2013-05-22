@@ -191,7 +191,7 @@ compilers["Cmt"] = function (pt, ccache)
         success, nindex, new_acc.n = matcher(subject, index, new_acc, 1, state)
 
         if not success then return false, index, cap_i end
-
+        -- print("# @ # %%% - Cmt EVAL", index, #new_acc ~= 0)
         local captures = #new_acc == 0 and {s_sub(subject, index, nindex - 1)}
                                        or  evaluate(new_acc, subject, nindex)
         local nnindex, values = pack_Cmt_caps(func(subject, nindex, t_unpack(captures)))
