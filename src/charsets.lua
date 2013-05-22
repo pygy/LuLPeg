@@ -317,6 +317,7 @@ end
 local charsets = {
     binary = {
         name = "binary",
+        binary = true,
         validate   = binary_validate,
         split_char = binary_split_char,
         split_int  = binary_split_int,

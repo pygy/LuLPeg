@@ -21,15 +21,18 @@ Patterns have the following, optional fields:
     whether they are terminal or not (no V patterns), and so on.
 --]]---------------------------------------------------------------------------
 
+local debug, ipairs, newproxy, setmetatable 
+    = debug, ipairs, newproxy, setmetatable
+
 local t_concat, t_sort
     = table.concat, table.sort
 
 local u, dtst = require"util", require"datastructures"
 local copy, getuniqueid, id
-    , map, nop
+    , map, noglobals, nop
     , weakkey, weakval
     = u.copy, u.getuniqueid, u.id
-    , u.map, u.nop
+    , u.map, u.noglobals, u.nop
     , u.weakkey, u.weakval
 
 
@@ -38,7 +41,7 @@ local copy, getuniqueid, id
 
 local lua_5_2__len = not #setmetatable({},{__len = nop})
 
-local proxies
+local proxies --= false local FOOO
     = newproxy
     and (function()
         local ok, result = pcall(newproxy)
@@ -54,12 +57,12 @@ local proxies
 --- The type of cache for each kind of pattern:
 local classpt = {
     constant = {
-        "Cp", "true", "false", "eos", "one"
+        "Cp", "true", "false"
     },
     -- only aux
     aux = {
         "string", "any",
-        "range", "set", 
+        "char", "range", "set", 
         "ref", "sequence", "choice",
         "Carg", "Cb"
     },
@@ -77,6 +80,8 @@ local classpt = {
 }
 
 
+_ENV = nil
+noglobals()
 
 -------------------------------------------------------------------------------
 return function(Builder, PL) --- module wrapper.
@@ -158,9 +163,10 @@ end
 --         ptclass[pt] = class
 --     end
 -- end
-
-local function resetcache()
-    local ptcache = {}
+local ptcache, meta
+local
+function resetcache()
+    ptcache, meta = {}, weakkey{}
 
     -- Patterns with aux only.
     for _, p in ipairs (classpt.aux) do
@@ -181,7 +187,7 @@ local function resetcache()
 end
 PL.resetptcache = resetcache
 
-local ptcache = resetcache()
+resetcache()
 
 
 -------------------------------------------------------------------------------
@@ -189,12 +195,11 @@ local ptcache = resetcache()
 --
 
 local constructors = {}
+Builder.constructors = constructors
 
 constructors["constant"] = {
     truept  = newpattern{ ptype = "true" },
     falsept = newpattern{ ptype = "false" },
-    eospt   = newpattern{ ptype = "eos" },
-    onept   = newpattern{ ptype = "one", aux = 1 },
     Cppt    = newpattern{ ptype = "Cp" }
 }
 
@@ -240,7 +245,7 @@ constructors["none"] = function(typ, _, aux)
 end
 
 constructors["subpt"] = function(typ, pt)
-     -- dprint("CONS: ", typ, pt, aux)
+    -- [[DP]]print("CONS: ", typ, pt, aux) 
     local cache = ptcache[typ]
     if not cache[pt] then
         cache[pt] = newpattern{
@@ -268,8 +273,6 @@ constructors["both"] = function(typ, pt, aux)
     end
     return cache[pt]
 end
-
-PL.constructors = constructors
 
 end -- module wrapper
 

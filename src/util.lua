@@ -55,6 +55,17 @@ end
 util.unpack = table.unpack or unpack
 util.pack = table.pack or function(...) return { n = select('#', ...), ... } end
 
+function util.nop()end
+
+if pcall then
+    local err = function(_,i)error(tostring(i)..": global access", 2)end
+    util.noglobals = function()
+        pcall(setfenv, 3, setmetatable({},{ __index=err, __newindex=err }) )
+    end
+else
+    utils.noglobals = nop
+end
+
 local
 function setmode(t,mode)
     local mt = getmetatable(t) or {}
@@ -221,7 +232,7 @@ local
 function id (...) return ... end
 util.id = id
 
-function util.nop()end
+
 
 local function AND (a,b) return a and b end
 local function OR  (a,b) return a or b  end

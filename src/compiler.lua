@@ -1,6 +1,6 @@
 return function(Builder, PL)
 local evaluate, PL_ispattern =  PL.evaluate, PL.ispattern
-local get_int = Builder.charset.get_int
+local get_int, charset = Builder.charset.get_int, Builder.charset
 
 
 local s_byte, s_sub
@@ -11,7 +11,6 @@ local s_byte, s_sub
 local u = require"util"
 local expose, load, map, map_all, t_pack
     = u.expose, u.load, u.map, u.map_all, u.pack
-
 
 local compilers = {}
 
@@ -250,6 +249,18 @@ compilers["string"] = function (pt, ccache)
     end
 end
 
+compilers["char"]= function (pt, ccache)
+    local c0 = pt.aux
+    return function(subject, index, cap_acc, cap_i, state)
+         -- dprint("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+        local c, nindex = get_int(subject, index)
+        if c ~= c0 then
+            return false, index, cap_i
+        end
+        return true, nindex, cap_i
+    end
+end
+
 
 local 
 function truecompiled (subject, index, cap_acc, cap_i, state)
@@ -295,7 +306,7 @@ end
 
 
 compilers["any"] = function (pt)
-    if charset == "UTF-8" then
+    if not charset.binary then
         local N = pt.aux         
         return function(subject, index, cap_acc, cap_i, state)
              -- dprint("Any UTF-8",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)

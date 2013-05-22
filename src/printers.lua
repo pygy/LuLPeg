@@ -8,6 +8,8 @@ return function(Builder, PL)
 local pairs, print, tostring, type 
     = pairs, print, tostring, type
 
+local t_concat = table.concat
+
 local u = require"util"
 local expose, load, map
     = u.    expose, u.load, u.map
@@ -15,16 +17,21 @@ local expose, load, map
 local printers, PL_pprint = {}
 
 function PL_pprint (pt, offset, prefix)
+    -- [[DP]] print("PRINT", pt.ptype)
+    -- [[DP]] expose(PL.proxycache[pt])
     return printers[pt.ptype](pt, offset, prefix)
 end
 
 function PL.pprint (pt)
     pt = PL.P(pt)
-    return PL_pprint(pt, "", "")
+    print"\nPrint pattern"
+    PL_pprint(pt, "", "")
+    print"--- /pprint\n"
 end
 
 for k, v in pairs{
     string       = [[ "P( \""..pt.as_is.."\" )"       ]],
+    char         = [[ "P( '"..to_char(pt.aux).."' )"         ]],
     ["true"]     = [[ "P( true )"                     ]],
     ["false"]    = [[ "P( false )"                    ]],
     eos          = [[ "~EOS~"                         ]],
@@ -44,11 +51,11 @@ for k, v in pairs{
         ]]
 } do
     printers[k] = load(([[
-        local map, t_concat = ...
+        local map, t_concat, to_char = ...
         return function (pt, offset, prefix)
             print(offset..prefix..XXXX)
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, t_concat)
+    ]]):gsub("XXXX", v), k.." printer")(map, t_concat, string.char)
 end
 
 
@@ -141,7 +148,7 @@ local cprinters = {}
 
 function PL.cprint (capture)
     print"Capture Printer\n==============="
-    print(capture)
+    -- print(capture)
     -- expose(capture)
     -- expose(capture[1])
     cprinters[capture.type](capture, "", "")

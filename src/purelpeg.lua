@@ -27,12 +27,12 @@ local map, nop, t_unpack = u.map, u.nop, u.unpack
 
 -- The module decorators.
 local API, charsets, compiler, constructors
-    , datastructures, evaluator, locale, match
-    , printers
+    , datastructures, evaluator, factorizer
+    , locale, match, printers
     = t_unpack(map(require,
     { "API", "charsets", "compiler", "constructors"
-    , "datastructures", "evaluator", "locale", "match"
-    , "printers" }))
+    , "datastructures", "evaluator", "factorizer"
+    , "locale", "match", "printers" }))
 
 local 
 function PLPeg(options)
@@ -41,7 +41,7 @@ function PLPeg(options)
     -- PL is the module
     -- Builder keeps the state during the module decoration.
     local Builder, PL 
-        = { options = options }
+        = { options = options, factorizer = factorizer }
         , { new = PLPeg
           , version = function () return VERSION end
           , pversion = function () return PVERSION end
@@ -69,7 +69,7 @@ function PLPeg(options)
     constructors(Builder, PL)
     API(Builder, PL)
     evaluator(Builder, PL)
-    compiler(Builder, PL)
+    ;(options.compiler or compiler)(Builder, PL)
     match(Builder, PL)
     locale(Builder, PL)
 

@@ -9,6 +9,23 @@
 --- Helpers
 --
 
+local assert, error, ipairs, pairs, pcall, print
+    , require, select, tonumber, tostring, type
+    = assert, error, ipairs, pairs, pcall, print
+    , require, select, tonumber, tostring, type
+
+local t_insert, t_sort
+    = table.insert, table.sort
+
+local u = require"util"
+local copy,   fold,   map,   noglobals,   t_pack, t_unpack 
+    = u.copy, u.fold, u.map, u.noglobals, u.pack, u.unpack
+
+_ENV = nil
+noglobals()
+
+-- No more globals after this point.
+
 local function charset_error(index, charset)
     error("Character at position ".. index + 1 
             .." is not a valid "..charset.." one.",
@@ -16,21 +33,22 @@ local function charset_error(index, charset)
 end
 
 
+
 ------------------------------------------------------------------------------
 return function(Builder, PL) -- module wrapper
 --
 
+-- Temporary globals res
+
 local binary_split_int, cs = Builder.binary_split_int, Builder.charset
 
 local constructors, PL_ispattern
-    = PL.constructors, PL.ispattern
+    = Builder.constructors, PL.ispattern
 
 local truept, falsept, Cppt 
     = constructors.constant.truept
     , constructors.constant.falsept
     , constructors.constant.Cppt 
-
-local t_insert, t_sort, type = table.insert, table.sort, type
 
 local split_int, validate 
     = cs.split_int, cs.validate
@@ -39,9 +57,13 @@ local split_int, validate
 local Range, Set, S_union
     = Builder.Range, Builder.set.new, Builder.set.union
 
-local u = require"util"
-local copy,   fold,   map,   t_pack, t_unpack 
-    = u.copy, u.fold, u.map, u.pack, u.unpack
+-- factorizers
+local f_choice, f_lookahead, f_sequence, f_unm
+
+local
+function makechar(c)
+    return constructors.aux("char", nil, c)
+end
 
 local
 function PL_P (v)
@@ -55,8 +77,7 @@ function PL_P (v)
             charset_error(index, charset)
         end
         if v == "" then return PL_P(true) end
-
-        return true and constructors.aux("string", nil, binary_split_int(v), v)
+        return true and constructors.aux("sequence", nil, map(makechar, split_int(v)))
     elseif type(v) == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
@@ -121,7 +142,7 @@ PL.V = PL_V
 
 
 do 
-    local one = Set{"set", "range", "one"}
+    local one = Set{"set", "range", "one", "char"}
     local zero = Set{"true", "false", "lookahead", "unm"}
     local forbidden = Set{
         "Carg", "Cb", "C", "Cf",
@@ -131,6 +152,7 @@ do
         "at least", "at most", "behind"
     }
     local function fixedlen(pt, gram, cycle)
+        -- [[DP]] print("Fixed Len",pt.ptype)
         local typ = pt.ptype
         if forbidden[typ] then return false
         elseif one[typ]  then return 1
@@ -158,150 +180,55 @@ do
 
     function PL.B (pt)
         pt = PL_P(pt)
+        -- [[DP]] print("PL.B")
+        -- [[DP]] PL.pprint(pt)
         local len = fixedlen(pt)
         assert(len, "A 'behind' pattern takes a fixed length pattern as argument.")
         if len >= 260 then error("Subpattern too long in 'behind' pattern constructor.") end
-        return constructors.both("behind", pt, len, str)
+        return constructors.both("behind", pt, len)
     end
 end
 
-local sequence, choice
-do -- pt+pt, pt*pt and their optimisations.
+ 
+-- pt*pt
+local
+function PL_choice (a,b)
+    a,b = PL_P(a), PL_P(b)
+    -- [[DP]] print("Choice")
+    -- [[DP]] print("A")
 
-    -- flattens a sequence (a * b) * (c * d) => a * b * c * d
-    local function flatten(typ, a,b)
-         local acc = {}
-        for _, p in ipairs{a,b} do
-            if p.ptype == typ then
-                for _, q in ipairs(p.aux) do
-                    acc[#acc+1] = q
-                end
-            else
-                acc[#acc+1] = p
-            end
-        end
-        return acc
+    -- [[DP]] PL.pprint(a)
+    -- [[DP]] print("B")
+    -- [[DP]] PL.pprint(b)
+    local ch = f_choice(a,b)
+
+    if #ch == 0 then 
+        return true
+    elseif #ch == 1 then 
+        return ch[1]
+    else
+        return constructors.aux("choice", nil, ch)
     end
-    local function process_booleans(lst, opts)
-        local acc, id, brk = {}, opts.id, opts.brk
-        for i = 1,#lst do
-            local p = lst[i]
-            if p ~= id then
-                acc[#acc + 1] = p
-            end
-            if p == brk then
-                break
-            end
-        end
-        return acc
-    end
-
-    local function append (acc, p1, p2)
-        acc[#acc + 1] = p2
-    end
-
-    local function seq_str_str (acc, p1, p2)
-        acc[#acc] = PL_P(p1.as_is .. p2.as_is)
-    end
-
-    local function seq_any_any (acc, p1, p2)
-        acc[#acc] = PL_P(p1.aux + p2.aux)
-    end
-
-    local function seq_unm_unm (acc, p1, p2)
-        acc[#acc] = -(p1.pattern + p2.pattern)
-    end
-
-
-    -- Lookup table for the optimizers.
-    local seq_optimize = {
-        string = {string = seq_str_str},
-        any = {
-            any = seq_any_any,
-            one = seq_any_any
-        },
-        one = {
-            any = seq_any_any,
-            one = seq_any_any
-        },
-        unm = { 
-            unm = append -- seq_unm_unm 
-        }
-    }
-
-    -- Lookup misses end up with append.
-    local metaappend_mt = {
-        __index = function()return append end
-    }
-    for k,v in pairs(seq_optimize) do
-        setmetatable(v, metaappend_mt)
-    end
-    local metaappend = setmetatable({}, metaappend_mt) 
-    setmetatable(seq_optimize, {
-        __index = function() return metaappend end
-    })
-   
-    function sequence (a,b)
-        a,b = PL_P(a), PL_P(b)
-        -- A few optimizations:
-        -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
-        local seq1 = flatten("sequence", a, b)
-        -- 2. handle P(true) and P(false)
-        seq1 = process_booleans(seq1, { id = truept, brk = falsept })
-        -- Concatenate `string` and `any` patterns.
-        -- TODO: Repeat patterns?
-        local seq2 = {}
-        seq2[1] = seq1[1]
-        for i = 2,#seq1 do
-            local p1, p2 = seq2[#seq2], seq1[i]
-            seq_optimize[p1.ptype][p2.ptype](seq2, p1, p2)
-        end
-        if #seq2 == 0 then
-            return truept
-        elseif #seq2 == 1 
-        then return seq2[1] end
-
-        return constructors.aux("sequence", nil, seq2)
-    end
-    PL.__mul = sequence
-
-    local
-    function PL_choice (a,b)
-        a,b = PL_P(a), PL_P(b)
-        -- PL.pprint(a)
-        -- PL.pprint(b)
-        -- A few optimizations:
-        -- 1. flatten  (a + b) + (c + d) => a + b + c + d
-        local ch1 = flatten("choice", a, b)
-        -- 2. handle P(true) and P(false)
-        ch1 = process_booleans(ch1, { id = falsept, brk = truept })
-        -- Concatenate `string` and `any` patterns.
-        -- TODO: Repeat patterns?
-        local ch2 = {}
-        -- 2. 
-        -- Merge `set` patterns.
-        -- TODO: merge captures who share the same structure?
-        --       so that C(P1) + C(P2) become C(P1+P2)?
-        ch2[1] = ch1[1]
-        for i = 2,#ch1 do
-            local p1, p2 = ch2[#ch2], ch1[i]
-            if p1.ptype == "set" and p2.ptype == "set" then
-                ch2[#ch2] = constructors.aux(
-                    "set", nil, 
-                    S_union(p1.aux, p2.aux), 
-                    "Union( "..p1.as_is.." || "..p2.as_is.." )"
-                )
-            else 
-                t_insert(ch2,p2)
-            end
-        end
-        if #ch2 == 1 
-        then return ch2[1]
-        else return constructors.aux("choice", nil, ch2) end
-    end
-    PL.__add = PL_choice
-
 end
+PL.__add = PL_choice
+
+
+ -- pt+pt, 
+local
+function sequence (a,b)
+    a,b = PL_P(a), PL_P(b)
+    local seq = f_sequence(a,b)
+
+    if #seq == 0 then 
+        return truept
+    elseif #seq == 1 then 
+        return seq[1]
+    end
+
+    return constructors.aux("sequence", nil, seq)
+end
+PL.__mul = sequence
+
 
 local
 function PL_lookahead (pt)
@@ -324,15 +251,11 @@ PL.L = PL_lookahead
 local
 function PL_unm(pt)
     -- Simplifications
-    if     pt == onept            then return eospt
-    elseif pt == eospt            then return #onept
-    elseif pt == truept           then return falsept
-    elseif pt == falsept          then return truept
-    elseif pt.ptype == "unm"       then return #pt.pattern 
-    elseif pt.ptype == "lookahead" then pt = pt.pattern
-    end
-    -- The general case
-    return constructors.subpt("unm", pt)
+    local returnpt
+    pt, returnpt = f_unm(pt)
+    if returnpt 
+    then return pt
+    else return constructors.subpt("unm", pt) end
 end
 PL.__unm = PL_unm
 
@@ -428,6 +351,10 @@ function PL_slash (pt, aux)
     return constructors.both(name, pt, aux)
 end
 PL.__div = PL_slash
+
+local factorizer = Builder.factorizer(Builder, PL)
+f_choice, f_lookahead, f_sequence, f_unm =
+factorizer.choice, factorizer.lookahead, factorizer.sequence, factorizer.unm
 
 end -- module wrapper
 

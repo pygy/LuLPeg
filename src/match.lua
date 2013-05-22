@@ -10,6 +10,7 @@ local PL_compile, PL_cprint, PL_evaluate, PL_P, PL_pprint
 local t_unpack = require"util".unpack
 
 function PL.match(pt, subject, index, ...)
+    -- [[DP]] print("@!!! Match !!!@")
     pt = PL_P(pt)
     if index == nil then
         index = 1
@@ -31,6 +32,7 @@ function PL.match(pt, subject, index, ...)
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+    -- [[DP]] print("!!! Done Matching !!!")
     if success then
         cap_acc.n = cap_i
         -- print("cap_i = ",cap_i)
