@@ -23,6 +23,20 @@ m.setmaxstack(5)
 local any = m.P(1)
 local space = m.S" \t\n"^0
 
+local _assert, test_success, test_failure = assert, 0, 0
+local assert = function(...)
+  local success, r = pcall(_assert, ...)
+  if success
+  then test_success = test_success + 1
+  else 
+    test_failure = test_failure + 1
+    print(
+      debug.traceback("---- Assertion failed --------------------------------"),
+      "\n------------------------------------------------------")
+  end
+  return r or true
+end
+
 local function checkeq (x, y, p)
 if p then print(x,y) end
   if type(x) ~= "table" then assert(x == y)
@@ -349,7 +363,7 @@ local function checkerr (msg, ...)
   assert(m.match({ m.P(msg) + 1 * m.V(1) }, select(2, pcall(...))))
 end
 print"Error Messages:"
-print"skip" -- checkerr("rule '1' may be left recursive", m.match, { m.V(1) * 'a' }, "a")
+checkerr("rule '1' may be left recursive", m.match, { m.V(1) * 'a' }, "a")
 checkerr("rule '1' used outside a grammar", m.match, m.V(1), "")
 checkerr("rule 'hiii' used outside a grammar", m.match, m.V('hiii'), "")
 checkerr("rule 'hiii' undefined in given grammar", m.match, { m.V('hiii') }, "")
@@ -368,7 +382,7 @@ p = {'a',
   f = m.V'g',
   g = m.P''
 }
-print"skip" -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
+print"skip" test_failure = test_failure + 1 -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
 
 
 -- tests for non-pattern as arguments to pattern functions
@@ -559,7 +573,7 @@ assert(not pcall(m.match, p, string.rep("0", lim)))
 m.setmaxstack(2*lim)
 assert(not pcall(m.match, p, string.rep("0", lim)))
 m.setmaxstack(2*lim + 4)
-print"skip" -- assert(pcall(m.match, p, string.rep("0", lim)))
+assert(pcall(m.match, p, string.rep("0", lim)))
 
 -- this repetition should not need stack space (only the call does)
 p = m.P{ ('a' * m.V(1))^0 * 'b' + 'c' }
@@ -797,21 +811,21 @@ local function haveloop (p)
   assert(not pcall(function (p) return p^0 end, m.P(p)))
 end
 print"haveloop and badgrammar"
-print"skip" -- haveloop(m.P("x")^-4)
+print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^-4)
 assert(m.match(((m.P(0) + 1) * m.S"al")^0, "alo") == 3)
 assert(m.match((("x" + #m.P(1))^-4 * m.S"al")^0, "alo") == 3)
-print"skip" -- haveloop("")
-print"skip" -- haveloop(m.P("x")^0)
-print"skip" -- haveloop(m.P("x")^-1)
-print"skip" -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
-print"skip" -- haveloop(-m.P("ab"))
-print"skip" -- haveloop(- -m.P("ab"))
-print"skip" -- haveloop(# #(m.P("ab") + "xy"))
-print"skip" -- haveloop(- #m.P("ab")^0)
-print"skip" -- haveloop(# -m.P("ab")^1)
-print"skip" -- haveloop(#m.V(3))
-print"skip" -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
-print"skip" -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
+print"skip" test_failure = test_failure + 1 -- haveloop("")
+print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^0)
+print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^-1)
+print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
+print"skip" test_failure = test_failure + 1 -- haveloop(-m.P("ab"))
+print"skip" test_failure = test_failure + 1 -- haveloop(- -m.P("ab"))
+print"skip" test_failure = test_failure + 1 -- haveloop(# #(m.P("ab") + "xy"))
+print"skip" test_failure = test_failure + 1 -- haveloop(- #m.P("ab")^0)
+print"skip" test_failure = test_failure + 1 -- haveloop(# -m.P("ab")^1)
+print"skip" test_failure = test_failure + 1 -- haveloop(#m.V(3))
+print"skip" test_failure = test_failure + 1 -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
+print"skip" test_failure = test_failure + 1 -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
 assert(m.match(m.P{[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(1)}^0, "abc")
        == 3)
 assert(m.match(m.P""^-3, "a") == 1)
@@ -853,13 +867,13 @@ m.P{ ('a' * m.V(1))^-1 }
 m.P{ -('a' * m.V(1)) }
 m.P{ ('abc' * m.V(1))^-1 }
 m.P{ -('abc' * m.V(1)) }
-print"skip" -- badgrammar{ #m.P('abc') * m.V(1) }
-print"skip" -- badgrammar{ -('a' + m.V(1)) }
+print"skip" test_failure = test_failure + 1 -- badgrammar{ #m.P('abc') * m.V(1) }
+print"skip" test_failure = test_failure + 1 -- badgrammar{ -('a' + m.V(1)) }
 m.P{ #('a' * m.V(1)) }
-print"skip" -- badgrammar{ #('a' + m.V(1)) }
+print"skip" test_failure = test_failure + 1 -- badgrammar{ #('a' + m.V(1)) }
 m.P{ m.B{ m.P'abc' } * 'a' * m.V(1) }
-print"skip" -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
-print"skip" -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
+print"skip" test_failure = test_failure + 1 -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
+print"skip" test_failure = test_failure + 1 -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
 
 
 -- simple tests for maximum sizes:
@@ -1246,7 +1260,7 @@ c = re.compile([[
 
 x = c:match[[
 <x>hi<b>hello</b>but<b>totheend</x>]]
-print"skip" -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
+print"skip" test_failure = test_failure + 1 -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
 --                     {'totheend'}}, true)
 
 
@@ -1381,7 +1395,7 @@ local function errmsg (p, err)
 end
 errmsg('aaaa', "rule 'aaaa'")
 errmsg('a', 'outside')
--- errmsg('b <- a', 'undefined')
+print"skip" test_failure = test_failure + 1 -- errmsg('b <- a', 'undefined')
 errmsg("x <- 'a'  x <- 'b'", 'already defined')
 errmsg("'a' -", "near '-'")
 
