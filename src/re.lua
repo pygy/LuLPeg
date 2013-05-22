@@ -96,6 +96,7 @@ local function mult (p, n)
 end
 
 local function equalcap (s, i, c)
+  -- print("Equal cap: ", s, i, c)
   if type(c) ~= "string" then return nil end
   local e = #c + i
   if s:sub(i, e - 1) == c then return e else return nil end
@@ -143,12 +144,16 @@ local function adddef (t, k, exp)
   if t[k] then
     error("'"..k.."' already defined as a rule")
   else
+    -- print("Add def:", k)
     t[k] = exp
   end
   return t
 end
 
-local function firstdef (n, r) return adddef({n}, n, r) end
+local function firstdef (n, r)
+  -- print("First def: ", n)
+  return adddef({n}, n, r)
+  end
 
 
 local function NT (n, b)
@@ -207,7 +212,21 @@ local exp = m.P{ "Exp",
   Definition = name * arrow * m.V"Exp";
   Grammar = m.Cg(m.Cc(true), "G") *
             m.Cf(m.V"Definition" / firstdef * m.Cg(m.V"Definition")^0,
-              adddef) / mm.P
+              adddef) / function(t)
+                          if false then
+                            for k, p in pairs(t) do
+                              if type(p) ~= "string" then
+                                local enter = mm.Cmt(mm.P(true), function(s, p, ...)
+                                  print("ENTER", k) return p end);
+                                local leave = mm.Cmt(mm.P(true), function(s, p, ...)
+                                  print("LEAVE", k) end);
+                                t[k] = mm.Cmt(enter * p + leave, function(s, p, ...)
+                                  print("---", k, "---", p, s:sub(1, p-1)) return p end)
+                              end
+                            end
+                          end
+                          return mm.P(t)
+                        end
 }
 
 local pattern = S * m.Cg(m.Cc(false), "G") * exp / mm.P * (-any + patt_error)
@@ -217,6 +236,7 @@ local function compile (p, defs)
   if mm.type(p) == "pattern" then return p end   -- already compiled
   local cp = pattern:match(p, 1, defs)
   if not cp then error("incorrect pattern", 3) end
+  -- m.pprint(cp)
   return cp
 end
 

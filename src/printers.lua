@@ -5,8 +5,8 @@ return function(Builder, PL)
 -- Print ------------------------------  |    |   | |  | |     ---------------
 ---------------------------------------  '    '   ' '  ' `--  ---------------
 
-local pairs, print, tostring, type 
-    = pairs, print, tostring, type
+local pairs, print, tostring, type, t_concat
+    = pairs, print, tostring, type, table.concat
 
 local u = require"util"
 local expose, load, map
@@ -140,17 +140,17 @@ end
 local cprinters = {}
 
 function PL.cprint (capture)
-    print"Capture Printer\n==============="
-    print(capture)
+    print"\nCapture Printer\n===============\n"
+    -- print(capture)
     -- expose(capture)
     -- expose(capture[1])
     cprinters[capture.type](capture, "", "")
-    print"/Cprinter -------"
+    print"\n/Cprinter -------\n"
 end
 
 cprinters["backref"] = function (capture, offset, prefix)
     print(offset..prefix.."Back: start = "..capture.start)
-    cprinters[capture.ref.type](capture.ref, offset.."  ")
+    cprinters[capture.ref.type](capture.ref, offset.."   ")
 end
 
 -- cprinters["string"] = function (capture, offset, prefix)
@@ -164,7 +164,7 @@ cprinters["values"] = function (capture, offset, prefix)
     -- expose(capture)
     print(offset..prefix.."Values: start = "..capture.start..", values = ")
     for _, c in pairs(capture.values) do
-        print(offset.."  "..tostring(c))
+        print(offset.."   "..tostring(c))
     end
 end
 
@@ -172,7 +172,7 @@ cprinters["insert"] = function (capture, offset, prefix)
     print(offset..prefix.."insert n="..capture.n)
     for i, subcap in ipairs(capture) do
         -- dprint("insertPrinter", subcap.type)
-        cprinters[subcap.type](subcap, offset.."| ", i..". ")
+        cprinters[subcap.type](subcap, offset.."|  ", i..". ")
     end
 
 end
@@ -191,7 +191,7 @@ for __, capname in ipairs{
         end
         print(message)
         for i, subcap in ipairs(capture) do
-            cprinters[subcap.type](subcap, offset.."  ", i..". ")
+            cprinters[subcap.type](subcap, offset.."   ", i..". ")
         end
 
     end
@@ -206,10 +206,10 @@ cprinters["Ct"] = function (capture, offset, prefix)
     print(message)
     for i, subcap in ipairs(capture) do
         -- print ("Subcap type",subcap.type)
-        cprinters[subcap.type](subcap, offset.."  ", i..". ")
+        cprinters[subcap.type](subcap, offset.."   ", i..". ")
     end
     for k,v in pairs(capture.hash or {}) do 
-        print(offset.."  "..k, "=", v)
+        print(offset.."   "..k, "=", v)
         expose(v)
     end
 
