@@ -23,6 +23,16 @@ m.setmaxstack(5)
 local any = m.P(1)
 local space = m.S" \t\n"^0
 
+local _assert, test_success, test_failure = assert, 0, 0
+local assert = function(...)
+  local success, r = pcall(_assert, ...)
+  if success
+  then test_success = test_success + 1
+  else test_failure = test_failure + 1
+  end
+  return r or true
+end
+
 local function checkeq (x, y, p)
 if p then print(x,y) end
   if type(x) ~= "table" then assert(x == y)
@@ -34,7 +44,6 @@ end
 
 
 local mt = getmetatable(m.P(1))
-
 
 local allchar = {}
 for i=0,255 do allchar[i + 1] = i end
@@ -350,13 +359,13 @@ local function checkerr (msg, ...)
   assert(m.match({ m.P(msg) + 1 * m.V(1) }, select(2, pcall(...))))
 end
 print"Error Messages:"
-print"skip" -- checkerr("rule '1' may be left recursive", m.match, { m.V(1) * 'a' }, "a")
+ checkerr("rule '1' may be left recursive", m.match, { m.V(1) * 'a' }, "a")
 checkerr("rule '1' used outside a grammar", m.match, m.V(1), "")
 checkerr("rule 'hiii' used outside a grammar", m.match, m.V('hiii'), "")
 checkerr("rule 'hiii' undefined in given grammar", m.match, { m.V('hiii') }, "")
 checkerr("undefined in given grammar", m.match, { m.V{} }, "")
 
-print"skip" -- checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
+print"skip" test_failure = test_failure + 1 -- checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
 checkerr("grammar has no initial rule", m.P, { [print] = {} })
 
 -- grammar with a long call chain before left recursion
@@ -369,7 +378,7 @@ p = {'a',
   f = m.V'g',
   g = m.P''
 }
-print"skip" -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
+ checkerr("rule 'a' may be left recursive", m.match, p, "a")
 
 
 -- tests for non-pattern as arguments to pattern functions
@@ -405,7 +414,7 @@ m.P{ m.P { (m.P(3) + "xuxu")^0 * m.V"xuxu", xuxu = m.P(1) } }
 
 local V = m.V
 
-local Space = m.S(" \n\t")^0
+local Space = m.S(" \t")^0
 local Number = m.C(m.R("09")^1) * Space
 local FactorOp = m.C(m.S("+-")) * Space
 local TermOp = m.C(m.S("*/")) * Space
@@ -546,11 +555,11 @@ p = m.P{
   [4] = '0' * m.V(3) + '1' * m.V(2),
 }
 print"\nStack overflow."
-print"skip" -- assert(p:match(string.rep("00", 10000)))
-print"skip" -- assert(p:match(string.rep("01", 10000)))
-print"skip" -- assert(p:match(string.rep("011", 10000)))
-print"skip" -- assert(not p:match(string.rep("011", 10000) .. "1"))
-print"skip" -- assert(not p:match(string.rep("011", 10001)))
+print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("00", 10000)))
+print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("01", 10000)))
+print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("011", 10000)))
+print"skip" test_failure = test_failure + 1 -- assert(not p:match(string.rep("011", 10000) .. "1"))
+print"skip" test_failure = test_failure + 1 -- assert(not p:match(string.rep("011", 10001)))
 
 
 -- this grammar does need backtracking info.
@@ -560,7 +569,7 @@ assert(not pcall(m.match, p, string.rep("0", lim)))
 m.setmaxstack(2*lim)
 assert(not pcall(m.match, p, string.rep("0", lim)))
 m.setmaxstack(2*lim + 4)
-print"skip" -- assert(pcall(m.match, p, string.rep("0", lim)))
+ assert(pcall(m.match, p, string.rep("0", lim)))
 
 -- this repetition should not need stack space (only the call does)
 p = m.P{ ('a' * m.V(1))^0 * 'b' + 'c' }
@@ -584,7 +593,7 @@ assert(m.match("", "", 10))
 assert(not m.match(1, "", 1))
 assert(not m.match(1, "", -1))
 print"\nIndex 0??"
-print"skip" -- assert(not m.match(1, "", 0))
+print"skip" test_failure = test_failure + 1 -- assert(not m.match(1, "", 0))
 
 print("+")
 
@@ -695,13 +704,13 @@ t = {m.match(m.C(1)^0/g/g, "abc")}
 checkeq(t, {1, 1, "a", "b", "c"})
 t = {m.match(m.Cc(nil,nil,4) * m.Cc(nil,3) * m.Cc(nil, nil) / g / g, "")}
 t1 = {1,1,nil,nil,4,nil,3,nil,nil}
-print"skip"-- for i=1,10 do assert(t[i] == t1[i]) end
+ for i=1,10 do assert(t[i] == t1[i]) end
 
 t = {m.match((m.C(1) / function (x) return x, x.."x" end)^0, "abc")}
 checkeq(t, {"a", "ax", "b", "bx", "c", "cx"})
 
 t = m.match(m.Ct((m.C(1) / function (x,y) return y, x end * m.Cc(1))^0), "abc")
-print"skip"-- checkeq(t, {nil, "a", 1, nil, "b", 1, nil, "c", 1})
+ checkeq(t, {nil, "a", 1, nil, "b", 1, nil, "c", 1})
 
 -- tests for Query Replacements
 
@@ -786,10 +795,10 @@ checkeq(t, {a="b", c="du", xux="yuy"})
 -- errors in accumulator capture
 -- very long match (forces fold to be a pair open-close) producing with
 -- no initial capture
-print"skip"-- assert(not pcall(m.match, m.Cf(m.P(500), print), string.rep('a', 600)))
+ assert(not pcall(m.match, m.Cf(m.P(500), print), string.rep('a', 600)))
 
 -- nested capture produces no initial value
-print"skip"-- assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
+ assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
 
 
 -- tests for loop checker
@@ -797,22 +806,22 @@ print"skip"-- assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
 local function haveloop (p)
   assert(not pcall(function (p) return p^0 end, m.P(p)))
 end
-print"haveloop and badgrammar"
-print"skip" -- haveloop(m.P("x")^-4)
+print"\nhaveloop and badgrammar"
+ haveloop(m.P("x")^-4)
 assert(m.match(((m.P(0) + 1) * m.S"al")^0, "alo") == 3)
 assert(m.match((("x" + #m.P(1))^-4 * m.S"al")^0, "alo") == 3)
-print"skip" -- haveloop("")
-print"skip" -- haveloop(m.P("x")^0)
-print"skip" -- haveloop(m.P("x")^-1)
-print"skip" -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
-print"skip" -- haveloop(-m.P("ab"))
-print"skip" -- haveloop(- -m.P("ab"))
-print"skip" -- haveloop(# #(m.P("ab") + "xy"))
-print"skip" -- haveloop(- #m.P("ab")^0)
-print"skip" -- haveloop(# -m.P("ab")^1)
-print"skip" -- haveloop(#m.V(3))
-print"skip" -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
-print"skip" -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
+ haveloop("")
+ haveloop(m.P("x")^0)
+ haveloop(m.P("x")^-1)
+ haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
+ haveloop(-m.P("ab"))
+ haveloop(- -m.P("ab"))
+ haveloop(# #(m.P("ab") + "xy"))
+ haveloop(- #m.P("ab")^0)
+ haveloop(# -m.P("ab")^1)
+ haveloop(#m.V(3))
+ haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
+ haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
 assert(m.match(m.P{[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(1)}^0, "abc")
        == 3)
 assert(m.match(m.P""^-3, "a") == 1)
@@ -828,22 +837,22 @@ local function badgrammar (g, expected)
   if expected then assert(find(expected, msg)) end
 end
 
-print"skip" -- badgrammar({[1] = m.V(1)}, "rule '1'")
-print"skip" -- badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
-print"skip" -- badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
-print"skip" -- badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
-print"skip" -- badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" -- badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" -- badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" -- badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" -- badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
-print"skip" -- badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
-print"skip" -- badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
-print"skip" -- badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
-print"skip" -- badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-print"skip" -- badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-print"skip" -- badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
-print"skip" -- badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V(1)}, "rule '1'")
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
+print"skip" test_failure = test_failure + 1 -- badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
+print"skip" test_failure = test_failure + 1 -- badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
+print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+print"skip" test_failure = test_failure + 1 -- badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
+print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
 
 assert(m.match({'a' * -m.V(1)}, "aaa") == 2)
 assert(m.match({'a' * -m.V(1)}, "aaaa") == nil)
@@ -854,13 +863,13 @@ m.P{ ('a' * m.V(1))^-1 }
 m.P{ -('a' * m.V(1)) }
 m.P{ ('abc' * m.V(1))^-1 }
 m.P{ -('abc' * m.V(1)) }
-print"skip" -- badgrammar{ #m.P('abc') * m.V(1) }
-print"skip" -- badgrammar{ -('a' + m.V(1)) }
+ badgrammar{ #m.P('abc') * m.V(1) }
+ badgrammar{ -('a' + m.V(1)) }
 m.P{ #('a' * m.V(1)) }
-print"skip" -- badgrammar{ #('a' + m.V(1)) }
+ badgrammar{ #('a' + m.V(1)) }
 m.P{ m.B{ m.P'abc' } * 'a' * m.V(1) }
-print"skip" -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
-print"skip" -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
+ badgrammar{ m.B{ m.P'abc' } * m.V(1) }
+ badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
 
 
 -- simple tests for maximum sizes:
@@ -1033,8 +1042,8 @@ do
   end
   print"\nGarbage Collection."
   local p = m.P{ m.Cmt(0, foo) * m.P(false) + m.P(1) * m.V(1) + m.P"" }
-  print"skip" -- p:match(string.rep('1', 10))
-  print"skip" -- assert(c == 11)
+   p:match(string.rep('1', 10))
+   assert(c == 11)
 end
 
 p = (m.P(function () return true, "a" end) * 'a'
@@ -1221,9 +1230,9 @@ assert(re.gsub("hi, how are you", "[aeiou]", string.upper) ==
 
 s = 'hi [[a comment[=]=] ending here]] and [=[another]]=]]'
 c = re.compile" '[' {:i: '='* :} '[' (!(']' =i ']') .)* ']' { =i } ']' "
-print"skip"-- assert(re.gsub(s, c, "%2") == 'hi  and =]')
+print"skip" test_failure = test_failure + 1 -- assert(re.gsub(s, c, "%2") == 'hi  and =]')
 assert(re.gsub(s, c, "%0") == s)
-print"skip"-- assert(re.gsub('[=[hi]=]', c, "%2") == '=')
+print"skip" test_failure = test_failure + 1 -- assert(re.gsub('[=[hi]=]', c, "%2") == '=')
 
 assert(re.find("", "!.") == 1)
 assert(re.find("alo", "!.") == 4)
@@ -1247,8 +1256,8 @@ c = re.compile([[
 
 x = c:match[[
 <x>hi<b>hello</b>but<b>totheend</x>]]
-print"skip" -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
---                     {'totheend'}}, true)
+ checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
+                     {'totheend'}}, true)
 
 
 -- tests for look-ahead captures
@@ -1302,18 +1311,20 @@ assert(not p:match'bbb')
 assert(not p:match'aaabbba')
 
 -- testing groups
-print"skip"-- t = {re.match("abc", "{:S <- {:.:} {S} / '':}")}
--- checkeq(t, {"a", "bc", "b", "c", "c", ""})
-print"skip"-- t = re.match("1234", "{| {:a:.:} {:b:.:} {:c:.{.}:} |}")
--- checkeq(t, {a="1", b="2", c="4"})
-print"skip"-- t = re.match("1234", "{|{:a:.:} {:b:{.}{.}:} {:c:{.}:}|}")
--- checkeq(t, {a="1", b="2", c="4"})
-print"skip"-- t = re.match("12345", "{| {:.:} {:b:{.}{.}:} {:{.}{.}:} |}")
--- checkeq(t, {"1", b="2", "4", "5"})
-print"skip"-- t = re.match("12345", "{| {:.:} {:{:b:{.}{.}:}:} {:{.}{.}:} |}")
--- checkeq(t, {"1", "23", "4", "5"})
-print"skip"-- t = re.match("12345", "{| {:.:} {{:b:{.}{.}:}} {:{.}{.}:} |}")
--- checkeq(t, {"1", "23", "4", "5"})
+print"\nGroups"
+t = {"SDFSADFASDFSADF"} -- REMOVE
+print"skip" test_failure = test_failure + 1 -- t = {re.match("abc", "{:S <- {:.:} {S} / '':}")}
+checkeq(t, {"a", "bc", "b", "c", "c", ""})
+print"skip" test_failure = test_failure + 1 -- t = re.match("1234", "{| {:a:.:} {:b:.:} {:c:.{.}:} |}")
+checkeq(t, {a="1", b="2", c="4"})
+print"skip" test_failure = test_failure + 1 -- t = re.match("1234", "{|{:a:.:} {:b:{.}{.}:} {:c:{.}:}|}")
+checkeq(t, {a="1", b="2", c="4"})
+print"skip" test_failure = test_failure + 1 -- t = re.match("12345", "{| {:.:} {:b:{.}{.}:} {:{.}{.}:} |}")
+checkeq(t, {"1", b="2", "4", "5"})
+print"skip" test_failure = test_failure + 1 -- t = re.match("12345", "{| {:.:} {:{:b:{.}{.}:}:} {:{.}{.}:} |}")
+checkeq(t, {"1", "23", "4", "5"})
+print"skip" test_failure = test_failure + 1 -- t = re.match("12345", "{| {:.:} {{:b:{.}{.}:}} {:{.}{.}:} |}")
+checkeq(t, {"1", "23", "4", "5"})
 
 
 -- testing pre-defined names
@@ -1380,13 +1391,13 @@ local function errmsg (p, err)
   local s, msg = pcall(re.compile, p)
   assert(not s and string.find(msg, err))
 end
-print"skip"-- errmsg('aaaa', "rule 'aaaa'")
-print"skip"-- errmsg('a', 'outside')
-print"skip"--  errmsg('b <- a', 'undefined')
-print"skip"-- errmsg("x <- 'a'  x <- 'b'", 'already defined')
-print"skip"-- errmsg("'a' -", "near '-'")
+ errmsg('aaaa', "rule 'aaaa'")
+ errmsg('a', 'outside')
+  errmsg('b <- a', 'undefined')
+ errmsg("x <- 'a'  x <- 'b'", 'already defined')
+ errmsg("'a' -", "near '-'")
 
 
-print"OK"
+print("OK", "Success: ", test_success, "Failures: ", test_failure)
 
 end
