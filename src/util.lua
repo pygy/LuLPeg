@@ -1,14 +1,60 @@
+-- A collection of general purpose helpers.
 
-local pairs, ipairs = pairs, ipairs
+--[[DGB]] local debug = require"debug"
 
-local m_max
-    , t_insert 
-    = math.max
-    , table.insert
+local getmetatable, setmetatable, ipairs, load, loadstring, next
+    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
+    = getmetatable, setmetatable, ipairs, load, loadstring, next
+    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
 
-local util = {}
+local m, s, t = require"math", require"string", require"table"
 
-if _VERSION == "Lua 5.1" and not jit then
+local m_max, s_match, s_gsub, t_concat, t_insert
+    = m.max, s.match, s.gsub, t.concat, t.insert
+
+local compat = require"compat"
+
+
+-- No globals definition:
+
+local
+function nop () end
+
+local noglobals, getglobal, setglobal if pcall and not compat.lua52 and not release then
+    local function errR (_,i)
+        error("illegal global read: " .. tostring(i), 2)
+    end
+    local function errW (_,i, v)
+        error("illegal global write: " .. tostring(i)..": "..tostring(v), 2)
+    end
+    local env = setmetatable({}, { __index=errR, __newindex=errW })
+    noglobals = function()
+        pcall(setfenv, 3, env)
+    end
+    function getglobal(k) rawget(env, k) end
+    function setglobal(k, v) rawset(env, k, v) end
+else
+    noglobals = nop
+end
+
+
+
+local _ENV = noglobals() ------------------------------------------------------
+
+
+
+local util = {
+    nop = nop,
+    noglobals = noglobals,
+    getglobal = getglobal,
+    setglobal = setglobal
+}
+
+util.unpack = t.unpack or unpack
+util.pack = t.pack or function(...) return { n = select('#', ...), ... } end
+
+
+if compat.lua51 then
     local old_load = load
 
    function util.load (ld, source, mode, env)
@@ -24,21 +70,74 @@ if _VERSION == "Lua 5.1" and not jit then
      end
      return fun
    end
+else
+    util.load = load
 end
 
-util.unpack = table.unpack or unpack
-util.pack = table.pack or function(...) return { n = select('#', ...), ... } end
-
-function util.nop()end
-
-if pcall then
-    local err = function(_,i)error(tostring(i)..": global access", 2)end
-    util.noglobals = function()
-        pcall(setfenv, 3, setmetatable({},{ __index=err, __newindex=err }) )
+if compat.luajit and compat.jit then
+    local function _fold(len, ary, func) 
+        local acc = ary[1] 
+        for i = 2, len do acc =func(acc, ary[i]) end 
+        return acc 
+    end
+    function util.max (ary)
+        local max = 0
+        for i = 1, #ary do 
+            max = m_max(max,ary[i])
+        end
+        return max        
+    end
+elseif compat.luajit then
+    local t_unpack = util.unpack
+    function util.max (ary)
+     local len = #ary
+        if len <=30 or len > 10240 then
+            local max = 0
+            for i = 1, #ary do 
+                local j = ary[i] 
+                if j > max then max = j end 
+            end
+            return max
+        else
+            return m_max(t_unpack(ary))
+        end
+    end
+elseif compat.lua52 then
+    local t_unpack = util.unpack
+    function util.max (ary)
+        local len = #ary
+        if len == 0 
+            then return 0
+        elseif len <=20 or len > 10240 then
+            local max = ary[1]
+            for i = 2, len do 
+                if ary[i] > max then max = ary[i] end 
+            end
+            return max
+        else
+            return m_max(t_unpack(ary))
+        end
     end
 else
-    utils.noglobals = nop
-end
+    local t_unpack = util.unpack
+    function util.max (ary)
+        -- [[DB]] util.expose(ary)
+        -- [[DB]] print(debug.traceback())
+        local len = #ary
+        if len == 0 then 
+            return 0
+        elseif len <=20 or len > 10240 then
+            local max = ary[1]
+            for i = 2, len do 
+                if ary[i] > max then max = ary[i] end 
+            end
+            return max
+        else
+            return m_max(t_unpack(ary))
+        end
+    end
+end            
+
 
 local
 function setmode(t,mode)
@@ -68,18 +167,6 @@ function util.strip_mt (t)
     return setmetatable(t, nil)
 end
 
-function util.expose(o)
-    if type(o) ~= "table" then print(o)
-    else
-        print("{")
-        for k,v in pairs(o) do
-            print(k.." = "..tostring(v))
-        end
-        print"}"
-    end
-    return o
-end
-
 local getuniqueid
 do
     local N, index = 0, {}
@@ -103,6 +190,92 @@ end
 
 function util.passprint (...) print(...) return ... end
 
+local val_to_str_, key_to_str, table_tostring, cdata_to_str, t_cache
+local multiplier = 2
+
+local
+function val_to_string (v, indent)
+    indent = indent or 0
+    t_cache = {} -- upvalue.
+    local acc = {}
+    val_to_str_(v, acc, indent, indent)
+    local res = t_concat(acc, "")
+    return res
+end
+util.val_to_str = val_to_string
+
+function val_to_str_ ( v, acc, indent, str_indent )
+    str_indent = str_indent or 1
+    if "string" == type( v ) then
+        v = s_gsub( v, "\n",  "\n" .. (" "):rep( indent * multiplier + str_indent ) )
+        if s_match( s_gsub( v,"[^'\"]",""), '^"+$' ) then
+            acc[#acc+1] = t_concat{ "'", "", v, "'" }
+        else
+            acc[#acc+1] = t_concat{'"', s_gsub(v,'"', '\\"' ), '"' }
+        end
+    elseif "cdata" == type( v ) then 
+            cdata_to_str( v, acc, indent )
+    elseif "table" == type(v) then
+        if t_cache[v] then 
+            acc[#acc+1] = t_cache[t]
+        else
+            t_cache[v] = tostring( v )
+            table_tostring( v, acc, indent )
+        end
+    else
+        acc[#acc+1] = tostring( v )
+    end
+end
+
+function key_to_str ( k, acc, indent )
+    if "string" == type( k ) and s_match( k, "^[_%a][_%a%d]*$" ) then
+        acc[#acc+1] = s_gsub( k, "\n", (" "):rep( indent * multiplier + 1 ) .. "\n" )
+    else
+        acc[#acc+1] = "[ "
+        val_to_str_( k, acc, indent )
+        acc[#acc+1] = " ]"
+    end
+end
+
+function cdata_to_str(v, acc, indent)
+    acc[#acc+1] = ( " " ):rep( indent * multiplier )
+    acc[#acc+1] = "["
+    print(#acc)
+    for i = 0, #v do
+        if i % 16 == 0 and i ~= 0 then
+            acc[#acc+1] = "\n"
+            acc[#acc+1] = (" "):rep(indent * multiplier + 2)
+        end
+        acc[#acc+1] = v[i] and 1 or 0
+        acc[#acc+1] = i ~= #v and  ", " or ""
+    end
+    print(#acc, acc[1], acc[2])
+    acc[#acc+1] = "]"
+end
+
+function table_tostring ( tbl, acc, indent )
+    -- acc[#acc+1] = ( " " ):rep( indent * multiplier )
+    acc[#acc+1] = t_cache[tbl]
+    acc[#acc+1] = "{\n"
+    for k, v in pairs( tbl ) do
+        local str_indent = 1
+        acc[#acc+1] = (" "):rep((indent + 1) * multiplier)
+        key_to_str( k, acc, indent + 1)
+
+        if acc[#acc] == " ]"
+        and acc[#acc - 2] == "[ " 
+        then str_indent = 8 + #acc[#acc - 1]
+        end
+
+        acc[#acc+1] = " = "
+        val_to_str_( v, acc, indent + 1, str_indent)
+        acc[#acc+1] = "\n"
+    end
+    acc[#acc+1] = ( " " ):rep( indent * multiplier )
+    acc[#acc+1] = "}"
+end
+
+function util.expose(v) print(val_to_string(v)) return v end
 -------------------------------------------------------------------------------
 --- Functional helpers
 --
@@ -114,6 +287,14 @@ function util.map (ary, func, ...)
         res[i] = func(ary[i], ...)
     end
     return res
+end
+
+function util.selfmap (ary, func, ...)
+    if type(ary) == "function" then ary, func = func, ary end
+    for i = 1,#ary do
+        ary[i] = func(ary[i], ...)
+    end
+    return ary
 end
 
 local
@@ -246,6 +427,17 @@ function util.extend (destination, ...)
     end
     return destination
 end
+
+function util.setify (t)
+    local set = {}
+    for i = 1, #t do
+        set[t[i]]=true
+    end
+    return set
+end
+
+function util.arrayify (...) return {...} end
+
 --[[
 util.dprint =  print
 --[=[]]

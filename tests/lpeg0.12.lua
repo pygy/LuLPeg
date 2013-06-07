@@ -5,7 +5,8 @@ for i = 1, 1 do
 -- require"strict"    -- just to be pedantic
 
 local m = require(arg[1])
-
+package.loaded.lpeg = m
+package.loaded.re = m.re
 if arg[1] ~= "lpeg" then pprint = m.pprint else pprint = function()end end
 
 -- for general use
@@ -23,16 +24,21 @@ m.setmaxstack(5)
 local any = m.P(1)
 local space = m.S" \t\n"^0
 
-local _assert, test_success, test_failure = assert, 0, 0
+local _assert, test_success, test_failure, firsterr = assert, 0, 0, true
 local assert = function(...)
   local success, r = pcall(_assert, ...)
   if success
   then test_success = test_success + 1
   else 
     test_failure = test_failure + 1
-    print(
-      debug.traceback("---- Assertion failed --------------------------------"),
-      "\n------------------------------------------------------")
+    if firsterr then 
+      firsterr = false
+      print(
+        debug.traceback("---- Assertion failed --------------------------------"),
+        "\n------------------------------------------------------")
+    else
+      print("Error on line "..debug.getinfo(2).currentline)
+    end
   end
   return r or true
 end
@@ -81,7 +87,6 @@ assert(m.match(m.P(false) * "a", "a") == nil)
 assert(m.match(m.P(true) * "a", "a") == 2)
 assert(m.match("a" * m.P(false), "a") == nil)
 assert(m.match("a" * m.P(true), "a") == 2)
-
 assert(m.match(#m.P(false) * "a", "a") == nil)
 assert(m.match(#m.P(true) * "a", "a") == 2)
 assert(m.match("a" * #m.P(false), "a") == nil)
@@ -119,7 +124,8 @@ local digit = m.S"0123456789"
 local upper = m.S"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 local lower = m.S"abcdefghijklmnopqrstuvwxyz"
 local letter = m.S"" + upper + lower
-local alpha = letter + digit + m.R()
+local R_ = m.R()
+local alpha = letter + digit + R_
 
 eqcharset(m.S"", m.P(false))
 eqcharset(upper, m.R("AZ"))
@@ -369,7 +375,7 @@ checkerr("rule 'hiii' used outside a grammar", m.match, m.V('hiii'), "")
 checkerr("rule 'hiii' undefined in given grammar", m.match, { m.V('hiii') }, "")
 checkerr("undefined in given grammar", m.match, { m.V{} }, "")
 
-print"skip" test_failure = test_failure + 1 -- checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
+assert(false) -- checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
 checkerr("grammar has no initial rule", m.P, { [print] = {} })
 
 -- grammar with a long call chain before left recursion
@@ -382,7 +388,7 @@ p = {'a',
   f = m.V'g',
   g = m.P''
 }
-print"skip" test_failure = test_failure + 1 -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
+assert(false) -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
 
 
 -- tests for non-pattern as arguments to pattern functions
@@ -419,7 +425,12 @@ m.P{ m.P { (m.P(3) + "xuxu")^0 * m.V"xuxu", xuxu = m.P(1) } }
 local V = m.V
 
 local Space = m.S(" \n\t")^0
-local Number = m.C(m.R("09")^1) * Space
+local Number = m.C(
+  --m.R("09")
+    m.digit
+^1) * Space
+m.pprint(m.R"09")
+m.pprint(m.digit)
 local FactorOp = m.C(m.S("+-")) * Space
 local TermOp = m.C(m.S("*/")) * Space
 local Open = "(" * Space
@@ -427,6 +438,7 @@ local Close = ")" * Space
 
 
 local function f_factor (v1, op, v2, d)
+  --[[DBG]] print("factor", v1, op, v2, d)
   assert(d == nil)
   if op == "+" then return v1 + v2
   else return v1 - v2
@@ -435,6 +447,7 @@ end
 
 
 local function f_term (v1, op, v2, d)
+  --[[DBG]] print("term", v1, op, v2, d)
   assert(d == nil)
   if op == "*" then return v1 * v2
   else return v1 / v2
@@ -453,7 +466,7 @@ for _, s in ipairs{" 3 + 5*9 / (1+1) ", "3+4/2", "3+3-3- 9*2+3*9/1-  8"} do
   assert(m.match(G, s) == loadstring("return "..s)())
 end
 
-
+-- error"STOP"
 -- test for grammars (errors deep in calling non-terminals)
 g = m.P{
   [1] = m.V(2) + "a",
@@ -559,11 +572,11 @@ p = m.P{
   [4] = '0' * m.V(3) + '1' * m.V(2),
 }
 print"\nStack overflow."
-print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("00", 10000)))
-print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("01", 10000)))
-print"skip" test_failure = test_failure + 1 -- assert(p:match(string.rep("011", 10000)))
-print"skip" test_failure = test_failure + 1 -- assert(not p:match(string.rep("011", 10000) .. "1"))
-print"skip" test_failure = test_failure + 1 -- assert(not p:match(string.rep("011", 10001)))
+assert(false) -- assert(p:match(string.rep("00", 10000)))
+assert(false) -- assert(p:match(string.rep("01", 10000)))
+assert(false) -- assert(p:match(string.rep("011", 10000)))
+assert(false) -- assert(not p:match(string.rep("011", 10000) .. "1"))
+assert(false) -- assert(not p:match(string.rep("011", 10001)))
 
 
 -- this grammar does need backtracking info.
@@ -597,7 +610,7 @@ assert(m.match("", "", 10))
 assert(not m.match(1, "", 1))
 assert(not m.match(1, "", -1))
 print"\nIndex 0??"
-print"skip" test_failure = test_failure + 1 -- assert(not m.match(1, "", 0))
+assert(false) -- assert(not m.match(1, "", 0))
 
 print("+")
 
@@ -811,21 +824,21 @@ local function haveloop (p)
   assert(not pcall(function (p) return p^0 end, m.P(p)))
 end
 print"haveloop and badgrammar"
-print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^-4)
+assert(false) -- haveloop(m.P("x")^-4)
 assert(m.match(((m.P(0) + 1) * m.S"al")^0, "alo") == 3)
 assert(m.match((("x" + #m.P(1))^-4 * m.S"al")^0, "alo") == 3)
-print"skip" test_failure = test_failure + 1 -- haveloop("")
-print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^0)
-print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x")^-1)
-print"skip" test_failure = test_failure + 1 -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
-print"skip" test_failure = test_failure + 1 -- haveloop(-m.P("ab"))
-print"skip" test_failure = test_failure + 1 -- haveloop(- -m.P("ab"))
-print"skip" test_failure = test_failure + 1 -- haveloop(# #(m.P("ab") + "xy"))
-print"skip" test_failure = test_failure + 1 -- haveloop(- #m.P("ab")^0)
-print"skip" test_failure = test_failure + 1 -- haveloop(# -m.P("ab")^1)
-print"skip" test_failure = test_failure + 1 -- haveloop(#m.V(3))
-print"skip" test_failure = test_failure + 1 -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
-print"skip" test_failure = test_failure + 1 -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
+assert(false) -- haveloop("")
+assert(false) -- haveloop(m.P("x")^0)
+assert(false) -- haveloop(m.P("x")^-1)
+assert(false) -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
+assert(false) -- haveloop(-m.P("ab"))
+assert(false) -- haveloop(- -m.P("ab"))
+assert(false) -- haveloop(# #(m.P("ab") + "xy"))
+assert(false) -- haveloop(- #m.P("ab")^0)
+assert(false) -- haveloop(# -m.P("ab")^1)
+assert(false) -- haveloop(#m.V(3))
+assert(false) -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
+assert(false) -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
 assert(m.match(m.P{[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(1)}^0, "abc")
        == 3)
 assert(m.match(m.P""^-3, "a") == 1)
@@ -841,22 +854,22 @@ local function badgrammar (g, expected)
   if expected then assert(find(expected, msg)) end
 end
 
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V(1)}, "rule '1'")
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
-print"skip" test_failure = test_failure + 1 -- badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
-print"skip" test_failure = test_failure + 1 -- badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
-print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-print"skip" test_failure = test_failure + 1 -- badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
-print"skip" test_failure = test_failure + 1 -- badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
+assert(false) -- badgrammar({[1] = m.V(1)}, "rule '1'")
+assert(false) -- badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
+assert(false) -- badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
+assert(false) -- badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
+assert(false) -- badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+assert(false) -- badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+assert(false) -- badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
+assert(false) -- badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
+assert(false) -- badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
+assert(false) -- badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
+assert(false) -- badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
+assert(false) -- badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
+assert(false) -- badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+assert(false) -- badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+assert(false) -- badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
+assert(false) -- badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
 
 assert(m.match({'a' * -m.V(1)}, "aaa") == 2)
 assert(m.match({'a' * -m.V(1)}, "aaaa") == nil)
@@ -867,13 +880,13 @@ m.P{ ('a' * m.V(1))^-1 }
 m.P{ -('a' * m.V(1)) }
 m.P{ ('abc' * m.V(1))^-1 }
 m.P{ -('abc' * m.V(1)) }
-print"skip" test_failure = test_failure + 1 -- badgrammar{ #m.P('abc') * m.V(1) }
-print"skip" test_failure = test_failure + 1 -- badgrammar{ -('a' + m.V(1)) }
+assert(false) -- badgrammar{ #m.P('abc') * m.V(1) }
+assert(false) -- badgrammar{ -('a' + m.V(1)) }
 m.P{ #('a' * m.V(1)) }
-print"skip" test_failure = test_failure + 1 -- badgrammar{ #('a' + m.V(1)) }
+assert(false) -- badgrammar{ #('a' + m.V(1)) }
 m.P{ m.B{ m.P'abc' } * 'a' * m.V(1) }
-print"skip" test_failure = test_failure + 1 -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
-print"skip" test_failure = test_failure + 1 -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
+assert(false) -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
+assert(false) -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
 
 
 -- simple tests for maximum sizes:
@@ -1046,8 +1059,8 @@ do
   end
   print"\nGarbage Collection."
   local p = m.P{ m.Cmt(0, foo) * m.P(false) + m.P(1) * m.V(1) + m.P"" }
-  print"skip" -- p:match(string.rep('1', 10))
-  print"skip" -- assert(c == 11)
+  p:match(string.rep('1', 10))
+  assert(c == 11)
 end
 
 p = (m.P(function () return true, "a" end) * 'a'
@@ -1097,6 +1110,7 @@ assert(match("cdx" , "'ab'? ('ccc' / ('cde' / 'cd'*)? / 'ccc') 'x'+") == 4)
 assert(match("abcdcdx" , "'ab'? ('ccc' / ('cde' / 'cd'*)? / 'ccc') 'x'+") == 8)
 assert(match("abc", "a <- (. a)?") == 4)
 b = "balanced <- '(' ([^()] / balanced)* ')'"
+print "----------------------------------------- Ballanced --------------------"
 assert(match("(abc)", b))
 assert(match("(a(b)((c) (d)))", b))
 assert(not match("(a(b ((c) (d)))", b))
@@ -1234,9 +1248,9 @@ assert(re.gsub("hi, how are you", "[aeiou]", string.upper) ==
 
 s = 'hi [[a comment[=]=] ending here]] and [=[another]]=]]'
 c = re.compile" '[' {:i: '='* :} '[' (!(']' =i ']') .)* ']' { =i } ']' "
-print"skip" test_failure = test_failure + 1 -- assert(re.gsub(s, c, "%2") == 'hi  and =]')
+assert(re.gsub(s, c, "%2") == 'hi  and =]')
 assert(re.gsub(s, c, "%0") == s)
-print"skip" test_failure = test_failure + 1 -- assert(re.gsub('[=[hi]=]', c, "%2") == '=')
+assert(re.gsub('[=[hi]=]', c, "%2") == '=')
 
 assert(re.find("", "!.") == 1)
 assert(re.find("alo", "!.") == 4)
@@ -1260,7 +1274,7 @@ c = re.compile([[
 
 x = c:match[[
 <x>hi<b>hello</b>but<b>totheend</x>]]
-print"skip" test_failure = test_failure + 1 -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
+assert(false) -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
 --                     {'totheend'}}, true)
 
 
@@ -1395,7 +1409,9 @@ local function errmsg (p, err)
 end
 errmsg('aaaa', "rule 'aaaa'")
 errmsg('a', 'outside')
-print"skip" test_failure = test_failure + 1 -- errmsg('b <- a', 'undefined')
+
+print"\nre errmsg"
+assert(false) -- errmsg('b <- a', 'undefined')
 errmsg("x <- 'a'  x <- 'b'", 'already defined')
 errmsg("'a' -", "near '-'")
 

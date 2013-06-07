@@ -9,7 +9,6 @@
 -- .../infosys/info/documentation/C/CStdLib.html#ctype.h
 
 return function(Builder, PL) -- Module wrapper
-local PL = PL
 
 local extend = require"util".extend
 local R, S = PL.R, PL.S
@@ -23,7 +22,6 @@ locale["space"] = S" \f\n\r\t\v" -- \f == form feed (for a printer), \v == vtab
 locale["upper"] = R"AZ"
 
 locale["alpha"]  = locale["lower"] + locale["upper"]
--- PL.pprint(locale.alpha)
 locale["alnum"]  = locale["alpha"] + locale["digit"]
 locale["graph"]  = locale["print"] - locale["space"]
 locale["punct"]  = locale["graph"] - locale["alnum"]

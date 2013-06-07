@@ -1,16 +1,27 @@
+local pairs, print, error, tostring, type
+    = pairs, print, error, tostring, type
+
+local s, t, u = require"string", require"table", require"util"
+
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
+
+
+
+local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
+    = s.byte, s.sub, t.concat, t.insert, t.remove, u.unpack
+
+local   expose,   load,   map,   map_all, t_pack
+    = u.expose, u.load, u.map, u.map_all, u.pack
+
+
+
 return function(Builder, PL)
 local evaluate, PL_ispattern =  PL.evaluate, PL.ispattern
 local get_int, charset = Builder.charset.get_int, Builder.charset
 
 
-local s_byte, s_sub
-    , t_concat, t_insert, t_remove, t_unpack
-    = string.byte, string.sub
-    , table.concat, table.insert, table.remove, unpack or table.unpack
-
-local u = require"util"
-local expose, load, map, map_all, t_pack
-    = u.expose, u.load, u.map, u.map_all, u.pack
 
 local compilers = {}
 
@@ -19,7 +30,7 @@ local
 function compile(pt, ccache)
     -- print("Compile", pt.ptype)
     if not PL_ispattern(pt) then 
-        expose(pt)
+        --[[DBG]]expose(pt)
         error("pattern expected") 
     end
     local typ = pt.ptype
@@ -116,7 +127,7 @@ compilers["Cb"] = function (pt, ccache)
             parent_i = cap_i,
             tag = tag
         }
-        return success, index, cap_i + 1
+        return true, index, cap_i + 1
     end
 end
 
@@ -152,7 +163,7 @@ end
 compilers["Ctag"] = function (pt, ccache)
     local matcher, tag = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local new_acc = {
+        local new_acc, success = {
             type = "Cg", 
             start = index,
             Ctag = tag,
@@ -399,7 +410,8 @@ compilers["set"] = function (pt)
     end
 end
 
--- compilers["range"] = compilers.set
+-- hack, for now.
+compilers["range"] = compilers.set
 
 compilers["ref"] = function (pt, ccache)
     local name = pt.aux
@@ -448,7 +460,7 @@ compilers["choice"] = function (pt, ccache)
         end]]
     }
     -- print(compiled)
-    return load(compiled, "Choice")(unpack(choices))
+    return load(compiled, "Choice")(t_unpack(choices))
 end
 
 
@@ -483,7 +495,7 @@ compilers["sequence"] = function (pt, ccache)
         end]]
     }
     -- print(compiled)
-   return load(compiled, "Sequence")(unpack(sequence))
+   return load(compiled, "Sequence")(t_unpack(sequence))
 end
 
 

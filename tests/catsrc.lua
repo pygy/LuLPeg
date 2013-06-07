@@ -10,15 +10,16 @@ local module_name = ...
 local _ENV,       error,          loaded, packages, release, require_ 
     = _ENV or _G, error or print, {},     {},       true,    require
 local t_concat = require"table".concat
-
+local function pront(...) print("pront",...) return ... end
 local function require(...)
     local lib = ...
-
+    print("require",lib)
     -- is it a private file?
     if loaded[lib] then 
         return loaded[lib]
     elseif packages[lib] then 
         loaded[lib] = packages[lib](lib)
+        print(loaded[lib])
         return loaded[lib]
     else
         -- standard require.
@@ -66,12 +67,7 @@ _, jit = pcall(require, "jit")
 if not _ then jit = nil end
 
 local compat = {
-    debug = debug,
-
-    lua52 = _VERSION == "Lua 5.2",
     lua52_len = not #setmetatable({},{__len = nop}), 
-    luajit = jit and true or false,
-    jit = (jit and jit.status()),
     proxies --= false local FOOO
         = newproxy
         and (function()
@@ -83,10 +79,13 @@ local compat = {
             local prox, mt = newproxy(), {}
             local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
             return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
+        end)(),
+    lua52 = _VERSION == "Lua 5.2",
+    luajit = jit and true or false,
+    jit = (jit and jit.status())
 }
 
-compat.lua51 = (_VERSION == "Lua 5.1") and not luajit
+compat .lua51 = (_VERSION == "Lua 5.1") and not luajit
 -- [[DB]] print("compat")
 -- [[DB]] for k, v in pairs(compat) do print(k,v) end
 
@@ -96,17 +95,7 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['validator'] = function (...)
-local u = require"util"
-local nop, weakkey = u.nop, u.weakkey
-
-local hasVcache, hasCmtcache , lengthcache
-    = weakkey{}, weakkey{},    weakkey{}
-
-return {
-    hasV = nop,
-    hasCmt = nop,
-    length = nop
-}
+--
 end
 end
 --=============================================================================
@@ -202,13 +191,12 @@ Patterns have the following, optional fields:
     whether they are terminal or not (no V patterns), and so on.
 --]]---------------------------------------------------------------------------
 
-local ipairs, newproxy, print, setmetatable 
-    = ipairs, newproxy, print, setmetatable
+local ipairs, newproxy, setmetatable 
+    = ipairs, newproxy, setmetatable
 
-local t, u, dtst, compat
-    = require"table", require"util", require"datastructures", require"compat"
-
---[[DBG]] local debug = require"debug"
+local d, t, u, dtst, compat
+    = require"debug", require"table"
+    , require"util", require"datastructures", require"compat"
 
 local t_concat, t_sort
     = t.concat, t.sort
@@ -246,7 +234,6 @@ local classpt = {
         "behind", "at least", "at most", "Ctag", "Cmt",
         "/string", "/number", "/table", "/function"
     },
-    -- FIXME?? Move Cc to .aux ?? weakboth cache?
     none = "grammar", "Cc"
 }
 
@@ -279,7 +266,7 @@ local newpattern do
         end    
     elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
         local d_setmetatable, newproxy
-            = compat.debug.setmetatable, newproxy
+            = d.setmetatable, newproxy
 
         local proxycache = weakkey{}
         local __index_PL = {__index = PL}
@@ -406,8 +393,7 @@ end
 
 -- no cache for grammars
 constructors["none"] = function(typ, _, aux)
-    -- [[DBG]] print("CONS: ", typ, _, aux)
-    -- [[DBG]] print(debug.traceback(1))
+     -- dprint("CONS: ", typ, pt, aux)
     return newpattern{
         ptype = typ,
         aux = aux
@@ -500,6 +486,7 @@ local getmetatable, pairs, pcall, print, setmetatable, type
 local m, t = require"math", require"table"
 local m_min, m_max, t_concat, t_insert, t_sort
     = m.min, m.max, t.concat, t.insert, t.sort
+local _, m_MAX = pcall(m_max)
 
 local u = require"util"
 local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
@@ -539,11 +526,12 @@ function byteset_constructor (upper)
         " }"
     })(),
     byteset_mt) 
+    if upper < 0 then set[0] = nil end
     return set
 end
 
 if compat.jit then
-    local struct, empty, boolset_constructor = {v={}}
+    local struct, empty, boolset_constructor = {v={}}, {}
 
     function byteset_mt.__index(s,i)
         -- [[DBG]] print("GI", s,i)
@@ -564,30 +552,26 @@ if compat.jit then
 
 -- [=[
     function byteset_new (t)
-        -- [[DBG]] print ("Konstructor", type(t), t)
+        -- [[DBG]] print ("Konstructor", t)
         if type(t) == "number" then
             local tmp
-            local res = boolset_constructor(t+1)
-            res.upper = t
-            --[[DBG]] for i = 0, res.upper do if res[i] then print("K", i, res[i]) end end
+            tmp, struct.v = struct.v, empty
+            struct.upper = t
+            local res = boolset_constructor(t+1,struct)
+            struct.v = tmp
             return res
         end
         local upper = u_max(t)
 
         struct.upper = upper
         if upper > 255 then error"bool_set overflow" end
-        local set = boolset_constructor(upper+1)
-        set.upper = upper
+        local set = struct.v
+
+        for i = 0, upper do set[i] = false end
+        for i = upper + 1, 255 do set[i] = nil end
         for i = 1, #t do set[t[i]] = true end
 
-        return set
-        -- local set = struct.v
-        
-        -- for i = 0, upper do set[i] = false end
-        -- for i = upper + 1, 255 do set[i] = nil end
-        -- for i = 1, #t do set[t[i]] = true end
-
-        -- return boolset_constructor(upper+1, struct)
+        return boolset_constructor(upper+1, struct)
     end
 --[==[]=]
     function byteset_new (t)
@@ -938,17 +922,16 @@ packages['API'] = function (...)
 
 -- What follows is the core LPeg functions, the public API to create patterns.
 -- Think P(), R(), pt1 + pt2, etc.
+
 local assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
     = assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
 
-local debug, s, t, u = require"debug", require"string", require"table", require"util"
-
+local s, t, u = require"string", require"table", require"util"
 
 
 local _ENV = u.noglobals() ---------------------------------------------------
-
 
 
 local s_byte, t_concat, t_insert, t_sort
@@ -999,9 +982,6 @@ end
 
 local
 function PL_P (v)
-    -- [[DBG]] print("P TYPE: ", type(v))
-    -- [[DBG]] expose(v)
-    -- [[DBG]] print(debug.traceback(1))
     if PL_ispattern(v) then
         return v 
     elseif type(v) == "function" then
@@ -1012,12 +992,8 @@ function PL_P (v)
             charset_error(index, charset)
         end
         if v == "" then return PL_P(true) end
-        -- [[DBG]] print(v)
-        -- [[DBG]] for k, v in pairs(map(makechar, split_int(v))) do print("II", k, v) end
-        return true and PL.__mul(map(makechar, split_int(v)))
+        return true and constructors.aux("sequence", nil, map(makechar, split_int(v)))
     elseif type(v) == "table" then
-        -- [[DBG]] print"P TABLE"
-        -- [[DBG]] print(debug.traceback(1))
         -- private copy because tables are mutable.
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
@@ -1029,13 +1005,9 @@ function PL_P (v)
         if v == 0 then
             return truept
         elseif v > 0 then
-            return
-                --[[DBG]] true and 
-                constructors.aux("any", nil, v)
+            return true and constructors.aux("any", nil, v)
         else
-            return
-                --[[DBG]] true and 
-                - constructors.aux("any", nil, -v)
+            return true and - constructors.aux("any", nil, -v)
         end
     end
 end
@@ -1050,34 +1022,44 @@ function PL_S (set)
         if not success then 
             charset_error(index, charset)
         end
-        return
-            --[[DBG]] true and 
-            constructors.aux("set", nil, Set(split_int(set)), set)
+        return true and constructors.aux("set", nil, Set(split_int(set)), set)
     end
 end
 PL.S = PL_S
 
 local
 function PL_R (...)
+    -- [[DBG]]print"PL.R(...) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+    -- [[DBG]] print(...)
     if select('#', ...) == 0 then
         return PL_P(false)
     else
         local range = Range(1,0)--Set("")
-        -- [[DBG]]expose(range)
         for _, r in ipairs{...} do
             local success, index = validate(r)
             if not success then 
                 charset_error(index, charset)
             end
             range = S_union ( range, Range(t_unpack(split_int(r))) )
+            -- [[DBG]] print("\nR() iter CURRENT", r,  "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+            -- [[DBG]] print(t_unpack(split_int(r)))
+            -- [[DBG]] expose(Range(t_unpack(split_int(r))))
+            -- [[DBG]] print("\nR() iter RESULT", r, "\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\")
+            -- [[DBG]] expose(range)
         end
         -- This is awful.
         local representation = t_concat(map(tochar, 
                 {load("return "..S_tostring(range))()}))
+        -- [[DBG]] print("PL_R() repr",s_byte(representation))
+        -- [[DBG]] print("PL_R() tstring", S_tostring(range))
+        -- [[DBG]] print("PL_R() eval", load("return "..S_tostring(range))())
+        -- [[DBG]] print("PL_R() map tochar")
+        -- [[DBG]] expose(map(tochar, {load("return "..S_tostring(range))()}))
+
+        -- [[DB]] print"<<< Final Range <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
         local p = constructors.aux("set", nil, range, representation)
-        return 
-            --[[DBG]] true and 
-            constructors.aux("set", nil, range, representation)
+        -- [[DB]] PL.pprint(p)
+        return true and constructors.aux("set", nil, range, representation)
     end
 end
 PL.R = PL_R
@@ -1142,16 +1124,18 @@ end
  
 -- pt*pt
 local
-function PL_choice (a, b, ...)
-    -- [[DBG]] print("Choice =====", a, "b", b, "...", ...)
-    if b ~= nil then
-        a, b = PL_P(a), PL_P(b)
-    end
+function PL_choice (a,b)
+    a,b = PL_P(a), PL_P(b)
+    -- [[DP]] print("Choice")
+    -- [[DP]] print("A")
 
-    local ch = factorize_choice(a, b, ...)
+    -- [[DP]] PL.pprint(a)
+    -- [[DP]] print("B")
+    -- [[DP]] PL.pprint(b)
+    local ch = factorize_choice(a,b)
 
     if #ch == 0 then 
-        return falsept
+        return true
     elseif #ch == 1 then 
         return ch[1]
     else
@@ -1163,11 +1147,9 @@ PL.__add = PL_choice
 
  -- pt+pt, 
 local
-function sequence (a, b, ...)
-    if b ~= nil then
-        a, b = PL_P(a), PL_P(b)
-    end
-    local seq = factorize_sequence(a, b, ...)
+function sequence (a,b)
+    a,b = PL_P(a), PL_P(b)
+    local seq = factorize_sequence(a,b)
 
     if #seq == 0 then 
         return truept
@@ -1188,7 +1170,9 @@ function PL_lookahead (pt)
     or pt.ptype == "unm"
     or pt.ptype == "lookahead" 
     then 
-        return pt
+    -- print("Simplifying:", "LOOK")
+    -- PL.pprint(pt)
+    -- return pt
     end
     -- -- The general case
     -- [[DB]] print("PL_lookahead", constructors.subpt("lookahead", pt))
@@ -1381,15 +1365,11 @@ packages['purelpeg'] = function (...)
 -- they are restored at the end of the file.
 -- standard libraries must be require()d.
 
---[[DBG]] local debug, print_ = require"debug", print
---[[DBG]] local print = function(...) 
---[[DBG]]    print_(debug.traceback(2))
---[[DBG]]    print_("RE print", ...)
---[[DBG]]    return ...
---[[DBG]] end
+-- [[DBG]] local debug, print_ = debug, print
+-- [[DBG]] print = function(...) print_(debug.traceback(2)) print_(...) end
 
 local tmp_globals, globalenv = {}, _ENV or _G
-if false and not release then
+if not release then
 for lib, tbl in pairs(globalenv) do
     if type(tbl) == "table" then
         tmp_globals[lib], globalenv[lib] = globalenv[lib], nil
@@ -1397,8 +1377,8 @@ for lib, tbl in pairs(globalenv) do
 end
 end
 
-local getmetatable, pairs, setmetatable
-    = getmetatable, pairs, setmetatable
+local getmetatable, pairs
+    = getmetatable, pairs
 
 local u = require"util"
 local   map,   nop, t_unpack 
@@ -1434,7 +1414,7 @@ local VERSION = "0.12"
 -- The PureLPeg version.
 local PVERSION = "0.0.0"
 
-local CLI = function(lpeg, env) setmetatable(env,{__index = lpeg}) end
+
 
 local 
 function PLPeg(options)
@@ -1452,6 +1432,7 @@ function PLPeg(options)
 
     PL.__index = PL
 
+    local getmetatable = getmetatable
     local
     function PL_ispattern(pt) return getmetatable(pt) == PL end
     PL.ispattern = PL_ispattern
@@ -1463,8 +1444,7 @@ function PLPeg(options)
             return nil
         end
     end
-    PL.util = u
-    PL.CLI = CLI
+
     -- Decorate the LPeg object.
     charsets(Builder, PL)
     datastructures(Builder, PL)
@@ -1475,7 +1455,7 @@ function PLPeg(options)
     ;(options.compiler or compiler)(Builder, PL)
     match(Builder, PL)
     locale(Builder, PL)
-    PL.re = re(Builder, PL)
+    PL.re = re(PL)
 
     return PL
 end -- PLPeg
@@ -1699,8 +1679,7 @@ function lookback(capture, tag, index)
 end
 
 evaluators["Cb"] = function (capture, subject, acc, index, val_i)
-    local ref, Ctag, _ 
-    ref = lookback(capture.parent, capture.tag, capture.parent_i)
+    local ref, Ctag, _ = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
     ref.Ctag = Ctag
@@ -1963,11 +1942,7 @@ local pairs, print, error, tostring, type
 
 local s, t, u = require"string", require"table", require"util"
 
-
-
-local _ENV = u.noglobals() ----------------------------------------------------
-
-
+local _ENV = u.noglobals()
 
 local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
     = s.byte, s.sub, t.concat, t.insert, t.remove, u.unpack
@@ -2582,9 +2557,7 @@ packages['charsets'] = function (...)
 local s, t, u = require"string", require"table", require"util"
 
 
-
-local _ENV = u.noglobals() ----------------------------------------------------
-
+local _ENV = u.noglobals()
 
 
 local copy = u.copy
@@ -2960,7 +2933,7 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['re'] = function (...)
-return function(Builder, m)
+local module = function(m, _G) local _G = _G or {}
 -- hack to get this file to work with both
 -- LuaLPeg and the LPeg test file during dev mode.
 
@@ -3071,15 +3044,6 @@ end
 
 
 local S = (Predef.space + "--" * (any - Predef.nl)^0)^0
--- local S do
--- local tmp3 = m.pprint(m.pprint(any) - m.pprint(Predef.nl))
--- local tmp2 = m.pprint(tmp3^0)
--- local tmp2b = m.pprint(m.P"--")
--- local tmp1 = m.pprint(tmp2b * tmp2)
--- local tmp = m.pprint(Predef.space + tmp1)
--- S = tmp^0
--- end
-
 
 local name = m.R("AZ", "az", "__") * m.R("AZ", "az", "__", "09")^0
 
@@ -3133,9 +3097,9 @@ local function firstdef (n, r)
 
 local
 function Debug (pt) return m.Cmt(pt, function (s,i,...) 
-    -- print( "Re DBG++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    --   , i, ('-'):rep(40)..'\n', s:sub(i,-1), ... ) 
-    --   m.pprint(pt)
+    print( "Re DBG++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+      , i, ('-'):rep(40)..'\n', s:sub(i,-1), ... ) 
+      m.pprint(pt)
     return true, ...
   end)
 end
@@ -3275,6 +3239,8 @@ if version == "Lua 5.1" then _G.re = re end
 
 return re
 end
+
+if arg and not release then return module(require(arg[1]), _G or {}) else return module end 
 end
 end
 --=============================================================================
@@ -3285,22 +3251,60 @@ local ipairs, pairs, print, setmetatable, type
 
 local t_insert = require"table".insert
 
---[[DBG]] local debug = require "debug"
 local u = require"util"
 
-local   id,   setify,   arrayify
-    = u.id, u.setify, u.arrayify
+local   id,   setify
+    = u.id, u.setify
 
-local V_hasCmt = u.nop
-
-
-local _ENV = u.noglobals() ----------------------------------------------------
-
----- helpers
---
+local _ENV = u.noglobals()
 
 
--- handle the id or break properties of P(true) and P(false) in sequences/arrays.
+
+-- if pcall then 
+--     pcall(setfenv, 2, setmetatable({},{ __index=error, __newindex=error }) )
+-- end
+
+local function arrayify(...) return {...} end
+
+return function(Builder, PL)
+
+if Builder.options.factorize == false then 
+    print"No factorization"
+    return {
+        choice = arrayify,
+        lookahead = id,
+        sequence = arrayify,
+        unm = id
+    }
+end
+
+local constructors, PL_P =  Builder.constructors, PL.P
+local truept, falsept 
+    = constructors.constant.truept
+    , constructors.constant.falsept
+
+local --Range, Set, 
+    S_union
+    = --Builder.Range, Builder.set.new, 
+    Builder.set.union
+
+
+-- flattens a sequence (a * b) * (c * d) => a * b * c * d
+local
+function flatten(typ, a,b)
+     local acc = {}
+    for _, p in ipairs{a,b} do
+        if p.ptype == typ then
+            for _, q in ipairs(p.aux) do
+                acc[#acc+1] = q
+            end
+        else
+            acc[#acc+1] = p
+        end
+    end
+    return acc
+end
+
 local
 function process_booleans(lst, opts)
     local acc, id, brk = {}, opts.id, opts.brk
@@ -3316,80 +3320,11 @@ function process_booleans(lst, opts)
     return acc
 end
 
-
--- Some sequence factorizers. 
--- Those who depend on PL are defined in the wrapper.
 local
 function append (acc, p1, p2)
     acc[#acc + 1] = p2
 end
 
-
-local
-function seq_unm_unm (acc, p1, p2)
-    acc[#acc] = -(p1.pattern + p2.pattern)
-end
-
-
-
--- patterns where `C(x) + C(y) => C(x + y)` apply.
-local unary = setify{
-    "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Ctag", "Cmt", "/string", "/number",
-    "/table", "/function", "at least", "at most"
-}
-
-
-local
-function mergeseqhead (p1, p2)
-    local n, len = 0, m_min(#p1, p2)
-    while n <= len do
-        if pi[n + 1] == p2[n + 1] then n = n + 1
-        else break end
-    end
-end
-
-return function (Builder, PL) --------------------------------------------------
-
-if Builder.options.factorize == false then 
-    print"No factorization"
-    return {
-        choice = arrayify,
-        sequence = arrayify,
-        lookahead = id,
-        unm = id
-    }
-end
-
-local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
-function flatten(typ, ary)
-    local acc = {}
-    for _, p in ipairs(ary) do
-        -- [[DBG]] print("flatten")
-        -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"PL.pprint(p) end
-        if p.ptype == typ then
-            for _, q in ipairs(p.aux) do
-                acc[#acc+1] = q
-            end
-        else
-            acc[#acc+1] = p
-        end
-    end
-    return acc
-end
-
-local constructors, PL_P =  Builder.constructors, PL.P
-local truept, falsept 
-    = constructors.constant.truept
-    , constructors.constant.falsept
-
-local --Range, Set, 
-    S_union
-    = --Builder.Range, Builder.set.new, 
-    Builder.set.union
-
-
--- sequence factorizers 2, back with a vengence.
 local
 function seq_str_str (acc, p1, p2)
     acc[#acc] = PL_P(p1.as_is .. p2.as_is)
@@ -3400,8 +3335,13 @@ function seq_any_any (acc, p1, p2)
     acc[#acc] = PL_P(p1.aux + p2.aux)
 end
 
---- Lookup table for the sequence optimizers.
---
+local
+function seq_unm_unm (acc, p1, p2)
+    acc[#acc] = -(p1.pattern + p2.pattern)
+end
+
+
+-- Lookup table for the optimizers.
 local seq_optimize = {
     string = {string = seq_str_str},
     any = {
@@ -3429,6 +3369,12 @@ setmetatable(seq_optimize, {
     __index = function() return metaappend end
 })
 
+local unary = setify{
+    "C", "Cf", "Cg", "Cs", "Ct", "/zero",
+    "Ctag", "Cmt", "/string", "/number",
+    "/table", "/function", "at least", "at most"
+}
+
 local type2cons = {
     ["/zero"] = PL.__div,
     ["/number"] = PL.__div,
@@ -3441,25 +3387,29 @@ local type2cons = {
 }
 
 local
-function choice (a,b, ...)
-    -- [[DP]] print("Factorize CH", a, "b", b, "...", ...)
-    -- 1. flatten  (a + b) + (c + d) => a + b + c + d
-    local dest
-    if b ~= nil then 
-        dest = flatten("choice", {a,b,...})
-    else
-        dest = flatten("choice", a)
+function mergeseqhead (p1, p2)
+    local n, len = 0, m_min(#p1, p2)
+    while n <= len do
+        if pi[n + 1] == p2[n + 1] then n = n + 1
+        else break end
     end
+end
+
+local
+function choice (a,b)
+    -- [[DP]] print("Factorize Choice")
+    -- 1. flatten  (a + b) + (c + d) => a + b + c + d
+    local dest = flatten("choice", a, b)
     -- 2. handle P(true) and P(false)
     dest = process_booleans(dest, { id = falsept, brk = truept })
-    -- ???? Concatenate `string` and `any` patterns.
+    -- Concatenate `string` and `any` patterns.
     local changed
     local src
     repeat
         src, dest, changed = dest, {dest[1]}, false
         for i = 2,#src do
-            local p1, p2 = dest[#dest], src[i]
-            local type1, type2 = p1.ptype, p2.ptype
+            local p1, p2 = src[i], dest[#dest]
+            local type1, type2 = p1,type, p2.type
             if type1 == "set" and type2 == "set" then
                 -- Merge character sets. S"abc" + S"ABC" => S"abcABC"
                 dest[#dest] = constructors.aux(
@@ -3472,18 +3422,18 @@ function choice (a,b, ...)
                 -- C(a) + C(b) => C(a + b)
                 dest[#dest] = PL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
                 changed = true
-            -- elseif ( type1 == type2 ) and type1 == "sequence" then
-            --     -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"
-            --     if p1[1] == p2[1]  then
-            --         mergeseqheads(p1,p2, dest)
-            --         changed = true
-            --     elseif p1[#p1] == p2[#p2]  then
-            --         dest[#dest] = mergeseqtails(p1,p2)
-            --         changed = true
-            --     end
-            elseif p1 ~= p2 or V_hasCmt(p1) then
+            elseif ( type1 == type2 ) and type1 == "sequence" then
+                -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"
+                if p1[1] == p2[1]  then
+                    mergeseqheads(p1,p2, dest)
+                    changed = true
+                elseif p1[#p1] == p2[#p2]  then
+                    dest[#dest] = mergeseqtails(p1,p2)
+                    changed = true
+                end
+            else
                 dest[#dest + 1] = p2
-            end -- if identical and without Cmt, fold them into one.
+            end
         end
     until not changed
 
@@ -3496,16 +3446,11 @@ function lookahead (pt)
 end
 
 local
-function sequence(a, b, ...)
+function sequence(a,b)
     -- [[DP]] print("Factorize Sequence")
     -- A few optimizations:
     -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
-    local seq1 
-    if b ~=nil then 
-        seq1 = flatten("sequence", {a, b, ...})
-    else
-        seq1 = flatten("sequence", a)
-    end
+    local seq1 = flatten("sequence", a, b)
     -- 2. handle P(true) and P(false)
     seq1 = process_booleans(seq1, { id = truept, brk = falsept })
     -- Concatenate `string` and `any` patterns.
@@ -3522,8 +3467,8 @@ end
 local
 function unm (pt)
     -- [[DP]] print("Factorize Unm")
-    if     pt == truept            then return falsept, true
-    elseif pt == falsept           then return truept, true
+    if     pt == truept            then return -pt, true
+    elseif pt == falsept           then return -pt, true
     elseif pt.ptype == "unm"       then return #pt.pattern, true
     elseif pt.ptype == "lookahead" then pt = pt.pattern
     end
@@ -3542,29 +3487,26 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['util'] = function (...)
--- A collection of general purpose helpers.
-
---[[DGB]] local debug = require"debug"
-
 local getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
+    , pairs, print, select, table, tostring, type, unpack, _VERSION
     = getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
+    , pairs, print, select, table, tostring, type, unpack, _VERSION
 
-local m, s, t = require"math", require"string", require"table"
+local debug, table = require"debug", require"table"
 
-local m_max, s_match, s_gsub, t_concat, t_insert
-    = m.max, s.match, s.gsub, t.concat, t.insert
+local m_max
+    , t_insert 
+    = require"math".max
+local s, t = require"string", require"table"
+local s_match, s_gsub, t_concat, t_insert
+    = s.match, s.gsub, t.concat, t.insert
 
 local compat = require"compat"
-
-
--- No globals definition:
 
 local
 function nop () end
 
-local noglobals, getglobal, setglobal if pcall and not compat.lua52 and not release then
+local noglobals if pcall then
     local function errR (_,i)
         error("illegal global read: " .. tostring(i), 2)
     end
@@ -3575,27 +3517,21 @@ local noglobals, getglobal, setglobal if pcall and not compat.lua52 and not rele
     noglobals = function()
         pcall(setfenv, 3, env)
     end
-    function getglobal(k) rawget(env, k) end
-    function setglobal(k, v) rawset(env, k, v) end
 else
     noglobals = nop
 end
 
 
-
 local _ENV = noglobals() ------------------------------------------------------
-
 
 
 local util = {
     nop = nop,
-    noglobals = noglobals,
-    getglobal = getglobal,
-    setglobal = setglobal
+    noglobals = noglobals
 }
 
-util.unpack = t.unpack or unpack
-util.pack = t.pack or function(...) return { n = select('#', ...), ... } end
+util.unpack = table.unpack or unpack
+util.pack = table.pack or function(...) return { n = select('#', ...), ... } end
 
 
 if compat.lua51 then
@@ -3833,14 +3769,6 @@ function util.map (ary, func, ...)
     return res
 end
 
-function util.selfmap (ary, func, ...)
-    if type(ary) == "function" then ary, func = func, ary end
-    for i = 1,#ary do
-        ary[i] = func(ary[i], ...)
-    end
-    return ary
-end
-
 local
 function map_all (tbl, func, ...)
     if type(tbl) == "function" then tbl, func = func, tbl end
@@ -3979,9 +3907,6 @@ function util.setify (t)
     end
     return set
 end
-
-function util.arrayify (...) return {...} end
-
 --[[
 util.dprint =  print
 --[=[]]
@@ -4063,18 +3988,17 @@ local printers = {}
 
 local
 function PL_pprint (pt, offset, prefix)
-    -- [[DP]] print("PRINT -", pt)
-    -- [[DP]] print("PRINT +", pt.ptype)
+    -- [[DP]] print("PRINT", pt.ptype)
     -- [[DP]] expose(PL.proxycache[pt])
     return printers[pt.ptype](pt, offset, prefix)
 end
 
-function PL.pprint (pt0)
-    local pt = PL.P(pt0)
+function PL.pprint (pt)
+    pt = PL.P(pt)
     print"\nPrint pattern"
     PL_pprint(pt, "", "")
     print"--- /pprint\n"
-    return pt0
+    return pt
 end
 
 for k, v in pairs{
@@ -4330,7 +4254,6 @@ end -- module wrapper ---------------------------------------------------------
 --                  for any damage its use could incur.
 end
 end
-return require"init"
 --                   The Romantic WTF public license.
 --                   --------------------------------
 --                   a.k.a. version "<3" or simply v3

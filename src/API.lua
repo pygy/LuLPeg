@@ -5,40 +5,37 @@
 
 -- What follows is the core LPeg functions, the public API to create patterns.
 -- Think P(), R(), pt1 + pt2, etc.
-
---- Helpers
---
-
 local assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
     = assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
 
-local t_insert, t_sort
-    = table.insert, table.sort
+local debug, s, t, u = require"debug", require"string", require"table", require"util"
 
-local u = require"util"
-local copy,   fold,   map,   noglobals,   t_pack, t_unpack 
-    = u.copy, u.fold, u.map, u.noglobals, u.pack, u.unpack
 
-_ENV = nil
-noglobals()
 
--- No more globals after this point.
+local _ENV = u.noglobals() ---------------------------------------------------
 
-local function charset_error(index, charset)
+
+
+local s_byte, t_concat, t_insert, t_sort
+    = s.byte, t.concat, t.insert, t.sort
+
+local   copy,   expose,   fold,   load,   map,   setify, t_pack, t_unpack 
+    = u.copy, u.expose, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+
+local 
+function charset_error(index, charset)
     error("Character at position ".. index + 1 
             .." is not a valid "..charset.." one.",
         2)
 end
 
 
-
 ------------------------------------------------------------------------------
-return function(Builder, PL) -- module wrapper
---
+return function(Builder, PL) -- module wrapper -------------------------------
+------------------------------------------------------------------------------
 
--- Temporary globals res
 
 local binary_split_int, cs = Builder.binary_split_int, Builder.charset
 
@@ -50,15 +47,17 @@ local truept, falsept, Cppt
     , constructors.constant.falsept
     , constructors.constant.Cppt 
 
-local split_int, validate 
-    = cs.split_int, cs.validate
+local    split_int,    tochar,    validate 
+    = cs.split_int, cs.tochar, cs.validate
+
+local Range, Set, S_union, S_tostring
+    = Builder.Range, Builder.set.new
+    , Builder.set.union, Builder.set.tostring
+
+-- factorizers, defined at the end of the file.
+local factorize_choice, factorize_lookahead, factorize_sequence, factorize_unm
 
 
-local Range, Set, S_union
-    = Builder.Range, Builder.set.new, Builder.set.union
-
--- factorizers
-local f_choice, f_lookahead, f_sequence, f_unm
 
 local
 function makechar(c)
@@ -67,6 +66,9 @@ end
 
 local
 function PL_P (v)
+    -- [[DBG]] print("P TYPE: ", type(v))
+    -- [[DBG]] expose(v)
+    -- [[DBG]] print(debug.traceback(1))
     if PL_ispattern(v) then
         return v 
     elseif type(v) == "function" then
@@ -77,8 +79,12 @@ function PL_P (v)
             charset_error(index, charset)
         end
         if v == "" then return PL_P(true) end
-        return true and constructors.aux("sequence", nil, map(makechar, split_int(v)))
+        -- [[DBG]] print(v)
+        -- [[DBG]] for k, v in pairs(map(makechar, split_int(v))) do print("II", k, v) end
+        return true and PL.__mul(map(makechar, split_int(v)))
     elseif type(v) == "table" then
+        -- [[DBG]] print"P TABLE"
+        -- [[DBG]] print(debug.traceback(1))
         -- private copy because tables are mutable.
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
@@ -90,9 +96,13 @@ function PL_P (v)
         if v == 0 then
             return truept
         elseif v > 0 then
-            return true and constructors.aux("any", nil, v)
+            return
+                --[[DBG]] true and 
+                constructors.aux("any", nil, v)
         else
-            return true and - constructors.aux("any", nil, -v)
+            return
+                --[[DBG]] true and 
+                - constructors.aux("any", nil, -v)
         end
     end
 end
@@ -107,7 +117,9 @@ function PL_S (set)
         if not success then 
             charset_error(index, charset)
         end
-        return true and constructors.aux("set", nil, Set(split_int(set)), set)
+        return
+            --[[DBG]] true and 
+            constructors.aux("set", nil, Set(split_int(set)), set)
     end
 end
 PL.S = PL_S
@@ -115,26 +127,31 @@ PL.S = PL_S
 local
 function PL_R (...)
     if select('#', ...) == 0 then
-        return true and PL_P(false)
+        return PL_P(false)
     else
-        local rng = {...}
-        local as_is, acc = rng, {}
-        t_sort(rng)
-        for _, r in ipairs(rng) do
+        local range = Range(1,0)--Set("")
+        -- [[DBG]]expose(range)
+        for _, r in ipairs{...} do
             local success, index = validate(r)
             if not success then 
                 charset_error(index, charset)
             end
-            acc[#acc + 1] = Range(t_unpack(split_int(r)))
+            range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
-
-        return true and constructors.aux("range", nil, acc, rng)
+        -- This is awful.
+        local representation = t_concat(map(tochar, 
+                {load("return "..S_tostring(range))()}))
+        local p = constructors.aux("set", nil, range, representation)
+        return 
+            --[[DBG]] true and 
+            constructors.aux("set", nil, range, representation)
     end
 end
 PL.R = PL_R
 
 local
 function PL_V (name)
+    assert(name ~= nil)
     return constructors.aux("ref", nil,  name)
 end
 PL.V = PL_V
@@ -142,9 +159,9 @@ PL.V = PL_V
 
 
 do 
-    local one = Set{"set", "range", "one", "char"}
-    local zero = Set{"true", "false", "lookahead", "unm"}
-    local forbidden = Set{
+    local one = setify{"set", "range", "one", "char"}
+    local zero = setify{"true", "false", "lookahead", "unm"}
+    local forbidden = setify{
         "Carg", "Cb", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero",
         "Ctag", "Cmt", "Cc", "Cp",
@@ -192,18 +209,16 @@ end
  
 -- pt*pt
 local
-function PL_choice (a,b)
-    a,b = PL_P(a), PL_P(b)
-    -- [[DP]] print("Choice")
-    -- [[DP]] print("A")
+function PL_choice (a, b, ...)
+    -- [[DBG]] print("Choice =====", a, "b", b, "...", ...)
+    if b ~= nil then
+        a, b = PL_P(a), PL_P(b)
+    end
 
-    -- [[DP]] PL.pprint(a)
-    -- [[DP]] print("B")
-    -- [[DP]] PL.pprint(b)
-    local ch = f_choice(a,b)
+    local ch = factorize_choice(a, b, ...)
 
     if #ch == 0 then 
-        return true
+        return falsept
     elseif #ch == 1 then 
         return ch[1]
     else
@@ -215,9 +230,11 @@ PL.__add = PL_choice
 
  -- pt+pt, 
 local
-function sequence (a,b)
-    a,b = PL_P(a), PL_P(b)
-    local seq = f_sequence(a,b)
+function sequence (a, b, ...)
+    if b ~= nil then
+        a, b = PL_P(a), PL_P(b)
+    end
+    local seq = factorize_sequence(a, b, ...)
 
     if #seq == 0 then 
         return truept
@@ -238,11 +255,10 @@ function PL_lookahead (pt)
     or pt.ptype == "unm"
     or pt.ptype == "lookahead" 
     then 
-    -- print("Simplifying:", "LOOK")
-    -- PL.pprint(pt)
-    -- return pt
+        return pt
     end
     -- -- The general case
+    -- [[DB]] print("PL_lookahead", constructors.subpt("lookahead", pt))
     return constructors.subpt("lookahead", pt)
 end
 PL.__len = PL_lookahead
@@ -251,9 +267,9 @@ PL.L = PL_lookahead
 local
 function PL_unm(pt)
     -- Simplifications
-    local returnpt
-    pt, returnpt = f_unm(pt)
-    if returnpt 
+    local as_is
+    pt, as_is = factorize_unm(pt)
+    if as_is 
     then return pt
     else return constructors.subpt("unm", pt) end
 end
@@ -261,8 +277,8 @@ PL.__unm = PL_unm
 
 local
 function PL_sub (a, b)
-        a, b = PL_P(a), PL_P(b)
-        return PL_unm(b) * a
+    a, b = PL_P(a), PL_P(b)
+    return PL_unm(b) * a
 end
 PL.__sub = PL_sub
 
@@ -333,7 +349,7 @@ end
 PL.Cg = PL_Cg
 
 
-local valid_slash_type = Set{"string", "number", "table", "function"}
+local valid_slash_type = setify{"string", "number", "table", "function"}
 local
 function PL_slash (pt, aux)
     if PL_ispattern(aux) then 
@@ -352,11 +368,14 @@ function PL_slash (pt, aux)
 end
 PL.__div = PL_slash
 
-local factorizer = Builder.factorizer(Builder, PL)
-f_choice, f_lookahead, f_sequence, f_unm =
+local factorizer
+    = Builder.factorizer(Builder, PL)
+
+-- These are declared as locals at the top of the wrapper.
+factorize_choice,  factorize_lookahead,  factorize_sequence,  factorize_unm =
 factorizer.choice, factorizer.lookahead, factorizer.sequence, factorizer.unm
 
-end -- module wrapper
+end -- module wrapper --------------------------------------------------------
 
 
 --                   The Romantic WTF public license.

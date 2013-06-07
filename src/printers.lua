@@ -3,30 +3,39 @@ return function(Builder, PL)
 ---------------------------------------  ,--.     º      |     ---------------
 ---------------------------------------  |__' ,-- , ,-.  |--   ---------------
 -- Print ------------------------------  |    |   | |  | |     ---------------
----------------------------------------  '    '   ' '  ' `--  ---------------
+---------------------------------------  '    '   ' '  ' `--   ---------------
 
-local pairs, print, tostring, type 
-    = pairs, print, tostring, type
+local ipairs, pairs, print, tostring, type 
+    = ipairs, pairs, print, tostring, type
 
-local t_concat = table.concat
+local s, t, u = require"string", require"table", require"util"
 
-local u = require"util"
-local expose, load, map
-    = u.    expose, u.load, u.map
 
-local printers, PL_pprint = {}
+local _ENV = u.noglobals() ----------------------------------------------------
 
+
+local s_char, t_concat 
+    = s.char, t.concat
+
+local   expose,   load,   map
+    = u.expose, u.load, u.map
+
+local printers = {}
+
+local
 function PL_pprint (pt, offset, prefix)
-    -- [[DP]] print("PRINT", pt.ptype)
+    -- [[DP]] print("PRINT -", pt)
+    -- [[DP]] print("PRINT +", pt.ptype)
     -- [[DP]] expose(PL.proxycache[pt])
     return printers[pt.ptype](pt, offset, prefix)
 end
 
-function PL.pprint (pt)
-    pt = PL.P(pt)
+function PL.pprint (pt0)
+    local pt = PL.P(pt0)
     print"\nPrint pattern"
     PL_pprint(pt, "", "")
     print"--- /pprint\n"
+    return pt0
 end
 
 for k, v in pairs{
@@ -40,22 +49,26 @@ for k, v in pairs{
     set          = [[ "S( "..'"'..pt.as_is..'"'.." )" ]],
     ["function"] = [[ "P( "..pt.aux.." )"            ]],
     ref = [[
-        "V( "
-            ..(type(pt.aux)~="string" and tostring(pt.aux) or "\""..pt.aux.."\"")
-            .." )"
+        "V( ",
+            (type(pt.aux) == "string" and "\""..pt.aux.."\"")
+                          or tostring(pt.aux) 
+        , " )"
         ]],
     range = [[
-        "R( "
-            ..t_concat(map(pt.as_is, function(e)return '"'..e..'"' end), ", ")
-            .." )"
+        "R( ",
+            t_concat(map(
+                pt.as_is, 
+                function(e) return '"'..e..'"' end), ", "
+            )
+        ," )"
         ]]
 } do
-    printers[k] = load(([[
-        local map, t_concat, to_char = ...
+    printers[k] = load(([==[
+        local k, map, t_concat, to_char = ...
         return function (pt, offset, prefix)
-            print(offset..prefix..XXXX)
+            print(t_concat{offset,prefix,XXXX})
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, t_concat, string.char)
+    ]==]):gsub("XXXX", v), k.." printer")(k, map, t_concat, s_char)
 end
 
 
@@ -228,7 +241,9 @@ cprinters["Cb"] = function (capture, offset, prefix)
         )
 end
 
-end -- module wrapper
+return { pprint = PL.pprint,cprint = PL.cprint }
+
+end -- module wrapper ---------------------------------------------------------
 
 
 --                   The Romantic WTF public license.

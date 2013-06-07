@@ -21,40 +21,29 @@ Patterns have the following, optional fields:
     whether they are terminal or not (no V patterns), and so on.
 --]]---------------------------------------------------------------------------
 
-local debug, ipairs, newproxy, setmetatable 
-    = debug, ipairs, newproxy, setmetatable
+local ipairs, newproxy, print, setmetatable 
+    = ipairs, newproxy, print, setmetatable
+
+local t, u, dtst, compat
+    = require"table", require"util", require"datastructures", require"compat"
+
+--[[DBG]] local debug = require"debug"
 
 local t_concat, t_sort
-    = table.concat, table.sort
+    = t.concat, t.sort
 
-local u, dtst = require"util", require"datastructures"
-local copy, getuniqueid, id
-    , map, noglobals, nop
-    , weakkey, weakval
-    = u.copy, u.getuniqueid, u.id
-    , u.map, u.noglobals, u.nop
-    , u.weakkey, u.weakval
+local copy, getuniqueid, id, map
+    , nop, weakkey, weakval
+    = u.copy, u.getuniqueid, u.id, u.map
+    , u.nop, u.weakkey, u.weakval
 
+local _ENV = u.noglobals()
 
---- Features detection
---
-
-local lua_5_2__len = not #setmetatable({},{__len = nop})
-
-local proxies --= false local FOOO
-    = newproxy
-    and (function()
-        local ok, result = pcall(newproxy)
-        return ok and (type(result) == "userdata" )
-    end)()
-    and type(debug) == "table"
-    and (function() 
-        local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, {},{})
-        return pcall_ok and db_setmt_ok
-    end)()
 
 
 --- The type of cache for each kind of pattern:
+--
+
 local classpt = {
     constant = {
         "Cp", "true", "false"
@@ -76,12 +65,11 @@ local classpt = {
         "behind", "at least", "at most", "Ctag", "Cmt",
         "/string", "/number", "/table", "/function"
     },
+    -- FIXME?? Move Cc to .aux ?? weakboth cache?
     none = "grammar", "Cc"
 }
 
 
-_ENV = nil
-noglobals()
 
 -------------------------------------------------------------------------------
 return function(Builder, PL) --- module wrapper.
@@ -103,14 +91,14 @@ local newpattern do
 
     function PL.get_direct (p) return p end
 
-    if lua_5_2__len then
+    if compat.lua52_len then
         -- Lua 5.2 or LuaJIT + 5.2 compat. No need to do the proxy dance.
         function newpattern(pt)
             return setmetatable(pt,PL) 
         end    
-    elseif proxies then -- Lua 5.1 / LuaJIT without compat.
+    elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
         local d_setmetatable, newproxy
-            = debug.setmetatable, newproxy
+            = compat.debug.setmetatable, newproxy
 
         local proxycache = weakkey{}
         local __index_PL = {__index = PL}
@@ -237,7 +225,8 @@ end
 
 -- no cache for grammars
 constructors["none"] = function(typ, _, aux)
-     -- dprint("CONS: ", typ, pt, aux)
+    -- [[DBG]] print("CONS: ", typ, _, aux)
+    -- [[DBG]] print(debug.traceback(1))
     return newpattern{
         ptype = typ,
         aux = aux

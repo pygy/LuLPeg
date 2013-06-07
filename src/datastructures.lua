@@ -1,21 +1,27 @@
-local getmetatable, pairs, setmetatable, t
-    = getmetatable, pairs, setmetatable, table
+local getmetatable, pairs, pcall, print, setmetatable, type
+    = getmetatable, pairs, pcall, print, setmetatable, type
 
-local m_min   , t_concat, t_insert, t_sort
-    = math.min, t.concat, t.insert, t.sort
-
+local m, t = require"math", require"table"
+local m_min, m_max, t_concat, t_insert, t_sort
+    = m.min, m.max, t.concat, t.insert, t.sort
 
 local u = require"util"
-local all,   extend,   load,   map,   map_all
-    ,   t_unpack
-    = u.all, u.extend, u.load, u.map, u.map_all
-    , u.unpack
+local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
+    = u.all, u.expose, u.extend, u.load, u.map, u.map_all, u.max, u.unpack
 
-local ffi
-if jit and jit.status() then ffi = require"ffi" end
+local compat = require"compat"
+
+local ffi if compat.luajit then
+    ffi = require"ffi"
+end
+
+--[[DBG]] local debug = debug
+
+local _ENV = u.noglobals() ----------------------------------------------------
 
 
-local datafor = {}
+
+local structfor = {}
 
 --------------------------------------------------------------------------------
 --- Byte sets
@@ -26,57 +32,108 @@ local datafor = {}
 -- other based on a FFI bool array.
 
 local byteset_new, isboolset, isbyteset
+
 local byteset_mt = {}
+
 local
-function byteset_constructor (n)
-    return setmetatable(load(table.concat{ 
-        "{ [0]=false", 
-        (", false"):rep(n), 
+function byteset_constructor (upper)
+    local set = setmetatable(load(t_concat{ 
+        "return{ [0]=false", 
+        (", false"):rep(upper), 
         " }"
-    }),
+    })(),
     byteset_mt) 
+    return set
 end
 
-if ffi then
-    local struct, boolset_constructor = {}
+if compat.jit then
+    local struct, empty, boolset_constructor = {v={}}
 
     function byteset_mt.__index(s,i)
+        -- [[DBG]] print("GI", s,i)
+        -- [[DBG]] print(debug.traceback())
+        -- [[DBG]] if i == "v" then error("FOOO") end
+        if i == nil or i > s.upper then return nil end
         return s.v[i]
     end
+    function byteset_mt.__len(s)
+        return s.upper
+    end
     function byteset_mt.__newindex(s,i,v)
+        -- [[DBG]] print("NI", i, v)
         s.v[i] = v
     end
 
-    boolset_constructor = ffi.metatype('struct { bool v[256]; }', byteset_mt)
+    boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
 
+-- [=[
     function byteset_new (t)
-        local set = byteset_constructor(255)
+        -- [[DBG]] print ("Konstructor", type(t), t)
+        if type(t) == "number" then
+            local tmp
+            local res = boolset_constructor(t+1)
+            res.upper = t
+            --[[DBG]] for i = 0, res.upper do if res[i] then print("K", i, res[i]) end end
+            return res
+        end
+        local upper = u_max(t)
+
+        struct.upper = upper
+        if upper > 255 then error"bool_set overflow" end
+        local set = boolset_constructor(upper+1)
+        set.upper = upper
+        for i = 1, #t do set[t[i]] = true end
+
+        return set
+        -- local set = struct.v
+        
+        -- for i = 0, upper do set[i] = false end
+        -- for i = upper + 1, 255 do set[i] = nil end
+        -- for i = 1, #t do set[t[i]] = true end
+
+        -- return boolset_constructor(upper+1, struct)
+    end
+--[==[]=]
+    function byteset_new (t)
+        -- [[DBG]] print "Konstructor"
+        if type(t) == "number" then return boolset_constructor(t+1,{n=t}) end
+        local upper, set
+
+        upper = u_max(t); if upper > 255 then error"bool_set overflow" end        
+        set = byteset_constructor(255)
+
         for _, el in pairs(t) do
             if el > 255 then error"value out of bounds" end
             set[el] = true
         end
-        struct.v = set
-        return boolset_constructor(struct)
-    end
 
-    function isboolset(s) return ffi.istype(s, byteset_constructor) end
-    isbyteset = isbootset
+        set[0] = set[0] or false
+        struct.v = set
+        return boolset_constructor(upper+1, struct)
+    end
+]==]
+    function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
+    isbyteset = isboolset
 else
     function byteset_new (t)
-        local set = byteset_constructor(m_max(t))
+        -- [[DBG]] print("Set", t)
+        if type(t) == "number" then return byteset_constructor(t) end
+        local set = byteset_constructor(u_max(t))
         for i = 1, #t do set[t[i]] = true end
         return set
     end
 
     function isboolset(s) return false end
     function isbyteset (s)
-        return getmetatable(s) == set_mt 
+        return getmetatable(s) == byteset_mt 
     end
 end
 
 local
 function byterange_new (low, high)
-    local set = setmetatable(byteset_constructor(), byteset_mt)
+    -- [[DBG]] print("Range", low,high)
+    high = ( low <= high ) and high or -1
+    local set = byteset_new(high)
     for i = low, high do
         set[i] = true
     end
@@ -85,8 +142,20 @@ end
 
 local
 function byteset_union (a ,b)
-    local res = byteset_new{}
-    for i in 0, 255 do res[k] = a[i] or b[i] end
+    -- [[DBG]] print("\nUNION\n", #a, #b, m_max(#a,#b))
+    local upper = m_max(#a, #b)
+    local res = byteset_new(upper)
+    for i = 0, upper do 
+        res[i] = a[i] or b[i] or false
+        -- [[DBG]] print(i, res[i])
+    end
+    -- [[DBG]] print("BS Un ==========================")
+    -- [[DBG]] print"/// A ///////////////////////  " 
+    -- [[DBG]] expose(a)
+    -- [[DBG]] print"*** B ***********************  " 
+    -- [[DBG]] expose(b)
+    -- [[DBG]] print"   RES   " 
+    -- [[DBG]] expose(res)
     return res
 end
 
@@ -103,8 +172,10 @@ local
 function byteset_tostring (s)
     local list = {}
     for i = 0, 255 do
-        list[#list] = (s[i] == true) and i
+        -- [[DBG]] print(s[i] == true and i)
+        list[#list+1] = (s[i] == true) and i or nil
     end
+    -- [[DBG]] print("BS TOS", t_concat(list,", "))
     return t_concat(list,", ")
 end
 
@@ -115,8 +186,7 @@ end
 
 
 
-
-datafor.binary = {
+structfor.binary = {
     set ={
         new = byteset_new,
         union = byteset_union,
@@ -129,7 +199,6 @@ datafor.binary = {
     isset = isbyteset
 }
 
-print(datafor.binary.set.new)
 --------------------------------------------------------------------------------
 --- Bit sets: TODO? to try, at least.
 --
@@ -172,11 +241,12 @@ local set_mt = {}
 local
 function set_new (t)
     -- optimization for byte sets.
-    if all(map_all(t, function(e)return type(e) == number end))
-    and m_min(t_unpack(t)) > 255 then
-        return byteset_new(t)
-    end
-
+    -- [[BS]] if all(map_all(t, function(e)return type(e) == "number" end))
+    -- and u_max(t) <= 255 
+    -- or #t == 0 
+    -- then
+    --     return byteset_new(t)
+    -- end
     local set = setmetatable({}, set_mt)
     for i = 1, #t do set[t[i]] = true end
     return set
@@ -184,23 +254,22 @@ end
 
 local -- helper for the union code.
 function add_elements(a, res)
-        if isbyteset(a) then
-        for i = 0, 255 do
-            if a[i] then res[i] = true end
-        end
-    else 
-        for k in pairs(a) do res[k] = true end
-    end
+    -- [[BS]] if isbyteset(a) then
+    --     for i = 0, 255 do
+    --         if a[i] then res[i] = true end
+    --     end
+    -- else 
+    for k in pairs(a) do res[k] = true end
     return res
 end
 
 local
 function set_union (a, b)
-    if isbyteset(a) and isbyteset(b) then 
-        return byteset_union(a,b)
-    end
-    a, b = (type(a) == number) and newset{a} or a
-         , (type(b) == number) and newset{b} or b
+    -- [[BS]] if isbyteset(a) and isbyteset(b) then 
+    --     return byteset_union(a,b)
+    -- end
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
     local res = set_new{}
     add_elements(a, res)
     add_elements(b, res)
@@ -210,48 +279,49 @@ end
 local
 function set_difference(a, b)
     local list = {}
-    if isbyteset(a) and isbyteset(b) then 
-        return byteset_difference(a,b)
-    end
-    a, b = (type(a) == number) and newset{a} or a
-         , (type(b) == number) and newset{b} or b
+    -- [[BS]] if isbyteset(a) and isbyteset(b) then 
+    --     return byteset_difference(a,b)
+    -- end
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
 
-    if isbyteset(a) then
-        for i = 0, 255 do
-            if a[i] and not b[i] then
-                list[#list+1] = i
-            end
-        end
-    elseif isbyteset(b) then
-        for el in pairs(a) do
-            if not byteset_has(b, el) then
-                list[#list + 1] = i
-            end
-        end
-    else
-        for el in pairs(a) do
-            if a[i] and not b[i] then
-                list[#list+1] = i
-            end            
-        end
+    -- [[BS]] if isbyteset(a) then
+    --     for i = 0, 255 do
+    --         if a[i] and not b[i] then
+    --             list[#list+1] = i
+    --         end
+    --     end
+    -- elseif isbyteset(b) then
+    --     for el in pairs(a) do
+    --         if not byteset_has(b, el) then
+    --             list[#list + 1] = i
+    --         end
+    --     end
+    -- else
+    for el in pairs(a) do
+        if a[i] and not b[i] then
+            list[#list+1] = i
+        end            
     end
+    -- [[BS]] end 
     return set_new(list)
 end
 
 local
 function set_tostring (s)
-    if isbyteset(s) then return byteset_tostring(s) end
+    -- [[BS]] if isbyteset(s) then return byteset_tostring(s) end
     local list = {}
     for el in pairs(s) do
         t_insert(list,el)
     end
-    table.sort(list)
+    t_sort(list)
     return t_concat(list, ",")
 end
 
 local
 function isset (s)
-    return (getmetatable(s) == set_mt) or isbyteset(s)
+    return (getmetatable(s) == set_mt) 
+        -- [[BS]] or isbyteset(s)
 end
 
 
@@ -290,44 +360,30 @@ end
 --     return getmetatable(r) == range_mt
 -- end
 
-datafor.other = {
+structfor.other = {
     set = {
-        new = newset,
-        union = set_union,
-        tolilst = set_tolist,
-        isset = set_isset,
-        isbyteset = byteset_isset
-    },
-    range = {
-        new = newrange,
-        overlap = range_overlap,
-        merge = range_merge,
-        isrange = range_isrange
-    }
-}
-
-datafor.binary = {
-    set ={
         new = set_new,
         union = set_union,
+        tostring = set_tostring,
         difference = set_difference,
-        tostring = set_tostring
     },
     Range = range_new,
     isboolset = isboolset,
     isbyteset = isbyteset,
-    isset = byteset,
+    isset = isset,
     isrange = function(a) return false end
 }
 
+
+
 return function(Builder, PL)
-    local cs = Builder.options.charset or "binary"
+    local cs = (Builder.options or {}).charset or "binary"
     if type(cs) == "string" then
         cs = (cs == "binary") and "binary" or "other"
     else
         cs = cs.binary and "binary" or "other"
     end
-    extend(Builder, datafor[cs])
+    return extend(Builder, structfor[cs])
 end
 
 

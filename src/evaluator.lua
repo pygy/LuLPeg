@@ -7,11 +7,16 @@ return function(Builder, PL) -- Decorator wrapper
 
 local cprint = PL.cprint
 
-local pcall, setmetatable, tostring
-    = pcall, setmetatable, tostring
-local s_sub, t_concat = string.sub, table.concat
+local pcall, select, setmetatable, tonumber, tostring
+    = pcall, select, setmetatable, tonumber, tostring
 
-local u = require"util"
+local s, t, u = require"string", require"table", require"util"
+
+local _ENV = u.noglobals()
+
+local s_sub, t_concat
+    = s.sub, t.concat
+
 local expose, strip_mt, t_unpack
     = u.expose, u.strip_mt, u.unpack
 
@@ -30,12 +35,8 @@ PL.evaluate = evaluate
 
 --- Some accumulator types for the evaluator
 --
-local fold_mt, group_mt, subst_mt, table_mt = {}, {}, {}, {}
 
-local function new_group_acc (t) return setmetatable(t, group_mt) end
-local function new_table_acc (t) return setmetatable(t, table_mt) end
 
-local function is_table_acc (t) return getmetatable(t) == table_mt end
 
 
 local function insert (capture, subject, acc, index, val_i)
@@ -74,7 +75,8 @@ function lookback(capture, tag, index)
 end
 
 evaluators["Cb"] = function (capture, subject, acc, index, val_i)
-    local ref, Ctag = lookback(capture.parent, capture.tag, capture.parent_i)
+    local ref, Ctag, _ 
+    ref = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
     ref.Ctag = Ctag
@@ -108,7 +110,7 @@ end
 
 evaluators["Cg"] = function (capture, subject, acc, index, val_i)
     local start, finish = capture.start, capture.finish
-    local group_acc = new_group_acc{}
+    local group_acc = {}
 
     if capture.Ctag ~= nil  then
         return start, val_i
@@ -166,9 +168,11 @@ end
 
 
 evaluators["Ct"] = function (capture, subject, acc, index, val_i)
-    local tbl_acc, new_val_i = {}, 1
+    local tbl_acc, new_val_i, _ = {}, 1
+
     for i = 1, capture.n - 1 do
         local cap = capture[i]
+
         if cap.Ctag ~= nil then
             local tmp_acc = {}
 
@@ -176,7 +180,6 @@ evaluators["Ct"] = function (capture, subject, acc, index, val_i)
             local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
             tbl_acc[cap.Ctag] = val
         else
-            -- print("Ct ttt; ",cap.type, new_val_i)
             _, new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
         end
     end
@@ -262,7 +265,7 @@ function insert_divfunc_results(acc, val_i, ...)
     return val_i
 end
 evaluators["/function"] = function (capture, subject, acc, index, val_i)
-    local func, params, new_val_i = capture.aux
+    local func, params, new_val_i, _ = capture.aux
     if capture.n > 1 then
         params = {}
         _, new_val_i = insert(capture, subject, params, capture.start, 1)

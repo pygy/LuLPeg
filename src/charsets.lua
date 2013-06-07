@@ -15,11 +15,18 @@
 -- See each function for usage.
 
 
-local u = require"util"
+local s, t, u = require"string", require"table", require"util"
+
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
+
+
+
 local copy = u.copy
 
-local s_byte, s_byte, t_insert
-    = string.sub, string.byte, table.insert
+local s_char, s_sub, s_byte, t_insert
+    = s.char, s.sub, s.byte, t.insert
 
 -------------------------------------------------------------------------------
 --- UTF-8
@@ -29,6 +36,7 @@ local s_byte, s_byte, t_insert
 -- Modified from code by Kein Hong Man <khman@users.sf.net>,
 -- found at http://lua-users.org/wiki/SciteUsingUnicode.
 
+local
 function utf8_offset (byte)
     if byte < 128 then return 0, byte
     elseif byte < 192 then
@@ -44,13 +52,11 @@ function utf8_offset (byte)
 end
 
 
---[[
-validate a given (sub)string.
-returns two values: 
-* The first is either true, false or nil, respectively on success, error, or 
-  incomplete subject.
-* The second is the index of the last byte of the last valid char.
---]] 
+-- validate a given (sub)string.
+-- returns two values: 
+-- * The first is either true, false or nil, respectively on success, error, or 
+--   incomplete subject.
+-- * The second is the index of the last byte of the last valid char.
 local
 function utf8_validate (subject, start, finish)
     start = start or 1
@@ -75,20 +81,18 @@ function utf8_validate (subject, start, finish)
     return true, finish
 end
 
---[[
-Usage:
-    for finish, start, cpt in utf8_next_int, "˙†ƒ˙©√" do
-        print(cpt)
-    end
-`start` and `finish` being the bounds of the character, and `cpt` being the UTF-8 code point.
-It produces:
-    729
-    8224
-    402
-    729
-    169
-    8730
---]]
+-- Usage:
+--     for finish, start, cpt in utf8_next_int, "˙†ƒ˙©√" do
+--         print(cpt)
+--     end
+-- `start` and `finish` being the bounds of the character, and `cpt` being the UTF-8 code point.
+-- It produces:
+--     729
+--     8224
+--     402
+--     729
+--     169
+--     8730
 local 
 function utf8_next_int (subject, i)
     i = i and i+1 or 1
@@ -103,20 +107,18 @@ function utf8_next_int (subject, i)
 end
 
 
---[[
-Usage:
-    for finish, start, cpt in utf8_next_int, "˙†ƒ˙©√" do
-        print(cpt)
-    end
-`start` and `finish` being the bounds of the character, and `cpt` being the UTF-8 code point.
-It produces:
-    ˙
-    †
-    ƒ
-    ˙
-    ©
-    √
---]]
+-- Usage:
+--     for finish, start, cpt in utf8_next_int, "˙†ƒ˙©√" do
+--         print(cpt)
+--     end
+-- `start` and `finish` being the bounds of the character, and `cpt` being the UTF-8 code point.
+-- It produces:
+--     ˙
+--     †
+--     ƒ
+--     ˙
+--     ©
+--     √
 local
 function utf8_next_char (subject, i)
     i = i and i+1 or 1
@@ -126,9 +128,7 @@ function utf8_next_char (subject, i)
 end
 
 
---[[
-Takes a string, returns an array of code points.
---]]
+-- Takes a string, returns an array of code points.
 local
 function utf8_split_int (subject)
     local chars = {}
@@ -138,9 +138,7 @@ function utf8_split_int (subject)
     return chars
 end
 
---[[
-Takes a string, returns an array of characters.
---]]
+-- Takes a string, returns an array of characters.
 local
 function utf8_split_char (subject)
     local chars = {}
@@ -324,7 +322,8 @@ local charsets = {
         next_char  = binary_next_char,
         next_int   = binary_next_int,
         get_char   = binary_get_char,
-        get_int    = binary_get_int
+        get_int    = binary_get_int,
+        tochar    = s_char
     },
     ["UTF-8"] = {
         name = "UTF-8",

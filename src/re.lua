@@ -1,9 +1,13 @@
+return function(Builder, m)
+-- hack to get this file to work with both
+-- LuaLPeg and the LPeg test file during dev mode.
+
+
 -- $Id: re.lua,v 1.44 2013/03/26 20:11:40 roberto Exp $
 
 -- imported functions and modules
 local tonumber, type, print, error = tonumber, type, print, error
 local setmetatable = setmetatable
-local m = require(arg[1])
 
 -- 'm' will be used to parse expressions, and 'mm' will be used to
 -- create expressions; that is, 're' runs on 'm', creating patterns
@@ -82,6 +86,7 @@ local function patt_error (s, i)
   local msg = (#s < i + 20) and s:sub(i)
                              or s:sub(i,i+20) .. "..."
   msg = ("pattern error near '%s'"):format(msg)
+  -- [[DBG]] print("patt_error", i, s)
   error(msg, 2)
 end
 
@@ -104,6 +109,15 @@ end
 
 
 local S = (Predef.space + "--" * (any - Predef.nl)^0)^0
+-- local S do
+-- local tmp3 = m.pprint(m.pprint(any) - m.pprint(Predef.nl))
+-- local tmp2 = m.pprint(tmp3^0)
+-- local tmp2b = m.pprint(m.P"--")
+-- local tmp1 = m.pprint(tmp2b * tmp2)
+-- local tmp = m.pprint(Predef.space + tmp1)
+-- S = tmp^0
+-- end
+
 
 local name = m.R("AZ", "az", "__") * m.R("AZ", "az", "__", "09")^0
 
@@ -155,6 +169,14 @@ local function firstdef (n, r)
   return adddef({n}, n, r)
   end
 
+local
+function Debug (pt) return m.Cmt(pt, function (s,i,...) 
+    -- print( "Re DBG++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+    --   , i, ('-'):rep(40)..'\n', s:sub(i,-1), ... ) 
+    --   m.pprint(pt)
+    return true, ...
+  end)
+end
 
 local function NT (n, b)
   if not b then
@@ -163,6 +185,8 @@ local function NT (n, b)
   end
 end
 
+-- [[DBG]] local __mul = m.__mul
+-- [[DBG]] m.__mul = function(a,b) m.pprint(a); m.pprint(b) return __mul(a,b) end
 
 local exp = m.P{ "Exp",
   Exp = S * ( m.V"Grammar"
@@ -209,9 +233,9 @@ local exp = m.P{ "Exp",
             + "{" * m.V"Exp" * "}" / mm.C
             + m.P"." * m.Cc(any)
             + (name * -arrow + "<" * name * ">") * m.Cb("G") / NT;
-  Definition = name * arrow * m.V"Exp";
+  Definition = Debug(name)  * arrow * m.V"Exp";
   Grammar = m.Cg(m.Cc(true), "G") *
-            m.Cf(m.V"Definition" / firstdef * m.Cg(m.V"Definition")^0,
+            m.Cf(m.V"Definition"  / firstdef * m.Cg(m.V"Definition")^0,
               adddef) / function(t)
                           if false then
                             for k, p in pairs(t) do
@@ -288,3 +312,4 @@ local re = {
 if version == "Lua 5.1" then _G.re = re end
 
 return re
+end

@@ -16,23 +16,64 @@
 -- More encodings can be easily added (see the charset section), by adding a 
 -- few appropriate functions.
 
+-- remove the global tables from the environment
+-- they are restored at the end of the file.
+-- standard libraries must be require()d.
+
+--[[DBG]] local debug, print_ = require"debug", print
+--[[DBG]] local print = function(...) 
+--[[DBG]]    print_(debug.traceback(2))
+--[[DBG]]    print_("RE print", ...)
+--[[DBG]]    return ...
+--[[DBG]] end
+
+local tmp_globals, globalenv = {}, _ENV or _G
+if false and not release then
+for lib, tbl in pairs(globalenv) do
+    if type(tbl) == "table" then
+        tmp_globals[lib], globalenv[lib] = globalenv[lib], nil
+    end
+end
+end
+
+local getmetatable, pairs, setmetatable
+    = getmetatable, pairs, setmetatable
+
+local u = require"util"
+local   map,   nop, t_unpack 
+    = u.map, u.nop, u.unpack
+
+-- The module decorators.
+local API, charsets, compiler, constructors
+    , datastructures, evaluator, factorizer
+    , locale, match, printers, re
+    = t_unpack(map(require,
+    { "API", "charsets", "compiler", "constructors"
+    , "datastructures", "evaluator", "factorizer"
+    , "locale", "match", "printers", "re" }))
+
+if not release then
+    local success, package = pcall(require, "package")
+    if type(package) == "table" 
+    and type(package.loaded) == "table" 
+    and package.loaded.re 
+    then 
+        package.loaded.re = nil
+    end
+end
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
+
+
+
 -- The LPeg version we emulate.
 local VERSION = "0.12"
 
 -- The PureLPeg version.
 local PVERSION = "0.0.0"
 
-local u = require"util"
-local map, nop, t_unpack = u.map, u.nop, u.unpack
-
--- The module decorators.
-local API, charsets, compiler, constructors
-    , datastructures, evaluator, factorizer
-    , locale, match, printers
-    = t_unpack(map(require,
-    { "API", "charsets", "compiler", "constructors"
-    , "datastructures", "evaluator", "factorizer"
-    , "locale", "match", "printers" }))
+local CLI = function(lpeg, env) setmetatable(env,{__index = lpeg}) end
 
 local 
 function PLPeg(options)
@@ -50,7 +91,6 @@ function PLPeg(options)
 
     PL.__index = PL
 
-    local getmetatable = getmetatable
     local
     function PL_ispattern(pt) return getmetatable(pt) == PL end
     PL.ispattern = PL_ispattern
@@ -62,7 +102,9 @@ function PLPeg(options)
             return nil
         end
     end
-
+    PL.util = u
+    PL.CLI = CLI
+    -- Decorate the LPeg object.
     charsets(Builder, PL)
     datastructures(Builder, PL)
     printers(Builder, PL)
@@ -72,12 +114,17 @@ function PLPeg(options)
     ;(options.compiler or compiler)(Builder, PL)
     match(Builder, PL)
     locale(Builder, PL)
-
+    PL.re = re(Builder, PL)
 
     return PL
 end -- PLPeg
 
 local PL = PLPeg()
+-- restore the global libraries
+for lib, tbl in pairs(tmp_globals) do
+        globalenv[lib] = tmp_globals[lib] 
+end
+
 
 return PL
 
