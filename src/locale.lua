@@ -46,7 +46,7 @@ end -- Module wrapper --------------------------------------------------------}
 --
 --            Dear user,
 --
---            The LuLPeg proto-library
+--            The LuLPeg library
 --
 --                                             \ 
 --                                              '.,__

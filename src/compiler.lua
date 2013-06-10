@@ -260,16 +260,18 @@ compilers["string"] = function (pt, ccache)
     end
 end
 
+
 compilers["char"]= function (pt, ccache)
-    local c0 = pt.aux
-    return function(subject, index, cap_acc, cap_i, state)
-         -- dprint("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-        local c, nindex = get_int(subject, index)
-        if c ~= c0 then
-            return false, index, cap_i
-        end
-        return true, nindex, cap_i
-    end
+    return load(([[
+        local get_int = ...
+        return function(subject, index, cap_acc, cap_i, state)
+             -- dprint("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+            local c, nindex = get_int(subject, index)
+            if c ~= __C0__ then
+                return false, index, cap_i
+            end
+            return true, nindex, cap_i
+        end]]):gsub("__C0__", tostring(pt.aux)))(get_int)
 end
 
 
@@ -561,7 +563,7 @@ end
 --
 --            Dear user,
 --
---            The LuLPeg proto-library
+--            The LuLPeg library
 --
 --                                             \ 
 --                                              '.,__

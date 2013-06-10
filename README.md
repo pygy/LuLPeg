@@ -61,7 +61,7 @@ if you call `lulpeg:register()`, you can also `require"re"` as you would with LP
 
 ### No auto-globals in Lua 5.1
 
-In Lua 5.1, `require"lpeg"` and `require"re"` create globals, as per the `module()` pattern. you can emulate that behaviour by passing the global table to `lulpeg:register()`, or, obviously, by creating the globals yourself :).
+In Lua 5.1, `require"lpeg"` and `require"re"` create globals, as per the `module()` pattern. You can emulate that behaviour by passing the global table to `lulpeg:register()`, or, obviously, by creating the globals yourself :).
 
 ### For Lua 5.1 sandboxes without proxies:
 
@@ -79,7 +79,7 @@ The preliminary version of this library supported UTF-8 out of the box, but bitr
 
 LuLPeg with Lua 5.1 and 5.2 is ~100 times slower that the original. 
 
-With LuaJIT in JIT mode, it is from ~2 to ~10 times slower. The exact performance is unpredictable. Tiny changes in code, not necessarily related to the grammar, or a different subject string, can have a serious impact. LuaJIT uses speculative heuristics to chose what to compile. These are influenced by the memory layout, among other things.
+With LuaJIT in JIT mode, it is from ~2 to ~10 times slower. The exact performance is unpredictable. Tiny changes in code, not necessarily related to the grammar, or a different subject string, can have a 5x impact. LuaJIT uses speculative heuristics to chose what to compile. These are influenced by the memory layout, among other things. LPeg grammars are branchy, by nature, and this kind of code doesn't lend itself very well to JIT compilation.
 
 LuaJIT in with the JIT compiler turned off is ~50 times slower than LPeg.
 

@@ -440,7 +440,7 @@ return util
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The PureLPeg library
 --
 --                                             \ 
 --                                              '.,__

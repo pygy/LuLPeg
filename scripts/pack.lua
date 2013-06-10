@@ -1,6 +1,6 @@
 -- A Lua source file packer.
 -- released under the Romantic WTF Public License
-setmetatable( _G or _ENV, {__index = require"lulpeg" } )
+setmetatable( _G or _ENV, {__index = require"init" } )
  
 args = {...}
 --[[]] pcall( require,"luarocks.loader" )

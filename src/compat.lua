@@ -40,7 +40,7 @@ return compat
 --
 --            Dear user,
 --
---            The LuLPeg proto-library
+--            The LuLPeg library
 --
 --                                             \ 
 --                                              '.,__

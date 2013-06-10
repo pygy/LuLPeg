@@ -1,17 +1,19 @@
 
 ### Captures:
 
-Try to use several buffers insetad of one for captures (less allocations for most of them).
+Try to use several buffers insetad of one for captures (less allocations).
 
 - one array with the capture bounds (similar to the LPeg one). 
 - one array of booleans indicating whether the given bound opens or closes a capture.
 - one array for the types. (corresponding to both opening an closing tokens).
-- one array for metadata.
+- one array for metadata, when present.
+
+Try a cdata-based approach for LuaJIT.
 
 ### Compiler
 
 - Drop the one function per pattern approach for one big function per non-grammar pattern/gammar rule.
-- A Terra backend?
+- Add a Terra backend?
 
 ### Compatibility:
 
@@ -22,12 +24,16 @@ Try to use several buffers insetad of one for captures (less allocations for mos
 
 - Implement TCO.
 
-- ? Be more strict with garbage ?
+- ? Be more strict with capture garbage during match time ?
 
 ### Cleanup:
 
 - remove unused parameters/return values in the API+constructors and evaluator code.
-- move some special cases from API.lua to compiler.lua
+- move some special cases from API.lua to compiler.lua (and refactor some of them, like repetitions).
+
+### Speed:
+
+- merge char sequences? Probably pointless with the one function per rule compiler strategy.
 
 ### Unicode:
 
