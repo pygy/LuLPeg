@@ -33,7 +33,7 @@ Try a cdata-based approach for LuaJIT.
 
 ### Speed:
 
-- merge char sequences? Probably pointless with the one function per rule compiler strategy.
+- merge char sequences to strings? Probably pointless with the one function per rule compiler strategy.
 
 ### Unicode:
 
