@@ -4,8 +4,6 @@ A pure Lua port of LPeg, Roberto Ierusalimschy's Parsing Expression Grammars lib
 
 See http://www.inf.puc-rio.br/~roberto/lpeg/ for the original and its documentation.
 
-It is inended as a drop-in replacement for LPeg, either as a fallback for LPeg libraries
-
 ## Usage:
 
 The standalone `lulpeg.lua` found in the main directory is a drop-in replacement for LPeg.
