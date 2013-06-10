@@ -19,6 +19,9 @@ local lulpeg = require"lulpeg"
 local re = lulpeg.re
 
 -- from here use LuLPeg as you would use LPeg.
+
+pattern = lulpeg.C(lulpeg.P"A" + "B") ^ 0
+print(pattern:match"ABA") --> "A" "B" "A"
 ```
 
 If you plan to fall back on LuLPeg when LPeg is not present, putting the following at the top level of your program will make the substitution transparent:
@@ -136,6 +139,14 @@ If you want to use LuLPeg in a Lua 5.1 sandbox that doesn't provide `newproxy()`
 ### "Global" mode for expolration:
 
 `LuLPeg:global(_G or _ENV)` sets LuLPeg as the __index of the the current environment, sparring you from aliasing each LPeg command manually. This is useful if you want to explore LPeg at the command line, for example.
+
+```Lua
+require"lulpeg":global(_G or _ENV)
+
+pattern = Ct(C(P"A" + "B") ^ 0)
+pattern:match"BABAB" --> {"B", "A", "B", "A", "B"} 
+
+```
 
 ### UTF-8
 
