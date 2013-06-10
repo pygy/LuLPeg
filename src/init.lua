@@ -51,7 +51,7 @@ local _ENV = u.noglobals() ----------------------------------------------------
 local VERSION = "0.12"
 
 -- The PureLPeg version.
-local PVERSION = "0.0.0"
+local LuVERSION = "0.1.0"
 
 local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
 local function register(lpeg, env) 
@@ -75,7 +75,7 @@ function PLPeg(options)
         = { options = options, factorizer = factorizer }
         , { new = PLPeg
           , version = function () return VERSION end
-          , pversion = function () return PVERSION end
+          , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
 
