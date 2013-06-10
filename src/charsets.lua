@@ -1,7 +1,5 @@
----------------------------------------   .--. .                        '     -
----------------------------------------  /     |__  .--. .--. .--. .--. |--   -
--- Charset handling -------------------  \     |  | .--| |    '--. |--' |     -
----------------------------------------   '--' '  ' '--' '    '--' '--' '--'  -
+
+-- Charset handling
 
 -- We provide: 
 -- * utf8_validate(subject, start, finish) -- validator
@@ -236,7 +234,7 @@ end
 local
 function utf8_char(c)
     if     c < 128 then
-        return --[[See the end of the line: --->]]                                           s_char(c)
+        return                                                                               s_char(c)
     elseif c < 2048 then 
         return                                                          s_char(192 + c/64, 128 + c%64)
     elseif c < 65536 then
@@ -355,7 +353,7 @@ end
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

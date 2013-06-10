@@ -1,8 +1,11 @@
-PureLPeg, a pure Lua port of LPeg, Roberto Ierusalimschy's
-Parsing Expression  Grammars library.
+LuLPeg, a pure Lua port of LPeg, Roberto Ierusalimschy's
+Parsing Expression Grammars library.
 
 Copyright (C) Pierre-Yves Gerardy.
 Released under the Romantif WTF Public License (cf. the LICENSE
 file or the end of this file, whichever is present).
 
 See http://www.inf.puc-rio.br/~roberto/lpeg/ for the original.
+
+The re.lua module and the test suite (tests/lpeg.*.*.tests.lua)
+are part of the original LPeg distribution.

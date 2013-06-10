@@ -1,13 +1,15 @@
-return function(Builder, m)
--- hack to get this file to work with both
--- LuaLPeg and the LPeg test file during dev mode.
+local compat = require"compat"
 
+-- re.lua by Roberto Ierusalimschy. see LICENSE in the root folder.
+
+return function(Builder, PL)
 
 -- $Id: re.lua,v 1.44 2013/03/26 20:11:40 roberto Exp $
 
 -- imported functions and modules
 local tonumber, type, print, error = tonumber, type, print, error
 local setmetatable = setmetatable
+local m = PL
 
 -- 'm' will be used to parse expressions, and 'mm' will be used to
 -- create expressions; that is, 're' runs on 'm', creating patterns
@@ -86,7 +88,6 @@ local function patt_error (s, i)
   local msg = (#s < i + 20) and s:sub(i)
                              or s:sub(i,i+20) .. "..."
   msg = ("pattern error near '%s'"):format(msg)
-  -- [[DBG]] print("patt_error", i, s)
   error(msg, 2)
 end
 
@@ -101,7 +102,6 @@ local function mult (p, n)
 end
 
 local function equalcap (s, i, c)
-  -- print("Equal cap: ", s, i, c)
   if type(c) ~= "string" then return nil end
   local e = #c + i
   if s:sub(i, e - 1) == c then return e else return nil end
@@ -109,15 +109,6 @@ end
 
 
 local S = (Predef.space + "--" * (any - Predef.nl)^0)^0
--- local S do
--- local tmp3 = m.pprint(m.pprint(any) - m.pprint(Predef.nl))
--- local tmp2 = m.pprint(tmp3^0)
--- local tmp2b = m.pprint(m.P"--")
--- local tmp1 = m.pprint(tmp2b * tmp2)
--- local tmp = m.pprint(Predef.space + tmp1)
--- S = tmp^0
--- end
-
 
 local name = m.R("AZ", "az", "__") * m.R("AZ", "az", "__", "09")^0
 
@@ -158,25 +149,13 @@ local function adddef (t, k, exp)
   if t[k] then
     error("'"..k.."' already defined as a rule")
   else
-    -- print("Add def:", k)
     t[k] = exp
   end
   return t
 end
 
-local function firstdef (n, r)
-  -- print("First def: ", n)
-  return adddef({n}, n, r)
-  end
+local function firstdef (n, r) return adddef({n}, n, r) end
 
-local
-function Debug (pt) return m.Cmt(pt, function (s,i,...) 
-    -- print( "Re DBG++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
-    --   , i, ('-'):rep(40)..'\n', s:sub(i,-1), ... ) 
-    --   m.pprint(pt)
-    return true, ...
-  end)
-end
 
 local function NT (n, b)
   if not b then
@@ -185,13 +164,11 @@ local function NT (n, b)
   end
 end
 
--- [[DBG]] local __mul = m.__mul
--- [[DBG]] m.__mul = function(a,b) m.pprint(a); m.pprint(b) return __mul(a,b) end
 
 local exp = m.P{ "Exp",
   Exp = S * ( m.V"Grammar"
             + m.Cf(m.V"Seq" * ("/" * S * m.V"Seq")^0, mt.__add) );
-  Seq = m.Cf(m.Cc(m.P"") * m.V"Prefix"^0 ,  mt.__mul)
+  Seq = m.Cf(m.Cc(m.P"") * m.V"Prefix"^0 , mt.__mul)
         * (#seq_follow + patt_error);
   Prefix = "&" * S * m.V"Prefix" / mt.__len
          + "!" * S * m.V"Prefix" / mt.__unm
@@ -209,17 +186,7 @@ local exp = m.P{ "Exp",
                          )
             + "=>" * S * m.Cg(Def / getdef * m.Cc(m.Cmt))
             ) * S
-          )^0, function (a,b,f) 
-                  -- print"Fold------------------"; 
-                  -- print("f, a, b: ", f, a, b)
-                  -- print(mm.ispattern(a))
-                  -- mm.pprint(a)
-                  -- print"Fold"; 
-                  -- mm.pprint(b)
-                  -- print"Fold"; 
-                  -- mm.pprint(f(a,b))
-                  -- print"Fold==================="; 
-                  return  f(a,b) end );
+          )^0, function (a,b,f) return f(a,b) end );
   Primary = "(" * m.V"Exp" * ")"
             + String / mm.P
             + Class
@@ -233,24 +200,10 @@ local exp = m.P{ "Exp",
             + "{" * m.V"Exp" * "}" / mm.C
             + m.P"." * m.Cc(any)
             + (name * -arrow + "<" * name * ">") * m.Cb("G") / NT;
-  Definition = Debug(name)  * arrow * m.V"Exp";
+  Definition = name * arrow * m.V"Exp";
   Grammar = m.Cg(m.Cc(true), "G") *
-            m.Cf(m.V"Definition"  / firstdef * m.Cg(m.V"Definition")^0,
-              adddef) / function(t)
-                          if false then
-                            for k, p in pairs(t) do
-                              if type(p) ~= "string" then
-                                local enter = mm.Cmt(mm.P(true), function(s, p, ...)
-                                  print("ENTER", k) return p end);
-                                local leave = mm.Cmt(mm.P(true), function(s, p, ...)
-                                  print("LEAVE", k) end);
-                                t[k] = mm.Cmt(enter * p + leave, function(s, p, ...)
-                                  print("---", k, "---", p, s:sub(1, p-1)) return p end)
-                              end
-                            end
-                          end
-                          return mm.P(t)
-                        end
+            m.Cf(m.V"Definition" / firstdef * m.Cg(m.V"Definition")^0,
+              adddef) / mm.P
 }
 
 local pattern = S * m.Cg(m.Cc(false), "G") * exp / mm.P * (-any + patt_error)
@@ -260,7 +213,6 @@ local function compile (p, defs)
   if mm.type(p) == "pattern" then return p end   -- already compiled
   local cp = pattern:match(p, 1, defs)
   if not cp then error("incorrect pattern", 3) end
-  -- m.pprint(cp)
   return cp
 end
 
@@ -270,7 +222,6 @@ local function match (s, p, i)
     cp = compile(p)
     mem[p] = cp
   end
-  -- print(cp)
   return cp:match(s, i or 1)
 end
 
@@ -309,7 +260,8 @@ local re = {
   updatelocale = updatelocale,
 }
 
-if version == "Lua 5.1" then _G.re = re end
+-- if compat.lua51 or compat.luajit then _G.re = re end
 
 return re
+
 end

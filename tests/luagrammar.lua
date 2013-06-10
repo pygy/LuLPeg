@@ -1,6 +1,8 @@
-local tac = os.clock()
--- local trace = require"luatrace"
-local lpeg = require (arg[1]);
+-- Based on Patrick Donnelly LPeg recipe: 
+-- http://lua-users.org/wiki/LpegRecipes
+
+local success, lpeg = pcall(require, arg[1])
+assert(success, "could not load"..tostring(arg[1]))
 
 lpeg.setmaxstack(10000)
 
@@ -13,13 +15,18 @@ local P, S, V = lpeg.P, lpeg.S, lpeg.V;
 local C, Cb, Cc, Cg, Cs, Cmt =
     lpeg.C, lpeg.Cb, lpeg.Cc, lpeg.Cg, lpeg.Cs, lpeg.Cmt;
 
+local lua
+
+local defined = assert(pcall(function() --{ ------------------------------------------
+
+
 local shebang = P "#" * (P(1) - P "\n")^0 * P "\n";
 
 local function K (k) -- keyword
   return P(k) * -(locale.alnum + P "_");
 end
 
-local lua = P {
+lua = P {
   (shebang)^-1 * V "space" * V "chunk" * V "space" * -P(1);
 
   -- keywords
@@ -199,24 +206,16 @@ local lua = P {
          P "#" +
          K "not";
 };
-local tic = os.clock()
-print"Defined"
--- trace.tron()
+end)) -- }---------------------------------------------------------------------
+
+
 src = "\nfunction foo()\n"..src.."\nend\n"
-n = 0
-for i = 0, n do
-    local tic = os.clock()
-    local success = lua:match(src)
-    toc = os.clock()
-    print(success)--, toc)
-    src = src..src
-    -- print(i)
-end
--- trace.troff()
-local parsetime = toc-tic
-local creationtime = tic-tac
-local total = toc-tac
-print("Done")
-print("Match: "..tostring(parsetime))--*1000/n))
-print("Creation: "..tostring(creationtime))--*1000))
--- print("Total: "..tostring(total*1000))
+local len = #src
+
+local END
+assert(pcall(function() 
+  END = lua:match(src)
+end))
+
+assert(END == len+1, "premature end of parse. END:"..END.." len:"..len)
+print("Success", END)

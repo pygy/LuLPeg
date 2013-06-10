@@ -1,25 +1,21 @@
----------------------------------------   ,--.                 ----------------
----------------------------------------  /     ,--. ,-.  ,--.  ----------------
--- Constructors -----------------------  \     |  | |  | `--.  ----------------
----------------------------------------   `--' `--' '  ' `--'  ----------------
 
+-- Constructors
 
---[[---------------------------------------------------------------------------
-Patterns have the following, optional fields:
+-- Patterns have the following, optional fields:
+-- 
+-- - type: the pattern type. ~1 to 1 correspondance with the pattern constructors
+--     described in the LPeg documentation.
+-- - pattern: the one subpattern held by the pattern, like most captures, or 
+--     `#pt`, `-pt` and `pt^n`.
+-- - aux: any other type of data associated to the pattern. Like the string of a
+--     `P"string"`, the range of an `R`, or the list of subpatterns of a `+` or
+--     `*` pattern. In some cases, the data is pre-processed. in that case,
+--     the `as_is` field holds the data as passed to the constructor.
+-- - as_is: see aux.
+-- - meta: A table holding meta information about patterns, like their
+--     minimal and maximal width, the form they can take when compiled, 
+--     whether they are terminal or not (no V patterns), and so on.
 
-- type: the pattern type. ~1 to 1 correspondance with the pattern constructors
-    described in the LPeg documentation.
-- pattern: the one subpattern held by the pattern, like most captures, or 
-    `#pt`, `-pt` and `pt^n`.
-- aux: any other type of data associated to the pattern. Like the string of a
-    `P"string"`, the range of an `R`, or the list of subpatterns of a `+` or
-    `*` pattern. In some cases, the data is pre-processed. in that case,
-    the `as_is` field holds the data as passed to the constructor.
-- as_is: see aux.
-- meta: A table holding meta information about patterns, like their
-    minimal and maximal width, the form they can take when compiled, 
-    whether they are terminal or not (no V patterns), and so on.
---]]---------------------------------------------------------------------------
 
 local ipairs, newproxy, print, setmetatable 
     = ipairs, newproxy, print, setmetatable
@@ -272,7 +268,7 @@ end -- module wrapper
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

@@ -1,20 +1,9 @@
----------------------------------  ,--.                ,    ,--.            ---
----------------------------------  |__' ,  . ,--. ,--. |    |__' ,--. ,--.  ---
--- PureLPeg.lua -----------------  |    |  | |    |--' |    |    |--' `__|  ---
----------------------------------  '    `--' '    `--' `--- '    `--' .__'  ---
+
+-- LuLPeg.lua
+
 
 -- a WIP LPeg implementation in pure Lua, by Pierre-Yves Gérardy
 -- released under the Romantic WTF Public License (see the end of the file).
-
--- Captures and locales are not yet implemented, but the rest works quite well.
--- UTF-8 is supported out of the box
---
---     PL.set_charset"UTF-8"
---     s = PL.S"ß∂ƒ©˙"
---     s:match"©" --> 3 (since © is two bytes wide).
--- 
--- More encodings can be easily added (see the charset section), by adding a 
--- few appropriate functions.
 
 -- remove the global tables from the environment
 -- they are restored at the end of the file.
@@ -52,16 +41,7 @@ local API, charsets, compiler, constructors
     , "datastructures", "evaluator", "factorizer"
     , "locale", "match", "printers", "re" }))
 
-if not release then
-    local success, package = pcall(require, "package")
-    if type(package) == "table" 
-    and type(package.loaded) == "table" 
-    and package.loaded.re 
-    then 
-        package.loaded.re = nil
-    end
-end
-
+local package = require"package"
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
@@ -73,7 +53,17 @@ local VERSION = "0.12"
 -- The PureLPeg version.
 local PVERSION = "0.0.0"
 
-local CLI = function(lpeg, env) setmetatable(env,{__index = lpeg}) end
+local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
+local function register(lpeg, env) 
+    pcall(function()
+        package.loaded.lpeg = self
+        package.loaded.re = self.re
+    end)
+    if env then
+        env.lpeg, env.re = lpeg, lpeg.re
+    end
+    return self
+end
 
 local 
 function PLPeg(options)
@@ -103,8 +93,9 @@ function PLPeg(options)
         end
     end
     PL.util = u
-    PL.CLI = CLI
-    -- Decorate the LPeg object.
+    PL.global = global
+    PL.register = register
+    ;-- Decorate the LPeg object.
     charsets(Builder, PL)
     datastructures(Builder, PL)
     printers(Builder, PL)
@@ -135,7 +126,7 @@ return PL
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

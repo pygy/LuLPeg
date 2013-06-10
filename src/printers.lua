@@ -1,9 +1,6 @@
 return function(Builder, PL)
 
----------------------------------------  ,--.     º      |     ---------------
----------------------------------------  |__' ,-- , ,-.  |--   ---------------
--- Print ------------------------------  |    |   | |  | |     ---------------
----------------------------------------  '    '   ' '  ' `--   ---------------
+-- Print
 
 local ipairs, pairs, print, tostring, type 
     = ipairs, pairs, print, tostring, type
@@ -11,7 +8,9 @@ local ipairs, pairs, print, tostring, type
 local s, t, u = require"string", require"table", require"util"
 
 
+
 local _ENV = u.noglobals() ----------------------------------------------------
+
 
 
 local s_char, t_concat 
@@ -253,7 +252,7 @@ end -- module wrapper ---------------------------------------------------------
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

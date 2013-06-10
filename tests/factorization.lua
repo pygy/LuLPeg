@@ -1,4 +1,4 @@
-require"purelpeg":CLI(_G or _ENV)
+require"lulpeg":CLI(_G or _ENV)
 
 -- print"cache"
 
@@ -6,6 +6,8 @@ assert(P"a" == P"a")
 assert(S"ab" == S"ab")
 assert(R("ac","em") == R("ac","em"))
 assert(P"a"^0 == P"a"^0)
+assert(R"AZ" == R"AZ")
+assert(S"AB" == S"AB")
 
 -- print"booleans"
 
@@ -34,6 +36,11 @@ assert(P"a" * "" == P"a")
 assert(C(P"A" + P"B") == C"A" + C"B")
 assert( not (C(P"A" * P"B") == C"A" * C"B"))
 assert( not (C(P"A" + P"B") == C"A" + C"C"))
+assert(P"A"/1 + P"B"/1 == (P"A" + P"B")/1)
+
+-- print"set and range unions"
+
+assert(R"az"+R"AZ" == R("az", "AZ"))
 
 -- print"captures"
 -- local e = _G or _ENV

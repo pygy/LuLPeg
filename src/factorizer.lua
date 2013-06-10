@@ -12,13 +12,16 @@ local   id,   setify,   arrayify
 local V_hasCmt = u.nop
 
 
+
 local _ENV = u.noglobals() ----------------------------------------------------
+
+
 
 ---- helpers
 --
 
-
--- handle the id or break properties of P(true) and P(false) in sequences/arrays.
+-- handle the id or break properties of P(true) and P(false) in 
+-- sequences/arrays.
 local
 function process_booleans(lst, opts)
     local acc, id, brk = {}, opts.id, opts.brk
@@ -49,13 +52,15 @@ function seq_unm_unm (acc, p1, p2)
 end
 
 
-
 -- patterns where `C(x) + C(y) => C(x + y)` apply.
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
     "Ctag", "Cmt", "/string", "/number",
     "/table", "/function", "at least", "at most"
 }
+
+-- patterns where p1 + p2 == p1 U p2 
+local unifiable = setify{"char", "set", "range"}
 
 
 local
@@ -148,19 +153,18 @@ setmetatable(seq_optimize, {
 })
 
 local type2cons = {
-    ["/zero"] = PL.__div,
-    ["/number"] = PL.__div,
-    ["/string"] = PL.__div,
-    ["/table"] = PL.__div,
-    ["/function"] = PL.__div,
-    ["at least"] = PL.__exp,
-    ["at most"] = PL.__exp,
-    ["Ctag"] = PL.Cg,
+    ["/zero"] = "__div",
+    ["/number"] = "__div",
+    ["/string"] = "__div",
+    ["/table"] = "__div",
+    ["/function"] = "__div",
+    ["at least"] = "__exp",
+    ["at most"] = "__exp",
+    ["Ctag"] = "Cg",
 }
-
+local level = 0
 local
 function choice (a,b, ...)
-    -- [[DP]] print("Factorize CH", a, "b", b, "...", ...)
     -- 1. flatten  (a + b) + (c + d) => a + b + c + d
     local dest
     if b ~= nil then 
@@ -174,6 +178,7 @@ function choice (a,b, ...)
     local changed
     local src
     repeat
+        -- [[DBG]] print"REP"
         src, dest, changed = dest, {dest[1]}, false
         for i = 2,#src do
             local p1, p2 = dest[#dest], src[i]
@@ -255,3 +260,47 @@ return {
     unm = unm
 }
 end
+
+--                   The Romantic WTF public license.
+--                   --------------------------------
+--                   a.k.a. version "<3" or simply v3
+--
+--
+--            Dear user,
+--
+--            The LuLPeg proto-library
+--
+--                                             \ 
+--                                              '.,__
+--                                           \  /
+--                                            '/,__
+--                                            /
+--                                           /
+--                                          /
+--                       has been          / released
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                under  the  Romantic   WTF Public License.
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               I hereby grant you an irrevocable license to
+--                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+--                  do what the gentle caress you want to
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                           with   this   lovely
+--                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                               / thing...
+--                              /  ~ ~ ~ ~
+--                             /    Love,
+--                        #   /      '.'
+--                        #######      ·
+--                        #####
+--                        ###
+--                        #
+--
+--            -- Pierre-Yves
+--
+--
+--            P.S.: Even though I poured my heart into this work, 
+--                  I _cannot_ provide any warranty regarding 
+--                  its fitness for _any_ purpose. You
+--                  acknowledge that I will not be held liable
+--                  for any damage its use could incur.

@@ -1,3 +1,4 @@
+
 -- A collection of general purpose helpers.
 
 --[[DGB]] local debug = require"debug"
@@ -102,39 +103,26 @@ elseif compat.luajit then
             return m_max(t_unpack(ary))
         end
     end
-elseif compat.lua52 then
-    local t_unpack = util.unpack
-    function util.max (ary)
-        local len = #ary
-        if len == 0 
-            then return 0
-        elseif len <=20 or len > 10240 then
-            local max = ary[1]
-            for i = 2, len do 
-                if ary[i] > max then max = ary[i] end 
-            end
-            return max
-        else
-            return m_max(t_unpack(ary))
-        end
-    end
 else
     local t_unpack = util.unpack
-    function util.max (ary)
-        -- [[DB]] util.expose(ary)
-        -- [[DB]] print(debug.traceback())
-        local len = #ary
-        if len == 0 then 
-            return 0
-        elseif len <=20 or len > 10240 then
-            local max = ary[1]
-            for i = 2, len do 
-                if ary[i] > max then max = ary[i] end 
+    local safe_len = 1000
+    function util.max(array)
+        -- Thanks to Robert G. Jakabosky for this implementation.
+        local len = #array
+        if len == 0 then return -1 end -- FIXME: shouldn't this be `return -1`?
+        local off = 1
+        local off_end = safe_len
+        local max = array[1] -- seed max.
+        repeat
+            if off_end > len then off_end = len end
+            local seg_max = m_max(unpack(array, off, off_end))
+            if seg_max > max then
+                max = seg_max
             end
-            return max
-        else
-            return m_max(t_unpack(ary))
-        end
+            off = off + safe_len
+            off_end = off_end + safe_len
+        until off >= len
+        return max
     end
 end            
 

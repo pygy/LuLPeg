@@ -1,13 +1,37 @@
-Adapt the capture generation/evaluation process to correctly handle 
-* nil
-* Cb
 
-Git branch, and try to use several buffers insetad of one for captures (less allocations for most of them).
+### Captures:
 
-Drop the recursive descent approach for one big function per gammar rule/non-grammar pattern.
+Try to use several buffers insetad of one for captures (less allocations for most of them).
 
-Attempt a CPS version?
+- one array with the capture bounds (similar to the LPeg one). 
+- one array of booleans indicating whether the given bound opens or closes a capture.
+- one array for the types. (corresponding to both opening an closing tokens).
+- one array for metadata.
 
-Implement cut semantics.
+### Compiler
 
-Simplify the leaf patterns for the binary version (mimic the LPeg charsets).
+- Drop the one function per pattern approach for one big function per non-grammar pattern/gammar rule.
+- A Terra backend?
+
+### Compatibility:
+
+- Check for grammar errors:
+-- bad references in grammars
+-- references used outside grammars
+-- infinite loops (true^0, left-recursive rules)
+
+- Implement TCO.
+
+- ? Be more strict with garbage ?
+
+### Cleanup:
+
+- remove unused parameters/return values in the API+constructors and evaluator code.
+- move some special cases from API.lua to compiler.lua
+
+### Unicode:
+
+Restore the unicode functionality.
+
+- fix datastructures.lua
+- test and benchmark the various UTF-8 encoding/decoding strategies, including using the bit libraries when available.

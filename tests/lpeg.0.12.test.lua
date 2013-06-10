@@ -1,5 +1,5 @@
 #!/usr/bin/env lua5.1
-for i = 1, 1 do
+
 -- $Id: test.lua,v 1.101 2013/04/12 16:30:33 roberto Exp $
 
 -- require"strict"    -- just to be pedantic
@@ -7,22 +7,7 @@ for i = 1, 1 do
 local m = require(arg[1])
 package.loaded.lpeg = m
 package.loaded.re = m.re
-if arg[1] ~= "lpeg" then pprint = m.pprint else pprint = function()end end
 
--- for general use
-local a, b, c, d, e, f, g, p, t
-
-
--- compatibility with Lua 5.2
-local unpack = rawget(table, "unpack") or unpack
-local loadstring = rawget(_G, "loadstring") or load
-
-
--- most tests here do not need much stack space
-m.setmaxstack(5)
-
-local any = m.P(1)
-local space = m.S" \t\n"^0
 
 local _assert, test_success, test_failure, firsterr = assert, 0, 0, true
 local assert = function(...)
@@ -43,6 +28,22 @@ local assert = function(...)
   return r or true
 end
 
+
+-- for general use
+local a, b, c, d, e, f, g, p, t
+
+
+-- compatibility with Lua 5.2
+local unpack = rawget(table, "unpack") or unpack
+local loadstring = rawget(_G, "loadstring") or load
+
+
+-- most tests here do not need much stack space
+m.setmaxstack(5)
+
+local any = m.P(1)
+local space = m.S" \t\n"^0
+
 local function checkeq (x, y, p)
 if p then print(x,y) end
   if type(x) ~= "table" then assert(x == y)
@@ -54,6 +55,7 @@ end
 
 
 local mt = getmetatable(m.P(1))
+
 
 local allchar = {}
 for i=0,255 do allchar[i + 1] = i end
@@ -87,6 +89,7 @@ assert(m.match(m.P(false) * "a", "a") == nil)
 assert(m.match(m.P(true) * "a", "a") == 2)
 assert(m.match("a" * m.P(false), "a") == nil)
 assert(m.match("a" * m.P(true), "a") == 2)
+
 assert(m.match(#m.P(false) * "a", "a") == nil)
 assert(m.match(#m.P(true) * "a", "a") == 2)
 assert(m.match("a" * #m.P(false), "a") == nil)
@@ -124,8 +127,7 @@ local digit = m.S"0123456789"
 local upper = m.S"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 local lower = m.S"abcdefghijklmnopqrstuvwxyz"
 local letter = m.S"" + upper + lower
-local R_ = m.R()
-local alpha = letter + digit + R_
+local alpha = letter + digit + m.R()
 
 eqcharset(m.S"", m.P(false))
 eqcharset(upper, m.R("AZ"))
@@ -366,16 +368,18 @@ checkeq(t, {hi = 10, ho = 20, 'a', 'b', 'c'})
 
 -- test for error messages
 local function checkerr (msg, ...)
-  assert(m.match({ m.P(msg) + 1 * m.V(1) }, select(2, pcall(...))))
+  assert(m.match({ m.P(msg) + 1 * m.V(1) }, tostring(select(2, pcall(...)))))
 end
-print"Error Messages:"
+
+print"\nError Messages:"
+
 checkerr("rule '1' may be left recursive", m.match, { m.V(1) * 'a' }, "a")
 checkerr("rule '1' used outside a grammar", m.match, m.V(1), "")
 checkerr("rule 'hiii' used outside a grammar", m.match, m.V('hiii'), "")
 checkerr("rule 'hiii' undefined in given grammar", m.match, { m.V('hiii') }, "")
 checkerr("undefined in given grammar", m.match, { m.V{} }, "")
 
-assert(false) -- checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
+checkerr("rule 'A' is not a pattern", m.P, { m.P(1), A = {} })
 checkerr("grammar has no initial rule", m.P, { [print] = {} })
 
 -- grammar with a long call chain before left recursion
@@ -388,7 +392,8 @@ p = {'a',
   f = m.V'g',
   g = m.P''
 }
-assert(false) -- checkerr("rule 'a' may be left recursive", m.match, p, "a")
+checkerr("rule 'a' may be left recursive", m.match, p, "a")
+print"/Error Messages\n"
 
 
 -- tests for non-pattern as arguments to pattern functions
@@ -425,12 +430,7 @@ m.P{ m.P { (m.P(3) + "xuxu")^0 * m.V"xuxu", xuxu = m.P(1) } }
 local V = m.V
 
 local Space = m.S(" \n\t")^0
-local Number = m.C(
-  --m.R("09")
-    m.digit
-^1) * Space
-m.pprint(m.R"09")
-m.pprint(m.digit)
+local Number = m.C(m.R("09")^1) * Space
 local FactorOp = m.C(m.S("+-")) * Space
 local TermOp = m.C(m.S("*/")) * Space
 local Open = "(" * Space
@@ -438,7 +438,6 @@ local Close = ")" * Space
 
 
 local function f_factor (v1, op, v2, d)
-  --[[DBG]] print("factor", v1, op, v2, d)
   assert(d == nil)
   if op == "+" then return v1 + v2
   else return v1 - v2
@@ -447,7 +446,6 @@ end
 
 
 local function f_term (v1, op, v2, d)
-  --[[DBG]] print("term", v1, op, v2, d)
   assert(d == nil)
   if op == "*" then return v1 * v2
   else return v1 / v2
@@ -466,7 +464,7 @@ for _, s in ipairs{" 3 + 5*9 / (1+1) ", "3+4/2", "3+3-3- 9*2+3*9/1-  8"} do
   assert(m.match(G, s) == loadstring("return "..s)())
 end
 
--- error"STOP"
+
 -- test for grammars (errors deep in calling non-terminals)
 g = m.P{
   [1] = m.V(2) + "a",
@@ -571,7 +569,8 @@ p = m.P{
   [3] = '0' * m.V(4) + '1' * m.V(1),
   [4] = '0' * m.V(3) + '1' * m.V(2),
 }
-print"\nStack overflow."
+
+print"\nTail call elimination and stack size"
 assert(false) -- assert(p:match(string.rep("00", 10000)))
 assert(false) -- assert(p:match(string.rep("01", 10000)))
 assert(false) -- assert(p:match(string.rep("011", 10000)))
@@ -587,6 +586,7 @@ m.setmaxstack(2*lim)
 assert(not pcall(m.match, p, string.rep("0", lim)))
 m.setmaxstack(2*lim + 4)
 assert(pcall(m.match, p, string.rep("0", lim)))
+print"/Tail call elimination and stack size\n"
 
 -- this repetition should not need stack space (only the call does)
 p = m.P{ ('a' * m.V(1))^0 * 'b' + 'c' }
@@ -609,8 +609,7 @@ assert(m.match("", "abc", 10))   -- empty string is everywhere!
 assert(m.match("", "", 10))
 assert(not m.match(1, "", 1))
 assert(not m.match(1, "", -1))
-print"\nIndex 0??"
-assert(false) -- assert(not m.match(1, "", 0))
+assert(not m.match(1, "", 0))
 
 print("+")
 
@@ -631,7 +630,7 @@ assert(m.match(m.Cmt(m.Cg(m.Carg(3), "a") *
                                       end) *
                      m.Carg(2), function (s,i,a,b,c)
                                   assert(s == "a" and i == 1 and c == nil);
-				  return i, 2*a + 3*b
+                  return i, 2*a + 3*b
                                 end) * "a",
                "a", 1, false, 100, 1000) == 2*1001 + 3*100)
 
@@ -719,6 +718,7 @@ checkeq(t, {"abc", "a", "b", "c"})
 g = function (...) return 1, ... end
 t = {m.match(m.C(1)^0/g/g, "abc")}
 checkeq(t, {1, 1, "a", "b", "c"})
+
 t = {m.match(m.Cc(nil,nil,4) * m.Cc(nil,3) * m.Cc(nil, nil) / g / g, "")}
 t1 = {1,1,nil,nil,4,nil,3,nil,nil}
 for i=1,10 do assert(t[i] == t1[i]) end
@@ -744,9 +744,7 @@ assert(m.match(m.Cs((m.C(1)/{e="."})^0), "abcdde") == "abcdd.")
 assert(m.match(m.Cs((m.C(1)/{e=".", f="+"})^0), "eefef") == "..+.+")
 assert(m.match(m.Cs((m.C(1))^0), "abcdde") == "abcdde")
 assert(m.match(m.Cs(m.C(m.C(1)^0)), "abcdde") == "abcdde")
-
 assert(m.match(1 * m.Cs(m.P(1)^0), "abcdde") == "bcdde")
-
 assert(m.match(m.Cs((m.C('0')/'x' + 1)^0), "abcdde") == "abcdde")
 assert(m.match(m.Cs((m.C('0')/'x' + 1)^0), "0ab0b0") == "xabxbx")
 assert(m.match(m.Cs((m.C('0')/'x' + m.P(1)/{b=3})^0), "b0a0b") == "3xax3")
@@ -810,6 +808,7 @@ checkeq(t, {a="b", c="du", xux="yuy"})
 
 
 -- errors in accumulator capture
+
 -- very long match (forces fold to be a pair open-close) producing with
 -- no initial capture
 assert(not pcall(m.match, m.Cf(m.P(500), print), string.rep('a', 600)))
@@ -823,28 +822,29 @@ assert(not pcall(m.match, m.Cf(m.P(1) / {}, print), "alo"))
 local function haveloop (p)
   assert(not pcall(function (p) return p^0 end, m.P(p)))
 end
-print"haveloop and badgrammar"
-assert(false) -- haveloop(m.P("x")^-4)
+
+print"\nhaveloop and badgrammar"
+haveloop(m.P("x")^-4)
 assert(m.match(((m.P(0) + 1) * m.S"al")^0, "alo") == 3)
 assert(m.match((("x" + #m.P(1))^-4 * m.S"al")^0, "alo") == 3)
-assert(false) -- haveloop("")
-assert(false) -- haveloop(m.P("x")^0)
-assert(false) -- haveloop(m.P("x")^-1)
-assert(false) -- haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
-assert(false) -- haveloop(-m.P("ab"))
-assert(false) -- haveloop(- -m.P("ab"))
-assert(false) -- haveloop(# #(m.P("ab") + "xy"))
-assert(false) -- haveloop(- #m.P("ab")^0)
-assert(false) -- haveloop(# -m.P("ab")^1)
-assert(false) -- haveloop(#m.V(3))
-assert(false) -- haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
-assert(false) -- haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
+haveloop("")
+haveloop(m.P("x")^0)
+haveloop(m.P("x")^-1)
+haveloop(m.P("x") + 1 + 2 + m.P("a")^-1)
+haveloop(-m.P("ab"))
+haveloop(- -m.P("ab"))
+haveloop(# #(m.P("ab") + "xy"))
+haveloop(- #m.P("ab")^0)
+haveloop(# -m.P("ab")^1)
+haveloop(#m.V(3))
+haveloop(m.V(3) + m.V(1) + m.P('a')^-1)
+haveloop({[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(0)})
 assert(m.match(m.P{[1] = m.V(2) * m.V(3), [2] = m.V(3), [3] = m.P(1)}^0, "abc")
        == 3)
 assert(m.match(m.P""^-3, "a") == 1)
 
 local function find (p, s)
-  return m.match(basiclookfor(p), s)
+  return m.match(basiclookfor(p), tostring(s))
 end
 
 
@@ -854,22 +854,22 @@ local function badgrammar (g, expected)
   if expected then assert(find(expected, msg)) end
 end
 
-assert(false) -- badgrammar({[1] = m.V(1)}, "rule '1'")
-assert(false) -- badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
-assert(false) -- badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
-assert(false) -- badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
-assert(false) -- badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-assert(false) -- badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
-assert(false) -- badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
-assert(false) -- badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
-assert(false) -- badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
-assert(false) -- badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
-assert(false) -- badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
-assert(false) -- badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
-assert(false) -- badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-assert(false) -- badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
-assert(false) -- badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
-assert(false) -- badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
+badgrammar({[1] = m.V(1)}, "rule '1'")
+badgrammar({[1] = m.V(2)}, "rule '2'")   -- invalid non-terminal
+badgrammar({[1] = m.V"x"}, "rule 'x'")   -- invalid non-terminal
+badgrammar({[1] = m.V{}}, "rule '(a table)'")   -- invalid non-terminal
+badgrammar({[1] = #m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+badgrammar({[1] = -m.P("a") * m.V(1)}, "rule '1'")  -- left-recursive
+badgrammar({[1] = -1 * m.V(1)}, "rule '1'")  -- left-recursive
+badgrammar({[1] = -1 + m.V(1)}, "rule '1'")  -- left-recursive
+badgrammar({[1] = 1 * m.V(2), [2] = m.V(2)}, "rule '2'")  -- left-recursive
+badgrammar({[1] = 1 * m.V(2)^0, [2] = m.P(0)}, "rule '1'")  -- inf. loop
+badgrammar({ m.V(2), m.V(3)^0, m.P"" }, "rule '2'")  -- inf. loop
+badgrammar({ m.V(2) * m.V(3)^0, m.V(3)^0, m.P"" }, "rule '1'")  -- inf. loop
+badgrammar({"x", x = #(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+badgrammar({ -(m.V(1) * 'a') }, "rule '1'")  -- inf. loop
+badgrammar({"x", x = m.P'a'^-1 * m.V"x"}, "rule 'x'")  -- left recursive
+badgrammar({"x", x = m.P'a' * m.V"y"^1, y = #m.P(1)}, "rule 'x'")
 
 assert(m.match({'a' * -m.V(1)}, "aaa") == 2)
 assert(m.match({'a' * -m.V(1)}, "aaaa") == nil)
@@ -880,13 +880,14 @@ m.P{ ('a' * m.V(1))^-1 }
 m.P{ -('a' * m.V(1)) }
 m.P{ ('abc' * m.V(1))^-1 }
 m.P{ -('abc' * m.V(1)) }
-assert(false) -- badgrammar{ #m.P('abc') * m.V(1) }
-assert(false) -- badgrammar{ -('a' + m.V(1)) }
+badgrammar{ #m.P('abc') * m.V(1) }
+badgrammar{ -('a' + m.V(1)) }
 m.P{ #('a' * m.V(1)) }
-assert(false) -- badgrammar{ #('a' + m.V(1)) }
+badgrammar{ #('a' + m.V(1)) }
 m.P{ m.B{ m.P'abc' } * 'a' * m.V(1) }
-assert(false) -- badgrammar{ m.B{ m.P'abc' } * m.V(1) }
-assert(false) -- badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
+badgrammar{ m.B{ m.P'abc' } * m.V(1) }
+badgrammar{ ('a' + m.P'bcd')^-1 * m.V(1) }
+print"/haveloop and badgrammar\n"
 
 
 -- simple tests for maximum sizes:
@@ -1045,6 +1046,8 @@ assert(p == 'alo')
 
 
 -- ensure that failed match-time captures are not kept on Lua stack
+print"\nGarbage collection"
+
 do
   local t = {__mode = "kv"}; setmetatable(t,t)
   local c = 0
@@ -1057,11 +1060,12 @@ do
     c = c + 1
     return i, x
   end
-  print"\nGarbage Collection."
+
   local p = m.P{ m.Cmt(0, foo) * m.P(false) + m.P(1) * m.V(1) + m.P"" }
   p:match(string.rep('1', 10))
   assert(c == 11)
 end
+print"/Garbage collection\n"
 
 p = (m.P(function () return true, "a" end) * 'a'
   + m.P(function (s, i) return i, "aa", 20 end) * 'b'
@@ -1108,9 +1112,9 @@ checkeq(t, {4, 5, 7})
 assert(match("cccx" , "'ab'? ('ccc' / ('cde' / 'cd'*)? / 'ccc') 'x'+") == 5)
 assert(match("cdx" , "'ab'? ('ccc' / ('cde' / 'cd'*)? / 'ccc') 'x'+") == 4)
 assert(match("abcdcdx" , "'ab'? ('ccc' / ('cde' / 'cd'*)? / 'ccc') 'x'+") == 8)
+
 assert(match("abc", "a <- (. a)?") == 4)
 b = "balanced <- '(' ([^()] / balanced)* ')'"
-print "----------------------------------------- Ballanced --------------------"
 assert(match("(abc)", b))
 assert(match("(a(b)((c) (d)))", b))
 assert(not match("(a(b ((c) (d)))", b))
@@ -1217,6 +1221,7 @@ assert(c:match'[[]=]====]=]]]==]===[]' == 14)
 assert(not c:match'[[]=]====]=]=]==]===[]')
 
 c = re.compile" '[' {:init: '='* :} '[' (!(']' =init ']') .)* ']' =init ']' !. "
+
 assert(c:match'[==[]]===]]]]==]')
 assert(c:match'[[]=]====]=][]==]===[]]')
 assert(not c:match'[[]=]====]=]=]==]===[]')
@@ -1245,7 +1250,6 @@ assert(re.gsub("alo alo", "%w+", ".") == ". .")
 assert(re.gsub("hi, how are you", "[aeiou]", string.upper) ==
                "hI, hOw ArE yOU")
 
-
 s = 'hi [[a comment[=]=] ending here]] and [=[another]]=]]'
 c = re.compile" '[' {:i: '='* :} '[' (!(']' =i ']') .)* ']' { =i } ']' "
 assert(re.gsub(s, c, "%2") == 'hi  and =]')
@@ -1255,27 +1259,19 @@ assert(re.gsub('[=[hi]=]', c, "%2") == '=')
 assert(re.find("", "!.") == 1)
 assert(re.find("alo", "!.") == 4)
 
-function addtag (s, i, t, tag) 
-  -- print("Add Tag: ", i,tag) 
-  for k,v in pairs(t) do
-    -- print("AT: ", k, v)
-  end
-  t.tag = tag
-  return i, t
-end
-print"\nHTMLoid"
+function addtag (s, i, t, tag) t.tag = tag; return i, t end
+
 c = re.compile([[
   doc <- block !.
   block <- (start {| (block / { [^<]+ })* |} end?) => addtag
   start <- '<' {:tag: [a-z]+ :} '>'
   end <- '</' { =tag } '>'
 ]], {addtag = addtag})
--- print"H match ///////////////////////////////////////////////////////////////////////////////////////////"
 
 x = c:match[[
 <x>hi<b>hello</b>but<b>totheend</x>]]
-assert(false) -- checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
---                     {'totheend'}}, true)
+checkeq(x, {tag='x', 'hi', {tag = 'b', 'hello'}, 'but',
+                     {'totheend'}})
 
 
 -- tests for look-ahead captures
@@ -1303,6 +1299,7 @@ p = re.compile[[
   line <- {[^%nl]*} %nl
   space <- '_'     -- should be ' ', but '_' is simpler for editors
 ]]
+
 t= p:match[[
 1
 __1.1
@@ -1331,6 +1328,7 @@ assert(not p:match'aaabbba')
 -- testing groups
 t = {re.match("abc", "{:S <- {:.:} {S} / '':}")}
 checkeq(t, {"a", "bc", "b", "c", "c", ""})
+
 t = re.match("1234", "{| {:a:.:} {:b:.:} {:c:.{.}:} |}")
 checkeq(t, {a="1", b="2", c="4"})
 t = re.match("1234", "{|{:a:.:} {:b:{.}{.}:} {:c:{.}:}|}")
@@ -1407,15 +1405,16 @@ local function errmsg (p, err)
   local s, msg = pcall(re.compile, p)
   assert(not s and string.find(msg, err))
 end
+
 errmsg('aaaa', "rule 'aaaa'")
 errmsg('a', 'outside')
 
-print"\nre errmsg"
-assert(false) -- errmsg('b <- a', 'undefined')
+print"\nre error messages"
+errmsg('b <- a', 'undefined')
+print"/re error messages\n"
+
 errmsg("x <- 'a'  x <- 'b'", 'already defined')
 errmsg("'a' -", "near '-'")
 
 
 print("OK", "Success: ", test_success, "Failures: ", test_failure)
-
-end

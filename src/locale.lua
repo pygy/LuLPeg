@@ -1,16 +1,20 @@
----------------------------------------  |                  |        ----------
----------------------------------------  |    ,--. ,-- ,--. |  ,--.  ----------
--- Locale -----------------------------  |    |  | |   ,--| |  |--'  ----------
----------------------------------------  +--- `--' `-- `--' `- `--'  ----------
+
+-- Locale definition.
+
+local extend = require"util".extend
+
+
+
+local _ENV = require"util".noglobals() ----------------------------------------
+
 
 
 -- We'll limit ourselves to the standard C locale for now.
 -- see http://wayback.archive.org/web/20120310215042/http://www.utas.edu.au...
 -- .../infosys/info/documentation/C/CStdLib.html#ctype.h
 
-return function(Builder, PL) -- Module wrapper
+return function(Builder, PL) -- Module wrapper {-------------------------------
 
-local extend = require"util".extend
 local R, S = PL.R, PL.S
 
 local locale = {}
@@ -32,7 +36,7 @@ function PL.locale (t)
     return extend(t or {}, locale)
 end
 
-end -- Module wrapper
+end -- Module wrapper --------------------------------------------------------}
 
 
 --                   The Romantic WTF public license.
@@ -42,7 +46,7 @@ end -- Module wrapper
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

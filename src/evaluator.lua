@@ -1,7 +1,5 @@
----------------------------------------   ,---            |   ----------------
----------------------------------------   |__  .   , ,--. |   ----------------
--- Capture evaluators -----------------   |     \ /  ,--| |   ----------------
----------------------------------------   `---   v   `--' `-  ----------------
+
+-- Capture evaluators
 
 return function(Builder, PL) -- Decorator wrapper
 
@@ -12,7 +10,11 @@ local pcall, select, setmetatable, tonumber, tostring
 
 local s, t, u = require"string", require"table", require"util"
 
-local _ENV = u.noglobals()
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
+
+
 
 local s_sub, t_concat
     = s.sub, t.concat
@@ -287,7 +289,7 @@ end  -- Decorator wrapper
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

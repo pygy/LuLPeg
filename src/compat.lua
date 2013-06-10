@@ -1,10 +1,13 @@
+
+-- compat.lua
+
 local _, debug, jit
 
 _, debug = pcall(require, "debug")
-if not _ then debug = nil end
+debug = _ and debug
 
 _, jit = pcall(require, "jit")
-if not _ then jit = nil end
+jit = _ and jit
 
 local compat = {
     debug = debug,
@@ -13,8 +16,7 @@ local compat = {
     lua52_len = not #setmetatable({},{__len = nop}), 
     luajit = jit and true or false,
     jit = (jit and jit.status()),
-    proxies --= false local FOOO
-        = newproxy
+    proxies = newproxy
         and (function()
             local ok, result = pcall(newproxy)
             return ok and (type(result) == "userdata" )
@@ -27,8 +29,50 @@ local compat = {
         end)()
 }
 
-compat.lua51 = (_VERSION == "Lua 5.1") and not luajit
--- [[DB]] print("compat")
--- [[DB]] for k, v in pairs(compat) do print(k,v) end
+compat.lua51 = (_VERSION == "Lua 5.1") and not compat.luajit
 
 return compat
+
+--                   The Romantic WTF public license.
+--                   --------------------------------
+--                   a.k.a. version "<3" or simply v3
+--
+--
+--            Dear user,
+--
+--            The LuLPeg proto-library
+--
+--                                             \ 
+--                                              '.,__
+--                                           \  /
+--                                            '/,__
+--                                            /
+--                                           /
+--                                          /
+--                       has been          / released
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                under  the  Romantic   WTF Public License.
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               I hereby grant you an irrevocable license to
+--                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+--                  do what the gentle caress you want to
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                           with   this   lovely
+--                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                               / thing...
+--                              /  ~ ~ ~ ~
+--                             /    Love,
+--                        #   /      '.'
+--                        #######      ·
+--                        #####
+--                        ###
+--                        #
+--
+--            -- Pierre-Yves
+--
+--
+--            P.S.: Even though I poured my heart into this work, 
+--                  I _cannot_ provide any warranty regarding 
+--                  its fitness for _any_ purpose. You
+--                  acknowledge that I will not be held liable
+--                  for any damage its use could incur.

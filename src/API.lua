@@ -1,7 +1,5 @@
----------------------------------------  ,--, ,--. -,-  ----------------------
----------------------------------------  |  | |__'  |   ----------------------
--- API --------------------------------  |- | |     |   ----------------------
----------------------------------------  '  ' '    -'-  ----------------------
+
+-- API.lua
 
 -- What follows is the core LPeg functions, the public API to create patterns.
 -- Think P(), R(), pt1 + pt2, etc.
@@ -66,9 +64,6 @@ end
 
 local
 function PL_P (v)
-    -- [[DBG]] print("P TYPE: ", type(v))
-    -- [[DBG]] expose(v)
-    -- [[DBG]] print(debug.traceback(1))
     if PL_ispattern(v) then
         return v 
     elseif type(v) == "function" then
@@ -79,17 +74,15 @@ function PL_P (v)
             charset_error(index, charset)
         end
         if v == "" then return PL_P(true) end
-        -- [[DBG]] print(v)
-        -- [[DBG]] for k, v in pairs(map(makechar, split_int(v))) do print("II", k, v) end
         return true and PL.__mul(map(makechar, split_int(v)))
     elseif type(v) == "table" then
-        -- [[DBG]] print"P TABLE"
-        -- [[DBG]] print(debug.traceback(1))
         -- private copy because tables are mutable.
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
         if not PL_ispattern(g[1]) then g[1] = PL.V(g[1]) end
-        return true and constructors.none("grammar", nil, g) 
+        return 
+            --[[DBG]] true and 
+            constructors.none("grammar", nil, g) 
     elseif type(v) == "boolean" then
         return v and truept or falsept
     elseif type(v) == "number" then
@@ -111,7 +104,9 @@ PL.P = PL_P
 local
 function PL_S (set)
     if set == "" then 
-        return true and PL_P(false)
+        return 
+            --[[DBG]] true and
+            PL_P(false)
     else 
         local success, index = validate(set)
         if not success then 
@@ -152,7 +147,9 @@ PL.R = PL_R
 local
 function PL_V (name)
     assert(name ~= nil)
-    return constructors.aux("ref", nil,  name)
+    return 
+        --[[DBG]] true and 
+        constructors.aux("ref", nil,  name)
 end
 PL.V = PL_V
 
@@ -202,7 +199,9 @@ do
         local len = fixedlen(pt)
         assert(len, "A 'behind' pattern takes a fixed length pattern as argument.")
         if len >= 260 then error("Subpattern too long in 'behind' pattern constructor.") end
-        return constructors.both("behind", pt, len)
+        return
+            --[[DBG]] true and
+            constructors.both("behind", pt, len)
     end
 end
 
@@ -222,7 +221,9 @@ function PL_choice (a, b, ...)
     elseif #ch == 1 then 
         return ch[1]
     else
-        return constructors.aux("choice", nil, ch)
+        return 
+            --[[DBG]] true and
+            constructors.aux("choice", nil, ch)
     end
 end
 PL.__add = PL_choice
@@ -242,7 +243,9 @@ function sequence (a, b, ...)
         return seq[1]
     end
 
-    return constructors.aux("sequence", nil, seq)
+    return 
+        --[[DBG]] true and
+        constructors.aux("sequence", nil, seq)
 end
 PL.__mul = sequence
 
@@ -259,7 +262,9 @@ function PL_lookahead (pt)
     end
     -- -- The general case
     -- [[DB]] print("PL_lookahead", constructors.subpt("lookahead", pt))
-    return constructors.subpt("lookahead", pt)
+    return 
+        --[[DBG]] true and
+        constructors.subpt("lookahead", pt)
 end
 PL.__len = PL_lookahead
 PL.L = PL_lookahead
@@ -271,7 +276,10 @@ function PL_unm(pt)
     pt, as_is = factorize_unm(pt)
     if as_is 
     then return pt
-    else return constructors.subpt("unm", pt) end
+    else 
+        return 
+            --[[DBG]] true and
+            constructors.subpt("unm", pt) end
 end
 PL.__unm = PL_unm
 
@@ -298,20 +306,26 @@ PL.__pow = PL_repeat
 for __, cap in pairs{"C", "Cs", "Ct"} do
     PL[cap] = function(pt, aux)
         pt = PL_P(pt)
-        return constructors.subpt(cap, pt)
+        return 
+            --[[DBG]] true and
+            constructors.subpt(cap, pt)
     end
 end
 
 
 PL["Cb"] = function(aux)
-    return constructors.aux("Cb", nil, aux)
+    return 
+        --[[DBG]] true and
+        constructors.aux("Cb", nil, aux)
 end
 
 
 PL["Carg"] = function(aux)
     assert(type(aux)=="number", "Number expected as parameter to Carg capture.")
     assert( 0 < aux and aux <= 200, "Argument out of bounds in Carg capture.")
-    return constructors.aux("Carg", nil, aux)
+    return 
+        --[[DBG]] true and
+        constructors.aux("Carg", nil, aux)
 end
 
 
@@ -323,7 +337,9 @@ PL.Cp = PL_Cp
 
 local
 function PL_Cc (...)
-    return true and constructors.none("Cc", nil, t_pack(...))
+    return 
+        --[[DBG]] true and
+        constructors.none("Cc", nil, t_pack(...))
 end
 PL.Cc = PL_Cc
 
@@ -332,7 +348,9 @@ for __, cap in pairs{"Cf", "Cmt"} do
     PL[cap] = function(pt, aux)
     assert(type(aux) == "function", msg)
     pt = PL_P(pt)
-    return constructors.both(cap, pt, aux)
+    return 
+        --[[DBG]] true and
+        constructors.both(cap, pt, aux)
     end
 end
 
@@ -341,9 +359,13 @@ local
 function PL_Cg (pt, tag)
     pt = PL_P(pt)
     if tag then 
-        return constructors.both("Ctag", pt, tag)
+        return  
+            --[[DBG]] true and
+            constructors.both("Ctag", pt, tag)
     else
-        return constructors.subpt("Cg", pt)
+        return 
+            --[[DBG]] true and
+            constructors.subpt("Cg", pt)
     end
 end
 PL.Cg = PL_Cg
@@ -364,7 +386,9 @@ function PL_slash (pt, aux)
     else 
         name = "/"..type(aux) 
     end
-    return constructors.both(name, pt, aux)
+    return 
+        --[[DBG]] true and
+        constructors.both(name, pt, aux)
 end
 PL.__div = PL_slash
 
@@ -385,7 +409,7 @@ end -- module wrapper --------------------------------------------------------
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

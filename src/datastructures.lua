@@ -66,7 +66,6 @@ if compat.jit then
 
     boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
 
--- [=[
     function byteset_new (t)
         -- [[DBG]] print ("Konstructor", type(t), t)
         if type(t) == "number" then
@@ -85,33 +84,8 @@ if compat.jit then
         for i = 1, #t do set[t[i]] = true end
 
         return set
-        -- local set = struct.v
-        
-        -- for i = 0, upper do set[i] = false end
-        -- for i = upper + 1, 255 do set[i] = nil end
-        -- for i = 1, #t do set[t[i]] = true end
-
-        -- return boolset_constructor(upper+1, struct)
     end
---[==[]=]
-    function byteset_new (t)
-        -- [[DBG]] print "Konstructor"
-        if type(t) == "number" then return boolset_constructor(t+1,{n=t}) end
-        local upper, set
 
-        upper = u_max(t); if upper > 255 then error"bool_set overflow" end        
-        set = byteset_constructor(255)
-
-        for _, el in pairs(t) do
-            if el > 255 then error"value out of bounds" end
-            set[el] = true
-        end
-
-        set[0] = set[0] or false
-        struct.v = set
-        return boolset_constructor(upper+1, struct)
-    end
-]==]
     function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
     isbyteset = isboolset
 else
@@ -394,7 +368,7 @@ end
 --
 --            Dear user,
 --
---            The PureLPeg proto-library
+--            The LuLPeg proto-library
 --
 --                                             \ 
 --                                              '.,__

@@ -3,12 +3,14 @@
 -- Match ------------------------------  | v | ,--| |   |   |  |  ------------
 ---------------------------------------  '   ' `--' `-- `-- '  '  ------------
 
-local error, select, type = error, select, type
+local assert, error, select, type = assert, error, select, type
 
 local u =require"util"
 
 
+
 local _ENV = u.noglobals() ---------------------------------------------------
+
 
 
 local t_unpack = u.unpack
@@ -19,22 +21,20 @@ return function(Builder, PL) -------------------------------------------------
 local PL_compile, PL_cprint, PL_evaluate, PL_P, PL_pprint
     = PL.compile, PL.Cprint, PL.evaluate, PL.P, PL.pprint
 
+local function computeidex(i, len)
+    if i == 0 or i == 1 or i == nil then return 1
+    elseif type(i) ~= "number" then error"number or nil expected for the stating index"
+    elseif i > 0 then return i > len and len + 1 or i
+    else return len + i < 0 and 1 or len + i + 1
+    end
+end
+
 
 function PL.match(pt, subject, index, ...)
-    -- [[DP]] print("@!!! Match !!!@")
+    -- [[DBG]] print("@!!! Match !!!@")
     pt = PL_P(pt)
-    if index == nil then
-        index = 1
-    elseif type(index) ~= "number" then
-        error"The index must be a number"
-    elseif index == 0 then
-        -- return nil 
-        -- This allows to pass the test, but not suer if correct.
-        error("Dunno what to do with a 0 index")
-    elseif index < 0 then
-        index = #subject + index + 1
-        if index < 1 then index = 1 end
-    end
+    assert(type(subject) == "string", "string expected for the match subject")
+    index = computeidex(index, #subject)
     -- print(("-"):rep(30))
     -- print(pt.ptype)
     -- PL.pprint(pt)
@@ -60,3 +60,47 @@ function PL.match(pt, subject, index, ...)
 end
 
 end -- /wrapper --------------------------------------------------------------
+
+--                   The Romantic WTF public license.
+--                   --------------------------------
+--                   a.k.a. version "<3" or simply v3
+--
+--
+--            Dear user,
+--
+--            The LuLPeg proto-library
+--
+--                                             \ 
+--                                              '.,__
+--                                           \  /
+--                                            '/,__
+--                                            /
+--                                           /
+--                                          /
+--                       has been          / released
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                under  the  Romantic   WTF Public License.
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               I hereby grant you an irrevocable license to
+--                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
+--                  do what the gentle caress you want to
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                           with   this   lovely
+--                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                               / thing...
+--                              /  ~ ~ ~ ~
+--                             /    Love,
+--                        #   /      '.'
+--                        #######      ·
+--                        #####
+--                        ###
+--                        #
+--
+--            -- Pierre-Yves
+--
+--
+--            P.S.: Even though I poured my heart into this work, 
+--                  I _cannot_ provide any warranty regarding 
+--                  its fitness for _any_ purpose. You
+--                  acknowledge that I will not be held liable
+--                  for any damage its use could incur.
