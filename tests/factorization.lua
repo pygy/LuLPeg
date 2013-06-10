@@ -1,4 +1,4 @@
-require"lulpeg":CLI(_G or _ENV)
+require"lulpeg":global(_G or _ENV)
 
 -- print"cache"
 
