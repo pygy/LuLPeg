@@ -16,14 +16,14 @@
 --[[DBG]]    return ...
 --[[DBG]] end
 
-local tmp_globals, globalenv = {}, _ENV or _G
-if false and not release then
-for lib, tbl in pairs(globalenv) do
-    if type(tbl) == "table" then
-        tmp_globals[lib], globalenv[lib] = globalenv[lib], nil
-    end
-end
-end
+--[[DBG]] local tmp_globals, globalenv = {}, _ENV or _G
+--[[DBG]] if false and not release then
+--[[DBG]] for lib, tbl in pairs(globalenv) do
+--[[DBG]]     if type(tbl) == "table" then
+--[[DBG]]         tmp_globals[lib], globalenv[lib] = globalenv[lib], nil
+--[[DBG]]     end
+--[[DBG]] end
+--[[DBG]] end
 
 local getmetatable, pairs, setmetatable
     = getmetatable, pairs, setmetatable
@@ -41,7 +41,9 @@ local API, charsets, compiler, constructors
     , "datastructures", "evaluator", "factorizer"
     , "locale", "match", "printers", "re" }))
 
-local package = require"package"
+local _, package = pcall(require, "package")
+
+
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
@@ -50,7 +52,7 @@ local _ENV = u.noglobals() ----------------------------------------------------
 -- The LPeg version we emulate.
 local VERSION = "0.12"
 
--- The PureLPeg version.
+-- The LuLPeg version.
 local LuVERSION = "0.1.0"
 
 local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
@@ -66,58 +68,59 @@ local function register(lpeg, env)
 end
 
 local 
-function PLPeg(options)
+function LuLPeg(options)
     options = options and copy(options) or {}
 
-    -- PL is the module
+    -- LL is the module
     -- Builder keeps the state during the module decoration.
-    local Builder, PL 
+    local Builder, LL
         = { options = options, factorizer = factorizer }
-        , { new = PLPeg
+        , { new = LuLPeg
           , version = function () return VERSION end
           , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
 
-    PL.__index = PL
+    LL.__index = LL
 
     local
-    function PL_ispattern(pt) return getmetatable(pt) == PL end
-    PL.ispattern = PL_ispattern
+    function LL_ispattern(pt) return getmetatable(pt) == LL end
+    LL.ispattern = LL_ispattern
 
-    function PL.type(pt)
-        if PL_ispattern(pt) then 
+    function LL.type(pt)
+        if LL_ispattern(pt) then 
             return "pattern"
         else
             return nil
         end
     end
-    PL.util = u
-    PL.global = global
-    PL.register = register
-    ;-- Decorate the LPeg object.
-    charsets(Builder, PL)
-    datastructures(Builder, PL)
-    printers(Builder, PL)
-    constructors(Builder, PL)
-    API(Builder, PL)
-    evaluator(Builder, PL)
-    ;(options.compiler or compiler)(Builder, PL)
-    match(Builder, PL)
-    locale(Builder, PL)
-    PL.re = re(Builder, PL)
+    LL.util = u
+    LL.global = global
+    LL.register = register
+    ;-- Decorate the LuLPeg object.
+    charsets(Builder, LL)
+    datastructures(Builder, LL)
+    printers(Builder, LL)
+    constructors(Builder, LL)
+    API(Builder, LL)
+    evaluator(Builder, LL)
+    ;(options.compiler or compiler)(Builder, LL)
+    match(Builder, LL)
+    locale(Builder, LL)
+    LL.re = re(Builder, LL)
 
-    return PL
-end -- PLPeg
+    return LL
+end -- LuLPeg
 
-local PL = PLPeg()
+local LL = LuLPeg()
+
 -- restore the global libraries
-for lib, tbl in pairs(tmp_globals) do
-        globalenv[lib] = tmp_globals[lib] 
-end
+--[[DBG]] for lib, tbl in pairs(tmp_globals) do
+--[[DBG]]     globalenv[lib] = tmp_globals[lib] 
+--[[DBG]] end
 
 
-return PL
+return LL
 
 --                   The Romantic WTF public license.
 --                   --------------------------------
