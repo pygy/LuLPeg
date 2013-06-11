@@ -311,16 +311,19 @@ function onecompiled (subject, index, cap_acc, cap_i, state)
     local char, nindex = get_int(subject, index)
     if char 
     then return true, nindex, cap_i
-    else return flase, index, cap_i end
+    else return false, index, cap_i end
 end
+
 compilers["one"] = function (pt)
     return onecompiled
 end
 
 
 compilers["any"] = function (pt)
-    if not charset.binary then
-        local N = pt.aux         
+    local N = pt.aux
+    if N == 1 then
+        return onecompiled
+    elseif not charset.binary then
         return function(subject, index, cap_acc, cap_i, state)
              -- dprint("Any UTF-8",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n, c, nindex = N
@@ -336,7 +339,7 @@ compilers["any"] = function (pt)
             return true, nindex, cap_i
         end
     else -- version optimized for byte-width encodings.
-        local N = pt.aux - 1
+        N = pt.aux - 1
         return function(subject, index, cap_acc, cap_i, state)
              -- dprint("Any byte",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n = index + N
@@ -562,6 +565,10 @@ compilers["at least"] = function (pt, ccache)
 end
 
 compilers["unm"] = function (pt, ccache)
+    -- P(-1)
+    if pt.ptype == "any" and pt.aux == 1 then
+        return eoscompiled
+    end
     local matcher = compile(pt.pattern, ccache)
     return function (subject, index, cap_acc, cap_i, state)
          -- dprint("Unm     ", cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)

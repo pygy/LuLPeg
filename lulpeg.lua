@@ -517,14 +517,16 @@ function onecompiled (subject, index, cap_acc, cap_i, state)
     local char, nindex = get_int(subject, index)
     if char 
     then return true, nindex, cap_i
-    else return flase, index, cap_i end
+    else return false, index, cap_i end
 end
 compilers["one"] = function (pt)
     return onecompiled
 end
 compilers["any"] = function (pt)
-    if not charset.binary then
-        local N = pt.aux         
+    local N = pt.aux
+    if N == 1 then
+        return onecompiled
+    elseif not charset.binary then
         return function(subject, index, cap_acc, cap_i, state)
             local n, c, nindex = N
             while n > 0 do
@@ -537,7 +539,7 @@ compilers["any"] = function (pt)
             return true, nindex, cap_i
         end
     else -- version optimized for byte-width encodings.
-        local N = pt.aux - 1
+        N = pt.aux - 1
         return function(subject, index, cap_acc, cap_i, state)
             local n = index + N
             if n <= #subject then 
@@ -707,6 +709,9 @@ compilers["at least"] = function (pt, ccache)
     end
 end
 compilers["unm"] = function (pt, ccache)
+    if pt.ptype == "any" and pt.aux == 1 then
+        return eoscompiled
+    end
     local matcher = compile(pt.pattern, ccache)
     return function (subject, index, cap_acc, cap_i, state)
         local success, _, _ = matcher(subject, index, {type = "discard", parent = cap_acc, parent_i = cap_i}, 1, state)
