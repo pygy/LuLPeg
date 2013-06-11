@@ -1,9 +1,9 @@
 
 -- Capture evaluators
 
-return function(Builder, PL) -- Decorator wrapper
+return function(Builder, LL) -- Decorator wrapper
 
-local cprint = PL.cprint
+local cprint = LL.cprint
 
 local pcall, select, setmetatable, tonumber, tostring
     = pcall, select, setmetatable, tonumber, tostring
@@ -29,11 +29,11 @@ function evaluate (capture, subject, index)
     -- print("*** Eval", index)
     -- cprint(capture)
     local acc, val_i, _ = {}
-    -- PL.cprint(capture)
+    -- LL.cprint(capture)
     _, val_i = evaluators.insert(capture, subject, acc, index, 1)
     return acc, val_i
 end
-PL.evaluate = evaluate
+LL.evaluate = evaluate
 
 --- Some accumulator types for the evaluator
 --

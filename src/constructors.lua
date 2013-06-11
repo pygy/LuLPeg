@@ -68,7 +68,7 @@ local classpt = {
 
 
 -------------------------------------------------------------------------------
-return function(Builder, PL) --- module wrapper.
+return function(Builder, LL) --- module wrapper.
 --
 
 
@@ -85,43 +85,43 @@ local newpattern do
     -- environements without access to newproxy and/or debug.setmetatable.
     local setmetatable = setmetatable
 
-    function PL.get_direct (p) return p end
+    function LL.get_direct (p) return p end
 
     if compat.lua52_len then
         -- Lua 5.2 or LuaJIT + 5.2 compat. No need to do the proxy dance.
         function newpattern(pt)
-            return setmetatable(pt,PL) 
+            return setmetatable(pt,LL) 
         end    
     elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
         local d_setmetatable, newproxy
             = compat.debug.setmetatable, newproxy
 
         local proxycache = weakkey{}
-        local __index_PL = {__index = PL}
-        PL.proxycache = proxycache
+        local __index_LL = {__index = LL}
+        LL.proxycache = proxycache
         function newpattern(cons) 
             local pt = newproxy()
-            setmetatable(cons, __index_PL)
+            setmetatable(cons, __index_LL)
             proxycache[pt]=cons
-            d_setmetatable(pt,PL) 
+            d_setmetatable(pt,LL) 
             return pt
         end
-        function PL:__index(k)
+        function LL:__index(k)
             return proxycache[self][k]
         end
-        function PL:__newindex(k, v)
+        function LL:__newindex(k, v)
             proxycache[self][k] = v
         end
-        function PL.get_direct(p) return proxycache[p] end
+        function LL.get_direct(p) return proxycache[p] end
     else
         -- Fallback if neither __len(table) nor newproxy work 
         -- (is there such a Lua version?)
-        if PL.warnings then
+        if LL.warnings then
             print("Warning: The `__len` metatethod won't work with patterns, "
-                .."use `PL.L(pattern)` for lookaheads.")
+                .."use `LL.L(pattern)` for lookaheads.")
         end
         function newpattern(pt)
-            return setmetatable(pt,PL) 
+            return setmetatable(pt,LL) 
         end    
     end
 end
@@ -169,7 +169,7 @@ function resetcache()
 
     return ptcache
 end
-PL.resetptcache = resetcache
+LL.resetptcache = resetcache
 
 resetcache()
 

@@ -350,7 +350,7 @@ structfor.other = {
 
 
 
-return function(Builder, PL)
+return function(Builder, LL)
     local cs = (Builder.options or {}).charset or "binary"
     if type(cs) == "string" then
         cs = (cs == "binary") and "binary" or "other"

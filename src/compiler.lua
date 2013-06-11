@@ -17,8 +17,8 @@ local   expose,   load,   map,   map_all, t_pack
 
 
 
-return function(Builder, PL)
-local evaluate, PL_ispattern =  PL.evaluate, PL.ispattern
+return function(Builder, LL)
+local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
 local get_int, charset = Builder.charset.get_int, Builder.charset
 
 
@@ -29,7 +29,7 @@ local compilers = {}
 local
 function compile(pt, ccache)
     -- print("Compile", pt.ptype)
-    if not PL_ispattern(pt) then 
+    if not LL_ispattern(pt) then 
         --[[DBG]]expose(pt)
         error("pattern expected") 
     end
@@ -44,13 +44,13 @@ function compile(pt, ccache)
     end
     if not pt.compiled then
          -- dprint("Not compiled:")
-        -- PL.pprint(pt)
+        -- LL.pprint(pt)
         pt.compiled = compilers[pt.ptype](pt, ccache)
     end
 
     return pt.compiled
 end
-PL.compile = compile
+LL.compile = compile
 
 ------------------------------------------------------------------------------
 ----------------------------------  ,--. ,--. ,--. |_  ,  , ,--. ,--. ,--.  --
@@ -358,7 +358,7 @@ end
 do
     local function checkpatterns(g)
         for k,v in pairs(g.aux) do
-            if not PL_ispattern(v) then
+            if not LL_ispattern(v) then
                 error(("rule 'A' is not a pattern"):gsub("A", tostring(k)))
             end
         end

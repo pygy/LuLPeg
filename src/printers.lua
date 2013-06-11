@@ -1,4 +1,4 @@
-return function(Builder, PL)
+return function(Builder, LL)
 
 -- Print
 
@@ -22,17 +22,17 @@ local   expose,   load,   map
 local printers = {}
 
 local
-function PL_pprint (pt, offset, prefix)
+function LL_pprint (pt, offset, prefix)
     -- [[DP]] print("PRINT -", pt)
     -- [[DP]] print("PRINT +", pt.ptype)
-    -- [[DP]] expose(PL.proxycache[pt])
+    -- [[DP]] expose(LL.proxycache[pt])
     return printers[pt.ptype](pt, offset, prefix)
 end
 
-function PL.pprint (pt0)
-    local pt = PL.P(pt0)
+function LL.pprint (pt0)
+    local pt = LL.P(pt0)
     print"\nPrint pattern"
-    PL_pprint(pt, "", "")
+    LL_pprint(pt, "", "")
     print"--- /pprint\n"
     return pt0
 end
@@ -72,20 +72,20 @@ end
 
 
 for k, v in pairs{
-    ["behind"] = [[ PL_pprint(pt.pattern, offset, "B ") ]],
-    ["at least"] = [[ PL_pprint(pt.pattern, offset, pt.aux.." ^ ") ]],
-    ["at most"] = [[ PL_pprint(pt.pattern, offset, pt.aux.." ^ ") ]],
-    unm        = [[PL_pprint(pt.pattern, offset, "- ")]],
-    lookahead  = [[PL_pprint(pt.pattern, offset, "# ")]],
+    ["behind"] = [[ LL_pprint(pt.pattern, offset, "B ") ]],
+    ["at least"] = [[ LL_pprint(pt.pattern, offset, pt.aux.." ^ ") ]],
+    ["at most"] = [[ LL_pprint(pt.pattern, offset, pt.aux.." ^ ") ]],
+    unm        = [[LL_pprint(pt.pattern, offset, "- ")]],
+    lookahead  = [[LL_pprint(pt.pattern, offset, "# ")]],
     choice = [[
         print(offset..prefix.."+")
         -- dprint"Printer for choice"
-        map(pt.aux, PL_pprint, offset.." :", "")
+        map(pt.aux, LL_pprint, offset.." :", "")
         ]],
     sequence = [[
         print(offset..prefix.."*")
         -- dprint"Printer for Seq"
-        map(pt.aux, PL_pprint, offset.." |", "")
+        map(pt.aux, LL_pprint, offset.." |", "")
         ]],
     grammar   = [[
         print(offset..prefix.."Grammar")
@@ -94,16 +94,16 @@ for k, v in pairs{
             local prefix = ( type(k)~="string" 
                              and tostring(k)
                              or "\""..k.."\"" )
-            PL_pprint(pt, offset.."  ", prefix .. " = ")
+            LL_pprint(pt, offset.."  ", prefix .. " = ")
         end
     ]]
 } do
     printers[k] = load(([[
-        local map, PL_pprint, ptype = ...
+        local map, LL_pprint, ptype = ...
         return function (pt, offset, prefix)
             XXXX
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, PL_pprint, type)
+    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type)
 end
 
 -------------------------------------------------------------------------------
@@ -112,29 +112,29 @@ end
 
 -- for __, cap in pairs{"C", "Cs", "Ct"} do
 -- for __, cap in pairs{"Carg", "Cb", "Cp"} do
--- function PL_Cc (...)
+-- function LL_Cc (...)
 -- for __, cap in pairs{"Cf", "Cmt"} do
--- function PL_Cg (pt, tag)
+-- function LL_Cg (pt, tag)
 -- local valid_slash_type = newset{"string", "number", "table", "function"}
 
 
 for __, cap in pairs{"C", "Cs", "Ct"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap)
-        PL_pprint(pt.pattern, offset.."  ", "")
+        LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
 
 for __, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
-        PL_pprint(pt.pattern, offset.."  ", "")
+        LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
 
 printers["/string"] = function (pt, offset, prefix)
     print(offset..prefix..'/string "'..tostring(pt.aux or "")..'"')
-    PL_pprint(pt.pattern, offset.."  ", "")
+    LL_pprint(pt.pattern, offset.."  ", "")
 end
 
 for __, cap in pairs{"Carg", "Cp"} do
@@ -158,7 +158,7 @@ end
 
 local cprinters = {}
 
-function PL.cprint (capture)
+function LL.cprint (capture)
     print"\nCapture Printer\n===============\n"
     -- print(capture)
     -- expose(capture)
@@ -240,7 +240,7 @@ cprinters["Cb"] = function (capture, offset, prefix)
         )
 end
 
-return { pprint = PL.pprint,cprint = PL.cprint }
+return { pprint = LL.pprint,cprint = LL.cprint }
 
 end -- module wrapper ---------------------------------------------------------
 

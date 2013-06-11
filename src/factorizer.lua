@@ -39,7 +39,7 @@ end
 
 
 -- Some sequence factorizers. 
--- Those who depend on PL are defined in the wrapper.
+-- Those who depend on LL are defined in the wrapper.
 local
 function append (acc, p1, p2)
     acc[#acc + 1] = p2
@@ -72,7 +72,7 @@ function mergeseqhead (p1, p2)
     end
 end
 
-return function (Builder, PL) --------------------------------------------------
+return function (Builder, LL) --------------------------------------------------
 
 if Builder.options.factorize == false then 
     print"No factorization"
@@ -89,7 +89,7 @@ function flatten(typ, ary)
     local acc = {}
     for _, p in ipairs(ary) do
         -- [[DBG]] print("flatten")
-        -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"PL.pprint(p) end
+        -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"LL.pprint(p) end
         if p.ptype == typ then
             for _, q in ipairs(p.aux) do
                 acc[#acc+1] = q
@@ -101,7 +101,7 @@ function flatten(typ, ary)
     return acc
 end
 
-local constructors, PL_P =  Builder.constructors, PL.P
+local constructors, LL_P =  Builder.constructors, LL.P
 local truept, falsept 
     = constructors.constant.truept
     , constructors.constant.falsept
@@ -115,12 +115,12 @@ local --Range, Set,
 -- sequence factorizers 2, back with a vengence.
 local
 function seq_str_str (acc, p1, p2)
-    acc[#acc] = PL_P(p1.as_is .. p2.as_is)
+    acc[#acc] = LL_P(p1.as_is .. p2.as_is)
 end
 
 local
 function seq_any_any (acc, p1, p2)
-    acc[#acc] = PL_P(p1.aux + p2.aux)
+    acc[#acc] = LL_P(p1.aux + p2.aux)
 end
 
 --- Lookup table for the sequence optimizers.
@@ -192,7 +192,7 @@ function choice (a,b, ...)
                 changed = true
             elseif ( type1 == type2 ) and unary[type1] and ( p1.aux == p2.aux ) then
                 -- C(a) + C(b) => C(a + b)
-                dest[#dest] = PL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
+                dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
                 changed = true
             -- elseif ( type1 == type2 ) and type1 == "sequence" then
             --     -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"

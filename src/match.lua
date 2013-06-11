@@ -16,10 +16,10 @@ local _ENV = u.noglobals() ---------------------------------------------------
 local t_unpack = u.unpack
 
 
-return function(Builder, PL) -------------------------------------------------
+return function(Builder, LL) -------------------------------------------------
 
-local PL_compile, PL_cprint, PL_evaluate, PL_P, PL_pprint
-    = PL.compile, PL.Cprint, PL.evaluate, PL.P, PL.pprint
+local LL_compile, LL_cprint, LL_evaluate, LL_P, LL_pprint
+    = LL.compile, LL.Cprint, LL.evaluate, LL.P, LL.pprint
 
 local function computeidex(i, len)
     if i == 0 or i == 1 or i == nil then return 1
@@ -30,16 +30,16 @@ local function computeidex(i, len)
 end
 
 
-function PL.match(pt, subject, index, ...)
+function LL.match(pt, subject, index, ...)
     -- [[DBG]] print("@!!! Match !!!@")
-    pt = PL_P(pt)
+    pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
     -- print(("-"):rep(30))
     -- print(pt.ptype)
-    -- PL.pprint(pt)
+    -- LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
-        = PL_compile(pt, {})
+        = LL_compile(pt, {})
         , {type = "insert"}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
@@ -49,8 +49,8 @@ function PL.match(pt, subject, index, ...)
         cap_acc.n = cap_i
         -- print("cap_i = ",cap_i)
         -- print("= $$$ captures $$$ =", cap_acc)
-        -- PL.cprint(cap_acc)
-        local cap_values, cap_i = PL_evaluate(cap_acc, subject, index)
+        -- LL.cprint(cap_acc)
+        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
         if cap_i == 1
         then return nindex
         else return t_unpack(cap_values, 1, cap_i - 1) end

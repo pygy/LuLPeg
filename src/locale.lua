@@ -13,9 +13,9 @@ local _ENV = require"util".noglobals() ----------------------------------------
 -- see http://wayback.archive.org/web/20120310215042/http://www.utas.edu.au...
 -- .../infosys/info/documentation/C/CStdLib.html#ctype.h
 
-return function(Builder, PL) -- Module wrapper {-------------------------------
+return function(Builder, LL) -- Module wrapper {-------------------------------
 
-local R, S = PL.R, PL.S
+local R, S = LL.R, LL.S
 
 local locale = {}
 locale["cntrl"] = R"\0\31" + "\127"
@@ -32,7 +32,7 @@ locale["punct"]  = locale["graph"] - locale["alnum"]
 locale["xdigit"] = locale["digit"] + R"af" + R"AF"
 
 
-function PL.locale (t)
+function LL.locale (t)
     return extend(t or {}, locale)
 end
 

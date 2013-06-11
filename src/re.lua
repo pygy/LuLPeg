@@ -2,14 +2,14 @@ local compat = require"compat"
 
 -- re.lua by Roberto Ierusalimschy. see LICENSE in the root folder.
 
-return function(Builder, PL)
+return function(Builder, LL)
 
 -- $Id: re.lua,v 1.44 2013/03/26 20:11:40 roberto Exp $
 
 -- imported functions and modules
 local tonumber, type, print, error = tonumber, type, print, error
 local setmetatable = setmetatable
-local m = PL
+local m = LL
 
 -- 'm' will be used to parse expressions, and 'mm' will be used to
 -- create expressions; that is, 're' runs on 'm', creating patterns

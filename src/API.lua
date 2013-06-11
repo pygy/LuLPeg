@@ -31,14 +31,14 @@ end
 
 
 ------------------------------------------------------------------------------
-return function(Builder, PL) -- module wrapper -------------------------------
+return function(Builder, LL) -- module wrapper -------------------------------
 ------------------------------------------------------------------------------
 
 
 local binary_split_int, cs = Builder.binary_split_int, Builder.charset
 
-local constructors, PL_ispattern
-    = Builder.constructors, PL.ispattern
+local constructors, LL_ispattern
+    = Builder.constructors, LL.ispattern
 
 local truept, falsept, Cppt 
     = constructors.constant.truept
@@ -62,23 +62,23 @@ function makechar(c)
 end
 
 local
-function PL_P (v)
-    if PL_ispattern(v) then
+function LL_P (v)
+    if LL_ispattern(v) then
         return v 
     elseif type(v) == "function" then
-        return true and PL.Cmt("", v)
+        return true and LL.Cmt("", v)
     elseif type(v) == "string" then
         local success, index = validate(v)
         if not success then 
             charset_error(index, charset)
         end
-        if v == "" then return PL_P(true) end
-        return true and PL.__mul(map(makechar, split_int(v)))
+        if v == "" then return LL_P(true) end
+        return true and LL.__mul(map(makechar, split_int(v)))
     elseif type(v) == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
-        if not PL_ispattern(g[1]) then g[1] = PL.V(g[1]) end
+        if not LL_ispattern(g[1]) then g[1] = LL.V(g[1]) end
         return 
             --[[DBG]] true and 
             constructors.none("grammar", g) 
@@ -98,14 +98,14 @@ function PL_P (v)
         end
     end
 end
-PL.P = PL_P
+LL.P = LL_P
 
 local
-function PL_S (set)
+function LL_S (set)
     if set == "" then 
         return 
             --[[DBG]] true and
-            PL_P(false)
+            LL_P(false)
     else 
         local success, index = validate(set)
         if not success then 
@@ -116,12 +116,12 @@ function PL_S (set)
             constructors.aux("set", Set(split_int(set)), set)
     end
 end
-PL.S = PL_S
+LL.S = LL_S
 
 local
-function PL_R (...)
+function LL_R (...)
     if select('#', ...) == 0 then
-        return PL_P(false)
+        return LL_P(false)
     else
         local range = Range(1,0)--Set("")
         -- [[DBG]]expose(range)
@@ -141,16 +141,16 @@ function PL_R (...)
             constructors.aux("set", range, representation)
     end
 end
-PL.R = PL_R
+LL.R = LL_R
 
 local
-function PL_V (name)
+function LL_V (name)
     assert(name ~= nil)
     return 
         --[[DBG]] true and 
         constructors.aux("ref",  name)
 end
-PL.V = PL_V
+LL.V = LL_V
 
 
 
@@ -191,10 +191,10 @@ do
         end
     end
 
-    function PL.B (pt)
-        pt = PL_P(pt)
-        -- [[DP]] print("PL.B")
-        -- [[DP]] PL.pprint(pt)
+    function LL.B (pt)
+        pt = LL_P(pt)
+        -- [[DP]] print("LL.B")
+        -- [[DP]] LL.pprint(pt)
         local len = fixedlen(pt)
         assert(len, "A 'behind' pattern takes a fixed length pattern as argument.")
         if len >= 260 then error("Subpattern too long in 'behind' pattern constructor.") end
@@ -207,10 +207,10 @@ end
  
 -- pt*pt
 local
-function PL_choice (a, b, ...)
+function LL_choice (a, b, ...)
     -- [[DBG]] print("Choice =====", a, "b", b, "...", ...)
     if b ~= nil then
-        a, b = PL_P(a), PL_P(b)
+        a, b = LL_P(a), LL_P(b)
     end
 
     local ch = factorize_choice(a, b, ...)
@@ -225,14 +225,14 @@ function PL_choice (a, b, ...)
             constructors.aux("choice", ch)
     end
 end
-PL.__add = PL_choice
+LL.__add = LL_choice
 
 
  -- pt+pt, 
 local
 function sequence (a, b, ...)
     if b ~= nil then
-        a, b = PL_P(a), PL_P(b)
+        a, b = LL_P(a), LL_P(b)
     end
     local seq = factorize_sequence(a, b, ...)
 
@@ -246,11 +246,11 @@ function sequence (a, b, ...)
         --[[DBG]] true and
         constructors.aux("sequence", seq)
 end
-PL.__mul = sequence
+LL.__mul = sequence
 
 
 local
-function PL_lookahead (pt)
+function LL_lookahead (pt)
     -- Simplifications
     if pt == truept
     or pt == falsept
@@ -260,16 +260,16 @@ function PL_lookahead (pt)
         return pt
     end
     -- -- The general case
-    -- [[DB]] print("PL_lookahead", constructors.subpt("lookahead", pt))
+    -- [[DB]] print("LL_lookahead", constructors.subpt("lookahead", pt))
     return 
         --[[DBG]] true and
         constructors.subpt("lookahead", pt)
 end
-PL.__len = PL_lookahead
-PL.L = PL_lookahead
+LL.__len = LL_lookahead
+LL.L = LL_lookahead
 
 local
-function PL_unm(pt)
+function LL_unm(pt)
     -- Simplifications
     local as_is
     pt, as_is = factorize_unm(pt)
@@ -280,31 +280,31 @@ function PL_unm(pt)
             --[[DBG]] true and
             constructors.subpt("unm", pt) end
 end
-PL.__unm = PL_unm
+LL.__unm = LL_unm
 
 local
-function PL_sub (a, b)
-    a, b = PL_P(a), PL_P(b)
-    return PL_unm(b) * a
+function LL_sub (a, b)
+    a, b = LL_P(a), LL_P(b)
+    return LL_unm(b) * a
 end
-PL.__sub = PL_sub
+LL.__sub = LL_sub
 
 local
-function PL_repeat (pt, n)
+function LL_repeat (pt, n)
     local success
     success, n = pcall(tonumber, n)
     assert(success and type(n) == "number",
         "Invalid type encountered at right side of '^'.")
     return constructors.both(( n < 0 and "at most" or "at least" ), pt, n)
 end
-PL.__pow = PL_repeat
+LL.__pow = LL_repeat
 
 -------------------------------------------------------------------------------
 --- Captures
 --
 for __, cap in pairs{"C", "Cs", "Ct"} do
-    PL[cap] = function(pt, aux)
-        pt = PL_P(pt)
+    LL[cap] = function(pt, aux)
+        pt = LL_P(pt)
         return 
             --[[DBG]] true and
             constructors.subpt(cap, pt)
@@ -312,14 +312,14 @@ for __, cap in pairs{"C", "Cs", "Ct"} do
 end
 
 
-PL["Cb"] = function(aux)
+LL["Cb"] = function(aux)
     return 
         --[[DBG]] true and
         constructors.aux("Cb", aux)
 end
 
 
-PL["Carg"] = function(aux)
+LL["Carg"] = function(aux)
     assert(type(aux)=="number", "Number expected as parameter to Carg capture.")
     assert( 0 < aux and aux <= 200, "Argument out of bounds in Carg capture.")
     return 
@@ -329,24 +329,24 @@ end
 
 
 local
-function PL_Cp ()
+function LL_Cp ()
     return Cppt
 end
-PL.Cp = PL_Cp
+LL.Cp = LL_Cp
 
 local
-function PL_Cc (...)
+function LL_Cc (...)
     return 
         --[[DBG]] true and
         constructors.none("Cc", t_pack(...))
 end
-PL.Cc = PL_Cc
+LL.Cc = LL_Cc
 
 for __, cap in pairs{"Cf", "Cmt"} do
     local msg = "Function expected in "..cap.." capture"
-    PL[cap] = function(pt, aux)
+    LL[cap] = function(pt, aux)
     assert(type(aux) == "function", msg)
-    pt = PL_P(pt)
+    pt = LL_P(pt)
     return 
         --[[DBG]] true and
         constructors.both(cap, pt, aux)
@@ -355,8 +355,8 @@ end
 
 
 local
-function PL_Cg (pt, tag)
-    pt = PL_P(pt)
+function LL_Cg (pt, tag)
+    pt = LL_P(pt)
     if tag then 
         return  
             --[[DBG]] true and
@@ -367,13 +367,13 @@ function PL_Cg (pt, tag)
             constructors.subpt("Cg", pt)
     end
 end
-PL.Cg = PL_Cg
+LL.Cg = LL_Cg
 
 
 local valid_slash_type = setify{"string", "number", "table", "function"}
 local
-function PL_slash (pt, aux)
-    if PL_ispattern(aux) then 
+function LL_slash (pt, aux)
+    if LL_ispattern(aux) then 
         error"The right side of a '/' capture cannot be a pattern."
     elseif not valid_slash_type[type(aux)] then
         error("The right side of a '/' capture must be of type "
@@ -389,10 +389,10 @@ function PL_slash (pt, aux)
         --[[DBG]] true and
         constructors.both(name, pt, aux)
 end
-PL.__div = PL_slash
+LL.__div = LL_slash
 
 local factorizer
-    = Builder.factorizer(Builder, PL)
+    = Builder.factorizer(Builder, LL)
 
 -- These are declared as locals at the top of the wrapper.
 factorize_choice,  factorize_lookahead,  factorize_sequence,  factorize_unm =
