@@ -186,8 +186,7 @@ function choice (a,b, ...)
             if type1 == "set" and type2 == "set" then
                 -- Merge character sets. S"abc" + S"ABC" => S"abcABC"
                 dest[#dest] = constructors.aux(
-                    "set", nil, 
-                    S_union(p1.aux, p2.aux), 
+                    "set", S_union(p1.aux, p2.aux), 
                     "Union( "..p1.as_is.." || "..p2.as_is.." )"
                 )
                 changed = true

@@ -59,7 +59,7 @@ local factorize_choice, factorize_lookahead, factorize_sequence, factorize_unm
 
 local
 function makechar(c)
-    return constructors.aux("char", nil, c)
+    return constructors.aux("char", c)
 end
 
 local
@@ -82,7 +82,7 @@ function PL_P (v)
         if not PL_ispattern(g[1]) then g[1] = PL.V(g[1]) end
         return 
             --[[DBG]] true and 
-            constructors.none("grammar", nil, g) 
+            constructors.none("grammar", g) 
     elseif type(v) == "boolean" then
         return v and truept or falsept
     elseif type(v) == "number" then
@@ -91,11 +91,11 @@ function PL_P (v)
         elseif v > 0 then
             return
                 --[[DBG]] true and 
-                constructors.aux("any", nil, v)
+                constructors.aux("any", v)
         else
             return
                 --[[DBG]] true and 
-                - constructors.aux("any", nil, -v)
+                - constructors.aux("any", -v)
         end
     end
 end
@@ -114,7 +114,7 @@ function PL_S (set)
         end
         return
             --[[DBG]] true and 
-            constructors.aux("set", nil, Set(split_int(set)), set)
+            constructors.aux("set", Set(split_int(set)), set)
     end
 end
 PL.S = PL_S
@@ -136,10 +136,10 @@ function PL_R (...)
         -- This is awful.
         local representation = t_concat(map(tochar, 
                 {load("return "..S_tostring(range))()}))
-        local p = constructors.aux("set", nil, range, representation)
+        local p = constructors.aux("set", range, representation)
         return 
             --[[DBG]] true and 
-            constructors.aux("set", nil, range, representation)
+            constructors.aux("set", range, representation)
     end
 end
 PL.R = PL_R
@@ -149,7 +149,7 @@ function PL_V (name)
     assert(name ~= nil)
     return 
         --[[DBG]] true and 
-        constructors.aux("ref", nil,  name)
+        constructors.aux("ref",  name)
 end
 PL.V = PL_V
 
@@ -223,7 +223,7 @@ function PL_choice (a, b, ...)
     else
         return 
             --[[DBG]] true and
-            constructors.aux("choice", nil, ch)
+            constructors.aux("choice", ch)
     end
 end
 PL.__add = PL_choice
@@ -245,7 +245,7 @@ function sequence (a, b, ...)
 
     return 
         --[[DBG]] true and
-        constructors.aux("sequence", nil, seq)
+        constructors.aux("sequence", seq)
 end
 PL.__mul = sequence
 
@@ -316,7 +316,7 @@ end
 PL["Cb"] = function(aux)
     return 
         --[[DBG]] true and
-        constructors.aux("Cb", nil, aux)
+        constructors.aux("Cb", aux)
 end
 
 
@@ -325,7 +325,7 @@ PL["Carg"] = function(aux)
     assert( 0 < aux and aux <= 200, "Argument out of bounds in Carg capture.")
     return 
         --[[DBG]] true and
-        constructors.aux("Carg", nil, aux)
+        constructors.aux("Carg", aux)
 end
 
 
@@ -339,7 +339,7 @@ local
 function PL_Cc (...)
     return 
         --[[DBG]] true and
-        constructors.none("Cc", nil, t_pack(...))
+        constructors.none("Cc", t_pack(...))
 end
 PL.Cc = PL_Cc
 

@@ -205,7 +205,7 @@ local getauxkey = {
 
 getauxkey.choice = getauxkey.sequence
 
-constructors["aux"] = function(typ, _, aux, as_is)
+constructors["aux"] = function(typ, aux, as_is)
      -- dprint("CONS: ", typ, pt, aux, as_is)
     local cache = ptcache[typ]
     local key = (getauxkey[typ] or id)(aux, as_is)
@@ -220,7 +220,7 @@ constructors["aux"] = function(typ, _, aux, as_is)
 end
 
 -- no cache for grammars
-constructors["none"] = function(typ, _, aux)
+constructors["none"] = function(typ, aux)
     -- [[DBG]] print("CONS: ", typ, _, aux)
     -- [[DBG]] print(debug.traceback(1))
     return newpattern{
