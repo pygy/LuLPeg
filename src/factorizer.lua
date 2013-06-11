@@ -20,7 +20,7 @@ local _ENV = u.noglobals() ----------------------------------------------------
 ---- helpers
 --
 
--- handle the id or break properties of P(true) and P(false) in 
+-- handle the identity or break properties of P(true) and P(false) in 
 -- sequences/arrays.
 local
 function process_booleans(lst, opts)

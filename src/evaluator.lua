@@ -22,42 +22,45 @@ local s_sub, t_concat
 local expose, strip_mt, t_unpack
     = u.expose, u.strip_mt, u.unpack
 
-local evaluators = {}
+local evaluators, insert = {}
 
 local
-function evaluate (capture, subject, index)
-    -- print("*** Eval", index)
+function evaluate (capture, subject, subj_i)
+    -- print("*** Eval", subj_i)
     -- cprint(capture)
     local acc, val_i, _ = {}
     -- LL.cprint(capture)
-    _, val_i = evaluators.insert(capture, subject, acc, index, 1)
+    _, val_i = insert(capture, subject, acc, subj_i, 1)
     return acc, val_i
 end
 LL.evaluate = evaluate
 
---- Some accumulator types for the evaluator
---
+
+-- The evaluators and the `insert()` helper take as parameters:
+-- * capture:  the current capture object.
+-- * subject:  the subject string
+-- * acc:      the value accumulator, whose unpacked values will be returned 
+--             by `pattern:match(...)`
+-- * subj_i: the current position in the subject string.
+-- * val_i: the position of the next value to be inserted in the value accumulator.
 
 
-
-
-local function insert (capture, subject, acc, index, val_i)
+function insert (capture, subject, acc, subj_i, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
         -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
             local c 
-            index, val_i =
-                evaluators[capture[i].type](capture[i], subject, acc, index, val_i)
+            subj_i, val_i =
+                evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
     end
-    return index, val_i
+    return subj_i, val_i
 end
-evaluators["insert"] = insert
 
 local
-function lookback(capture, tag, index)
+function lookback(capture, tag, subj_i)
     local found
     repeat
-        for i = index - 1, 1, -1 do
+        for i = subj_i - 1, 1, -1 do
             -- print("LB for",capture[i].type)
             if  capture[i].Ctag == tag then
                 -- print"Found"
@@ -65,7 +68,7 @@ function lookback(capture, tag, index)
                 break
             end
         end
-        capture, index = capture.parent, capture.parent_i
+        capture, subj_i = capture.parent, capture.parent_i
     until found or not capture
 
     if found then 
@@ -76,23 +79,23 @@ function lookback(capture, tag, index)
     end
 end
 
-evaluators["Cb"] = function (capture, subject, acc, index, val_i)
+evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
     local ref, Ctag, _ 
     ref = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
     ref.Ctag = Ctag
-    return index, val_i
+    return subj_i, val_i
 end
 
 
-evaluators["Cf"] = function (capture, subject, acc, index, val_i)
+evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
     if capture.n == 0 then
         error"No First Value"
     end
 
     local func, fold_acc, first_val_i, _ = capture.aux, {}
-    index, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, index, 1)
+    subj_i, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
 
     if first_val_i == 1 then 
         error"No first value"
@@ -102,7 +105,7 @@ evaluators["Cf"] = function (capture, subject, acc, index, val_i)
 
     for i = 2, capture.n - 1 do
         local fold_acc2, vi = {}
-        index, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, index, 1)
+        subj_i, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
         result = func(result, t_unpack(fold_acc2, 1, vi - 1))
     end
     acc[val_i] = result
@@ -110,7 +113,7 @@ evaluators["Cf"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["Cg"] = function (capture, subject, acc, index, val_i)
+evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
 
@@ -118,7 +121,7 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
         return start, val_i
     end
 
-    local index, group_val_i = insert(capture, subject, group_acc, start, 1)
+    local _, group_val_i = insert(capture, subject, group_acc, start, 1)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
         return finish, val_i + 1
@@ -131,7 +134,7 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["C"] = function (capture, subject, acc, index, val_i)
+evaluators["C"] = function (capture, subject, acc, subj_i, val_i)
     val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
     local _
     _, val_i = insert(capture, subject, acc, capture.start, val_i)
@@ -139,7 +142,7 @@ evaluators["C"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["Cs"] = function (capture, subject, acc, index, val_i)
+evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish, n = capture.start, capture.finish, capture.n
     if n == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
@@ -151,7 +154,7 @@ evaluators["Cs"] = function (capture, subject, acc, index, val_i)
             subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
             subst_i = subst_i + 1
 
-            start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, index, 1)
+            start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
 
             if tmp_i > 1 then
                 subst_acc[subst_i] = tmp_acc[1]
@@ -169,7 +172,7 @@ evaluators["Cs"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["Ct"] = function (capture, subject, acc, index, val_i)
+evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
 
     for i = 1, capture.n - 1 do
@@ -190,13 +193,13 @@ evaluators["Ct"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["value"] = function (capture, subject, acc, index, val_i)
+evaluators["value"] = function (capture, subject, acc, subj_i, val_i)
     acc[val_i] = capture.value
     return capture.finish, val_i + 1
 end
 
 
-evaluators["values"] = function (capture, subject, acc, index, val_i)
+evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
 local start, finish, values = capture.start, capture.finish, capture.values
     for i = 1, values.n do
         val_i, acc[val_i] = val_i + 1, values[i]
@@ -205,7 +208,7 @@ local start, finish, values = capture.start, capture.finish, capture.values
 end
 
 
-evaluators["/string"] = function (capture, subject, acc, index, val_i)
+evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
     -- print("/string", capture.start, capture.finish)
     local n, cached = capture.n, {}
     acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
@@ -230,7 +233,7 @@ evaluators["/string"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["/number"] = function (capture, subject, acc, index, val_i)
+evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
     local new_acc, _, vi = {}
     _, vi = insert(capture, subject, new_acc, capture.start, 1)
     if capture.aux >= vi then error("no capture '"..capture.aux.."' in /number capture.") end
@@ -239,7 +242,7 @@ evaluators["/number"] = function (capture, subject, acc, index, val_i)
 end
 
 
-evaluators["/table"] = function (capture, subject, acc, index, val_i)
+evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
     local key
     if capture.n > 1 then
         local new_acc = {}
@@ -266,7 +269,7 @@ function insert_divfunc_results(acc, val_i, ...)
     end
     return val_i
 end
-evaluators["/function"] = function (capture, subject, acc, index, val_i)
+evaluators["/function"] = function (capture, subject, acc, subj_i, val_i)
     local func, params, new_val_i, _ = capture.aux
     if capture.n > 1 then
         params = {}

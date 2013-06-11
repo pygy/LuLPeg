@@ -1161,34 +1161,33 @@ local s_sub, t_concat
     = s.sub, t.concat
 local expose, strip_mt, t_unpack
     = u.expose, u.strip_mt, u.unpack
-local evaluators = {}
+local evaluators, insert = {}
 local
-function evaluate (capture, subject, index)
+function evaluate (capture, subject, subj_i)
     local acc, val_i, _ = {}
-    _, val_i = evaluators.insert(capture, subject, acc, index, 1)
+    _, val_i = insert(capture, subject, acc, subj_i, 1)
     return acc, val_i
 end
 LL.evaluate = evaluate
-local function insert (capture, subject, acc, index, val_i)
+function insert (capture, subject, acc, subj_i, val_i)
     for i = 1, capture.n - 1 do
             local c 
-            index, val_i =
-                evaluators[capture[i].type](capture[i], subject, acc, index, val_i)
+            subj_i, val_i =
+                evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
     end
-    return index, val_i
+    return subj_i, val_i
 end
-evaluators["insert"] = insert
 local
-function lookback(capture, tag, index)
+function lookback(capture, tag, subj_i)
     local found
     repeat
-        for i = index - 1, 1, -1 do
+        for i = subj_i - 1, 1, -1 do
             if  capture[i].Ctag == tag then
                 found = capture[i]
                 break
             end
         end
-        capture, index = capture.parent, capture.parent_i
+        capture, subj_i = capture.parent, capture.parent_i
     until found or not capture
     if found then 
         return found
@@ -1197,39 +1196,39 @@ function lookback(capture, tag, index)
         error("back reference "..tag.." not found")
     end
 end
-evaluators["Cb"] = function (capture, subject, acc, index, val_i)
+evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
     local ref, Ctag, _ 
     ref = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
     ref.Ctag = Ctag
-    return index, val_i
+    return subj_i, val_i
 end
-evaluators["Cf"] = function (capture, subject, acc, index, val_i)
+evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
     if capture.n == 0 then
         error"No First Value"
     end
     local func, fold_acc, first_val_i, _ = capture.aux, {}
-    index, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, index, 1)
+    subj_i, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
     if first_val_i == 1 then 
         error"No first value"
     end
     local result = fold_acc[1]
     for i = 2, capture.n - 1 do
         local fold_acc2, vi = {}
-        index, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, index, 1)
+        subj_i, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
         result = func(result, t_unpack(fold_acc2, 1, vi - 1))
     end
     acc[val_i] = result
     return capture.finish, val_i + 1
 end
-evaluators["Cg"] = function (capture, subject, acc, index, val_i)
+evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
     if capture.Ctag ~= nil  then
         return start, val_i
     end
-    local index, group_val_i = insert(capture, subject, group_acc, start, 1)
+    local _, group_val_i = insert(capture, subject, group_acc, start, 1)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
         return finish, val_i + 1
@@ -1240,13 +1239,13 @@ evaluators["Cg"] = function (capture, subject, acc, index, val_i)
         return capture.finish, val_i
     end
 end
-evaluators["C"] = function (capture, subject, acc, index, val_i)
+evaluators["C"] = function (capture, subject, acc, subj_i, val_i)
     val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
     local _
     _, val_i = insert(capture, subject, acc, capture.start, val_i)
     return capture.finish, val_i
 end
-evaluators["Cs"] = function (capture, subject, acc, index, val_i)
+evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish, n = capture.start, capture.finish, capture.n
     if n == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
@@ -1256,7 +1255,7 @@ evaluators["Cs"] = function (capture, subject, acc, index, val_i)
             local cap, tmp_acc, tmp_i, _ = capture[cap_i], {}
             subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
             subst_i = subst_i + 1
-            start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, index, 1)
+            start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
             if tmp_i > 1 then
                 subst_acc[subst_i] = tmp_acc[1]
                 subst_i = subst_i + 1
@@ -1268,7 +1267,7 @@ evaluators["Cs"] = function (capture, subject, acc, index, val_i)
     end
     return capture.finish, val_i + 1
 end
-evaluators["Ct"] = function (capture, subject, acc, index, val_i)
+evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
     for i = 1, capture.n - 1 do
         local cap = capture[i]
@@ -1284,18 +1283,18 @@ evaluators["Ct"] = function (capture, subject, acc, index, val_i)
     acc[val_i] = tbl_acc
     return capture.finish, val_i + 1
 end
-evaluators["value"] = function (capture, subject, acc, index, val_i)
+evaluators["value"] = function (capture, subject, acc, subj_i, val_i)
     acc[val_i] = capture.value
     return capture.finish, val_i + 1
 end
-evaluators["values"] = function (capture, subject, acc, index, val_i)
+evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
 local start, finish, values = capture.start, capture.finish, capture.values
     for i = 1, values.n do
         val_i, acc[val_i] = val_i + 1, values[i]
     end
     return finish, val_i
 end
-evaluators["/string"] = function (capture, subject, acc, index, val_i)
+evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
     local n, cached = capture.n, {}
     acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
         if d == "%" then return "%" end
@@ -1317,14 +1316,14 @@ evaluators["/string"] = function (capture, subject, acc, index, val_i)
     end)
     return capture.finish, val_i + 1
 end
-evaluators["/number"] = function (capture, subject, acc, index, val_i)
+evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
     local new_acc, _, vi = {}
     _, vi = insert(capture, subject, new_acc, capture.start, 1)
     if capture.aux >= vi then error("no capture '"..capture.aux.."' in /number capture.") end
     acc[val_i] = new_acc[capture.aux]
     return capture.finish, val_i + 1
 end
-evaluators["/table"] = function (capture, subject, acc, index, val_i)
+evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
     local key
     if capture.n > 1 then
         local new_acc = {}
@@ -1348,7 +1347,7 @@ function insert_divfunc_results(acc, val_i, ...)
     end
     return val_i
 end
-evaluators["/function"] = function (capture, subject, acc, index, val_i)
+evaluators["/function"] = function (capture, subject, acc, subj_i, val_i)
     local func, params, new_val_i, _ = capture.aux
     if capture.n > 1 then
         params = {}
@@ -1556,23 +1555,23 @@ _, jit = pcall(require, "jit")
 jit = _ and jit
 local compat = {
     debug = debug,
+    lua51 = (_VERSION == "Lua 5.1") and not jit,
     lua52 = _VERSION == "Lua 5.2",
-    lua52_len = not #setmetatable({},{__len = nop}), 
     luajit = jit and true or false,
-    jit = (jit and jit.status()),
+    jit = jit and jit.status(),
+    lua52_len = not #setmetatable({},{__len = nop}),
     proxies = newproxy
         and (function()
             local ok, result = pcall(newproxy)
             return ok and (type(result) == "userdata" )
         end)()
         and type(debug) == "table"
-        and (function() 
+        and (function()
             local prox, mt = newproxy(), {}
             local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
             return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
         end)()
 }
-compat.lua51 = (_VERSION == "Lua 5.1") and not compat.luajit
 return compat
 
 end
@@ -2174,7 +2173,7 @@ local assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
     = assert, error, ipairs, pairs, pcall, print
     , require, select, tonumber, tostring, type
-local debug, s, t, u = require"debug", require"string", require"table", require"util"
+local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local s_byte, t_concat, t_insert, t_sort
     = s.byte, t.concat, t.insert, t.sort
@@ -2487,7 +2486,7 @@ local copy, getuniqueid, id, map
     = u.copy, u.getuniqueid, u.id, u.map
     , u.nop, u.weakkey, u.weakval
 local _ENV = u.noglobals()
-local classpt = {
+local patternwith = {
     constant = {
         "Cp", "true", "false"
     },
@@ -2551,13 +2550,13 @@ local ptcache, meta
 local
 function resetcache()
     ptcache, meta = {}, weakkey{}
-    for _, p in ipairs (classpt.aux) do
+    for _, p in ipairs(patternwith.aux) do
         ptcache[p] = weakval{}
     end
-    for _, p in ipairs(classpt.subpt) do
+    for _, p in ipairs(patternwith.subpt) do
         ptcache[p] = weakval{}
     end
-    for _, p in ipairs(classpt.both) do
+    for _, p in ipairs(patternwith.both) do
         ptcache[p] = {}
     end
     return ptcache

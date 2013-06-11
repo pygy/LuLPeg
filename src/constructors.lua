@@ -39,8 +39,11 @@ local _ENV = u.noglobals()
 
 --- The type of cache for each kind of pattern:
 --
+-- Patterns are memoized using different strategies, depending on what kind of
+-- data is associated with them.
 
-local classpt = {
+
+local patternwith = {
     constant = {
         "Cp", "true", "false"
     },
@@ -61,7 +64,6 @@ local classpt = {
         "behind", "at least", "at most", "Ctag", "Cmt",
         "/string", "/number", "/table", "/function"
     },
-    -- FIXME?? Move Cc to .aux ?? weakboth cache?
     none = "grammar", "Cc"
 }
 
@@ -115,7 +117,7 @@ local newpattern do
         function LL.get_direct(p) return proxycache[p] end
     else
         -- Fallback if neither __len(table) nor newproxy work 
-        -- (is there such a Lua version?)
+        -- for example in restricted sandboxes.
         if LL.warnings then
             print("Warning: The `__len` metatethod won't work with patterns, "
                 .."use `LL.L(pattern)` for lookaheads.")
@@ -131,39 +133,23 @@ end
 --- The caches
 --
 
--- Warning regarding caches: if composite patterns are memoized,
--- their comiled version must not be stored in them if the
--- hold references. Currently they are thus always stored in
--- the compiler cache, not the pattern itself.
-
-
-
-
-
--- -- reverse lookup
--- local ptclass = {}
--- for class, pts in pairs(classpt) do
---     for _, pt in pairs(pts) do
---         ptclass[pt] = class
---     end
--- end
 local ptcache, meta
 local
 function resetcache()
     ptcache, meta = {}, weakkey{}
 
     -- Patterns with aux only.
-    for _, p in ipairs (classpt.aux) do
+    for _, p in ipairs(patternwith.aux) do
         ptcache[p] = weakval{}
     end
 
     -- Patterns with only one sub-pattern.
-    for _, p in ipairs(classpt.subpt) do
+    for _, p in ipairs(patternwith.subpt) do
         ptcache[p] = weakval{}
     end
 
     -- Patterns with both
-    for _, p in ipairs(classpt.both) do
+    for _, p in ipairs(patternwith.both) do
         ptcache[p] = {}
     end
 

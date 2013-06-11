@@ -12,24 +12,26 @@ jit = _ and jit
 local compat = {
     debug = debug,
 
+    lua51 = (_VERSION == "Lua 5.1") and not jit,
     lua52 = _VERSION == "Lua 5.2",
-    lua52_len = not #setmetatable({},{__len = nop}), 
     luajit = jit and true or false,
-    jit = (jit and jit.status()),
+    jit = jit and jit.status(),
+
+    -- LuaJIT can optionally support __len on tables.
+    lua52_len = not #setmetatable({},{__len = nop}),
+
     proxies = newproxy
         and (function()
             local ok, result = pcall(newproxy)
             return ok and (type(result) == "userdata" )
         end)()
         and type(debug) == "table"
-        and (function() 
+        and (function()
             local prox, mt = newproxy(), {}
             local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
             return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
         end)()
 }
-
-compat.lua51 = (_VERSION == "Lua 5.1") and not compat.luajit
 
 return compat
 
