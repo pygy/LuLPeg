@@ -1,6 +1,6 @@
 # LuLPeg
 
-/ ˈluːɛlpɛɡ /
+[/ˈluːɛlpɛɡ/] https://github.com/pygy/LuLPeg/edit/master/README.md
 
 A pure Lua port of LPeg, Roberto Ierusalimschy's Parsing Expression Grammars library.
 
