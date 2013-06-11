@@ -10,7 +10,8 @@ local hasVcache, hasCmtcache , lengthcache
 return {
     hasV = nop,
     hasCmt = nop,
-    length = nop
+    length = nop,
+    hasCapture = nop
 }
 
 

@@ -24,6 +24,7 @@ assert(P(true) == -P(false))
 assert(-P(true) == P(false))
 assert(- -P"a" == #P"a")
 assert(-#P"a" == -P"a")
+assert(P(-1) == -P(1))
 
 -- print"strings"
 
@@ -46,3 +47,5 @@ assert(R"az"+R"AZ" == R("az", "AZ"))
 -- local e = _G or _ENV
 
 -- for _, v in ipairs{"C", "Cg", "C"} do end
+
+print"Ok"

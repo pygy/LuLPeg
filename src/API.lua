@@ -56,7 +56,6 @@ local Range, Set, S_union, S_tostring
 local factorize_choice, factorize_lookahead, factorize_sequence, factorize_unm
 
 
-
 local
 function makechar(c)
     return constructors.aux("char", c)
