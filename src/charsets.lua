@@ -1,14 +1,28 @@
 
 -- Charset handling
 
+
+-- FIXME:
+-- Currently, only
+-- * `binary_get_int()`,
+-- * `binary_split_int()` and
+-- * `binary_validate()`
+-- are effectively used by the client code.
+
+-- *_next_int, *_split_, *_get_ and *_next_char should probably be disposed of.
+
+
+
 -- We provide: 
 -- * utf8_validate(subject, start, finish) -- validator
 -- * utf8_split_int(subject)               --> table{int}
 -- * utf8_split_char(subject)              --> table{char}
 -- * utf8_next_int(subject, index)         -- iterator
 -- * utf8_next_char(subject, index)        -- iterator
--- * utf8_get_int(subject, index)         -- Julia-style iterator
--- * utf8_get_char(subject, index)        -- Julia-style iterator
+-- * utf8_get_int(subject, index)          -- Julia-style iterator
+--                                            returns int, next_index
+-- * utf8_get_char(subject, index)         -- Julia-style iterator
+--                                            returns char, next_index
 --
 -- See each function for usage.
 
