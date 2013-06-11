@@ -38,13 +38,13 @@ lua = P {
 
   -- longstrings
 
-  longstring = Cmt(P { -- from Roberto Ierusalimschy's lpeg examples
+  longstring = (P { -- from Roberto Ierusalimschy's lpeg examples
     V "open" * (P(1) - V "closeeq")^0 * V "close",
 
     open = "[" * Cg((P "=")^0, "init") * P "[" * (P "\n")^-1,
     close = "]" * C((P "=")^0) * "]",
     closeeq = Cmt(V "close" * Cb "init", function (s, i, a, b) return a == b end)
-  }, function() return true end);
+  })/0;
 
   -- comments & whitespace
 
