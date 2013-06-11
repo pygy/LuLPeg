@@ -12,7 +12,7 @@ Feedback most welcome.
 
 ## Usage:
 
-The standalone `lulpeg.lua` found in the main directory is a drop-in replacement for LPeg.
+`lulpeg.lua` is a drop-in replacement for _LPeg_ and _re_.
 
 ```Lua
 local lulpeg = require"lulpeg"

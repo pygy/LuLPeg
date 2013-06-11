@@ -26,11 +26,6 @@ Try a cdata-based approach for LuaJIT.
 
 - ? Be more strict with capture garbage during match time ?
 
-### Cleanup:
-
-- remove unused parameters/return values in the API+constructors and evaluator code.
-- move some special cases from API.lua to compiler.lua (and refactor some of them, like repetitions).
-
 ### Speed:
 
 - merge char sequences to strings? Probably pointless with the one function per rule compiler strategy.
