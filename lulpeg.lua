@@ -674,18 +674,36 @@ compilers["at most"] = function (pt, ccache)
 end
 compilers["at least"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local success = true
-        for i = 1, n do
+    if n == 0 then
+        return function (subject, index, cap_acc, cap_i, state)
+            local success = true
+            while success do
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
+        end
+    elseif n == 1 then
+        return function (subject, index, cap_acc, cap_i, state)
+            local success = true
             success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
             if not success then return false, index, cap_i end
+            while success do
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
         end
-        local N = 1
-        while success do
-            N=N+1
-            success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+    else
+        return function (subject, index, cap_acc, cap_i, state)
+            local success = true
+            for i = 1, n do
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+                if not success then return false, index, cap_i end
+            end
+            while success do
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
         end
-        return true, index, cap_i
     end
 end
 compilers["unm"] = function (pt, ccache)
@@ -1600,7 +1618,7 @@ local Range, Set, S_union, S_tostring
 local factorize_choice, factorize_lookahead, factorize_sequence, factorize_unm
 local
 function makechar(c)
-    return constructors.aux("char", nil, c)
+    return constructors.aux("char", c)
 end
 local
 function PL_P (v)
@@ -1620,7 +1638,7 @@ function PL_P (v)
         if g[1] == nil then error("grammar has no initial rule") end
         if not PL_ispattern(g[1]) then g[1] = PL.V(g[1]) end
         return 
-            constructors.none("grammar", nil, g) 
+            constructors.none("grammar", g) 
     elseif type(v) == "boolean" then
         return v and truept or falsept
     elseif type(v) == "number" then
@@ -1628,10 +1646,10 @@ function PL_P (v)
             return truept
         elseif v > 0 then
             return
-                constructors.aux("any", nil, v)
+                constructors.aux("any", v)
         else
             return
-                - constructors.aux("any", nil, -v)
+                - constructors.aux("any", -v)
         end
     end
 end
@@ -1647,7 +1665,7 @@ function PL_S (set)
             charset_error(index, charset)
         end
         return
-            constructors.aux("set", nil, Set(split_int(set)), set)
+            constructors.aux("set", Set(split_int(set)), set)
     end
 end
 PL.S = PL_S
@@ -1666,9 +1684,9 @@ function PL_R (...)
         end
         local representation = t_concat(map(tochar, 
                 {load("return "..S_tostring(range))()}))
-        local p = constructors.aux("set", nil, range, representation)
+        local p = constructors.aux("set", range, representation)
         return 
-            constructors.aux("set", nil, range, representation)
+            constructors.aux("set", range, representation)
     end
 end
 PL.R = PL_R
@@ -1676,7 +1694,7 @@ local
 function PL_V (name)
     assert(name ~= nil)
     return 
-        constructors.aux("ref", nil,  name)
+        constructors.aux("ref",  name)
 end
 PL.V = PL_V
 do 
@@ -1735,7 +1753,7 @@ function PL_choice (a, b, ...)
         return ch[1]
     else
         return 
-            constructors.aux("choice", nil, ch)
+            constructors.aux("choice", ch)
     end
 end
 PL.__add = PL_choice
@@ -1751,7 +1769,7 @@ function sequence (a, b, ...)
         return seq[1]
     end
     return 
-        constructors.aux("sequence", nil, seq)
+        constructors.aux("sequence", seq)
 end
 PL.__mul = sequence
 local
@@ -1803,13 +1821,13 @@ for __, cap in pairs{"C", "Cs", "Ct"} do
 end
 PL["Cb"] = function(aux)
     return 
-        constructors.aux("Cb", nil, aux)
+        constructors.aux("Cb", aux)
 end
 PL["Carg"] = function(aux)
     assert(type(aux)=="number", "Number expected as parameter to Carg capture.")
     assert( 0 < aux and aux <= 200, "Argument out of bounds in Carg capture.")
     return 
-        constructors.aux("Carg", nil, aux)
+        constructors.aux("Carg", aux)
 end
 local
 function PL_Cp ()
@@ -1819,7 +1837,7 @@ PL.Cp = PL_Cp
 local
 function PL_Cc (...)
     return 
-        constructors.none("Cc", nil, t_pack(...))
+        constructors.none("Cc", t_pack(...))
 end
 PL.Cc = PL_Cc
 for __, cap in pairs{"Cf", "Cmt"} do
@@ -2052,8 +2070,7 @@ function choice (a,b, ...)
             local type1, type2 = p1.ptype, p2.ptype
             if type1 == "set" and type2 == "set" then
                 dest[#dest] = constructors.aux(
-                    "set", nil, 
-                    S_union(p1.aux, p2.aux), 
+                    "set", S_union(p1.aux, p2.aux), 
                     "Union( "..p1.as_is.." || "..p2.as_is.." )"
                 )
                 changed = true
@@ -2236,7 +2253,7 @@ local getauxkey = {
     end
 }
 getauxkey.choice = getauxkey.sequence
-constructors["aux"] = function(typ, _, aux, as_is)
+constructors["aux"] = function(typ, aux, as_is)
     local cache = ptcache[typ]
     local key = (getauxkey[typ] or id)(aux, as_is)
     if not cache[key] then
@@ -2248,7 +2265,7 @@ constructors["aux"] = function(typ, _, aux, as_is)
     end
     return cache[key]
 end
-constructors["none"] = function(typ, _, aux)
+constructors["none"] = function(typ, aux)
     return newpattern{
         ptype = typ,
         aux = aux
@@ -2288,14 +2305,6 @@ end
 do local _ENV = _ENV
 packages['init'] = function (...)
 
-local tmp_globals, globalenv = {}, _ENV or _G
-if false and not release then
-for lib, tbl in pairs(globalenv) do
-    if type(tbl) == "table" then
-        tmp_globals[lib], globalenv[lib] = globalenv[lib], nil
-    end
-end
-end
 local getmetatable, pairs, setmetatable
     = getmetatable, pairs, setmetatable
 local u = require"util"
@@ -2308,10 +2317,10 @@ local API, charsets, compiler, constructors
     { "API", "charsets", "compiler", "constructors"
     , "datastructures", "evaluator", "factorizer"
     , "locale", "match", "printers", "re" }))
-local package = require"package"
+local _, package = pcall(require, "package")
 local _ENV = u.noglobals() ----------------------------------------------------
 local VERSION = "0.12"
-local PVERSION = "0.0.0"
+local LuVERSION = "0.1.0"
 local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
 local function register(lpeg, env) 
     pcall(function()
@@ -2324,47 +2333,44 @@ local function register(lpeg, env)
     return self
 end
 local 
-function PLPeg(options)
+function LuLPeg(options)
     options = options and copy(options) or {}
-    local Builder, PL 
+    local Builder, LL
         = { options = options, factorizer = factorizer }
-        , { new = PLPeg
+        , { new = LuLPeg
           , version = function () return VERSION end
-          , pversion = function () return PVERSION end
+          , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
-    PL.__index = PL
+    LL.__index = LL
     local
-    function PL_ispattern(pt) return getmetatable(pt) == PL end
-    PL.ispattern = PL_ispattern
-    function PL.type(pt)
-        if PL_ispattern(pt) then 
+    function LL_ispattern(pt) return getmetatable(pt) == LL end
+    LL.ispattern = LL_ispattern
+    function LL.type(pt)
+        if LL_ispattern(pt) then 
             return "pattern"
         else
             return nil
         end
     end
-    PL.util = u
-    PL.global = global
-    PL.register = register
-    ;-- Decorate the LPeg object.
-    charsets(Builder, PL)
-    datastructures(Builder, PL)
-    printers(Builder, PL)
-    constructors(Builder, PL)
-    API(Builder, PL)
-    evaluator(Builder, PL)
-    ;(options.compiler or compiler)(Builder, PL)
-    match(Builder, PL)
-    locale(Builder, PL)
-    PL.re = re(Builder, PL)
-    return PL
-end -- PLPeg
-local PL = PLPeg()
-for lib, tbl in pairs(tmp_globals) do
-        globalenv[lib] = tmp_globals[lib] 
-end
-return PL
+    LL.util = u
+    LL.global = global
+    LL.register = register
+    ;-- Decorate the LuLPeg object.
+    charsets(Builder, LL)
+    datastructures(Builder, LL)
+    printers(Builder, LL)
+    constructors(Builder, LL)
+    API(Builder, LL)
+    evaluator(Builder, LL)
+    ;(options.compiler or compiler)(Builder, LL)
+    match(Builder, LL)
+    locale(Builder, LL)
+    LL.re = re(Builder, LL)
+    return LL
+end -- LuLPeg
+local LL = LuLPeg()
+return LL
 
 end
 end

@@ -516,20 +516,48 @@ end
 
 compilers["at least"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("At least  ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-        local success = true
-        for i = 1, n do
+    if n == 0 then
+        return function (subject, index, cap_acc, cap_i, state)
+            -- [[DBG]] print("At least 0 ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+            local success = true
+            -- [[DBG]] local N = 1
+            while success do
+                -- [[DBG]] print("    rep "..N,cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
+                -- [[DBG]] N=N+1
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
+        end
+    elseif n == 1 then
+        return function (subject, index, cap_acc, cap_i, state)
+            -- [[DBG]] print("At least 1 ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+            local success = true
             success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
             if not success then return false, index, cap_i end
+            -- [[DBG]] local N = 1
+            while success do
+                -- [[DBG]] ("    rep "..N,cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
+                -- [[DBG]] N=N+1
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
         end
-        local N = 1
-        while success do
-             -- dprint("    rep "..N,cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
-            N=N+1
-            success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+    else
+        return function (subject, index, cap_acc, cap_i, state)
+            -- [[DBG]] print("At least "..n.." ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+            local success = true
+            for i = 1, n do
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+                if not success then return false, index, cap_i end
+            end
+            -- [[DBG]] local N = 1
+            while success do
+                -- [[DBG]] print("    rep "..N,cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
+                -- [[DBG]] N=N+1
+                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            end
+            return true, index, cap_i
         end
-        return true, index, cap_i
     end
 end
 
