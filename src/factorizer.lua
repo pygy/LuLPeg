@@ -244,12 +244,11 @@ end
 local
 function unm (pt)
     -- [[DP]] print("Factorize Unm")
-    if     pt == truept            then return falsept, true
-    elseif pt == falsept           then return truept, true
-    elseif pt.ptype == "unm"       then return #pt.pattern, true
-    elseif pt.ptype == "lookahead" then pt = pt.pattern
+    if     pt == truept            then return falsept
+    elseif pt == falsept           then return truept
+    elseif pt.ptype == "unm"       then return #pt.pattern
+    elseif pt.ptype == "lookahead" then return -pt.pattern
     end
-    return pt
 end
 
 return {

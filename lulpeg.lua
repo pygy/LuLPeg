@@ -2,7 +2,7 @@
 -- Parsing Expression Grammars library.
 -- 
 -- Copyright (C) Pierre-Yves Gerardy.
--- Released under the Romantif WTF Public License (cf. the LICENSE
+-- Released under the Romantic WTF Public License (cf. the LICENSE
 -- file or the end of this file, whichever is present).
 -- 
 -- See http://www.inf.puc-rio.br/~roberto/lpeg/ for the original.
@@ -1753,12 +1753,11 @@ function sequence(a, b, ...)
 end
 local
 function unm (pt)
-    if     pt == truept            then return falsept, true
-    elseif pt == falsept           then return truept, true
-    elseif pt.ptype == "unm"       then return #pt.pattern, true
-    elseif pt.ptype == "lookahead" then pt = pt.pattern
+    if     pt == truept            then return falsept
+    elseif pt == falsept           then return truept
+    elseif pt.ptype == "unm"       then return #pt.pattern
+    elseif pt.ptype == "lookahead" then return -pt.pattern
     end
-    return pt
 end
 return {
     choice = choice,
@@ -2371,13 +2370,9 @@ LL.__len = LL_lookahead
 LL.L = LL_lookahead
 local
 function LL_unm(pt)
-    local as_is
-    pt, as_is = factorize_unm(pt)
-    if as_is 
-    then return pt
-    else 
-        return 
-            constructors.subpt("unm", pt) end
+    return 
+        factorize_unm(pt) 
+        or constructors.subpt("unm", pt)
 end
 LL.__unm = LL_unm
 local

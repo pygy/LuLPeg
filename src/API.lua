@@ -273,14 +273,10 @@ LL.L = LL_lookahead
 local
 function LL_unm(pt)
     -- Simplifications
-    local as_is
-    pt, as_is = factorize_unm(pt)
-    if as_is 
-    then return pt
-    else 
-        return 
-            --[[DBG]] true and
-            constructors.subpt("unm", pt) end
+    return 
+        --[[DBG]] true and
+        factorize_unm(pt) 
+        or constructors.subpt("unm", pt)
 end
 LL.__unm = LL_unm
 

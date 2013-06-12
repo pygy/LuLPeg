@@ -163,7 +163,7 @@ LuaJIT in with the JIT compiler turned off is ~50 times slower than LPeg.
 ## License:
 
 Copyright (C) Pierre-Yves Gerardy.
-Released under the Romantif WTF Public License.
+Released under the Romantic WTF Public License.
 
 The re.lua module and the test suite (tests/lpeg.*.*.tests.lua) are part of the original LPeg distribution, released under the MIT license.
 
