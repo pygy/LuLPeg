@@ -355,7 +355,7 @@ end
 local
 function LL_Cg (pt, tag)
     pt = LL_P(pt)
-    if tag then 
+    if tag ~= nil then 
         return  
             --[[DBG]] true and
             constructors.both("Ctag", pt, tag)
