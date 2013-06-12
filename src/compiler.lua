@@ -19,7 +19,7 @@ local   expose,   load,   map,   map_all, t_pack
 
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
-local get_int, charset = Builder.charset.get_int, Builder.charset
+local charset = Builder.charset
 
 
 
@@ -272,15 +272,15 @@ end
 
 compilers["char"] = function (pt, ccache)
     return load(([[
-        local get_int = ...
+        local s_byte = ...
         return function(subject, index, cap_acc, cap_i, state)
              -- dprint("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-            local c, nindex = get_int(subject, index)
+            local c, nindex = s_byte(subject, index), index + 1
             if c ~= __C0__ then
                 return false, index, cap_i
             end
             return true, nindex, cap_i
-        end]]):gsub("__C0__", tostring(pt.aux)))(get_int)
+        end]]):gsub("__C0__", tostring(pt.aux)))(s_byte)
 end
 
 
@@ -317,7 +317,7 @@ end
 local
 function onecompiled (subject, index, cap_acc, cap_i, state)
      -- dprint("One     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-    local char, nindex = get_int(subject, index)
+    local char, nindex = s_byte(subject, index), index + 1
     if char
     then return true, nindex, cap_i
     else return false, index, cap_i end
@@ -337,7 +337,7 @@ compilers["any"] = function (pt)
              -- dprint("Any UTF-8",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n, c, nindex = N
             while n > 0 do
-                c, nindex = get_int(subject, index)
+                c, nindex = s_byte(subject, index), index + 1
                 if not c then
                      -- dprint("%FAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                     return false, index, cap_i
@@ -403,7 +403,7 @@ compilers["range"] = function (pt)
     local ranges = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
          -- dprint("Range   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-        local char, nindex = get_int(subject, index)
+        local char, nindex = s_byte(subject, index), index + 1
         for i = 1, #ranges do
             local r = ranges[i]
             if char and r[char]
@@ -417,7 +417,7 @@ compilers["set"] = function (pt)
     local s = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
              -- dprint("Set, Set!",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-        local char, nindex = get_int(subject, index, cap_acc, cap_i, state)
+        local char, nindex = s_byte(subject, index), index + 1
         if s[char]
         then return true, nindex, cap_i
         else return false, index, cap_i end

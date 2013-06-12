@@ -242,7 +242,7 @@ local   expose,   load,   map,   map_all, t_pack
     = u.expose, u.load, u.map, u.map_all, u.pack
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
-local get_int, charset = Builder.charset.get_int, Builder.charset
+local charset = Builder.charset
 local compilers = {}
 local
 function compile(pt, ccache)
@@ -436,14 +436,14 @@ compilers["string"] = function (pt, ccache)
 end
 compilers["char"] = function (pt, ccache)
     return load(([[
-        local get_int = ...
+        local s_byte = ...
         return function(subject, index, cap_acc, cap_i, state)
-            local c, nindex = get_int(subject, index)
+            local c, nindex = s_byte(subject, index), index + 1
             if c ~= __C0__ then
                 return false, index, cap_i
             end
             return true, nindex, cap_i
-        end]]):gsub("__C0__", tostring(pt.aux)))(get_int)
+        end]]):gsub("__C0__", tostring(pt.aux)))(s_byte)
 end
 local
 function truecompiled (subject, index, cap_acc, cap_i, state)
@@ -468,7 +468,7 @@ compilers["eos"] = function (pt)
 end
 local
 function onecompiled (subject, index, cap_acc, cap_i, state)
-    local char, nindex = get_int(subject, index)
+    local char, nindex = s_byte(subject, index), index + 1
     if char
     then return true, nindex, cap_i
     else return false, index, cap_i end
@@ -484,7 +484,7 @@ compilers["any"] = function (pt)
         return function(subject, index, cap_acc, cap_i, state)
             local n, c, nindex = N
             while n > 0 do
-                c, nindex = get_int(subject, index)
+                c, nindex = s_byte(subject, index), index + 1
                 if not c then
                     return false, index, cap_i
                 end
@@ -535,7 +535,7 @@ end
 compilers["range"] = function (pt)
     local ranges = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local char, nindex = get_int(subject, index)
+        local char, nindex = s_byte(subject, index), index + 1
         for i = 1, #ranges do
             local r = ranges[i]
             if char and r[char]
@@ -547,7 +547,7 @@ end
 compilers["set"] = function (pt)
     local s = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local char, nindex = get_int(subject, index, cap_acc, cap_i, state)
+        local char, nindex = s_byte(subject, index), index + 1
         if s[char]
         then return true, nindex, cap_i
         else return false, index, cap_i end
