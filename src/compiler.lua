@@ -194,18 +194,27 @@ local function pack_Cmt_caps(i,...) return i, t_pack(...) end
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local new_acc, success, nindex = {
+        local tmp_acc = {
             type = "insert",
             parent = cap_acc,
             parent_i = cap_i
         }
-        success, nindex, new_acc.n = matcher(subject, index, new_acc, 1, state)
+        local success, nindex, tmp_i = matcher(subject, index, tmp_acc, 1, state)
 
         if not success then return false, index, cap_i end
-        -- print("# @ # %%% - Cmt EVAL", index, #new_acc ~= 0)
-        local captures = #new_acc == 0 and {s_sub(subject, index, nindex - 1)}
-                                       or  evaluate(new_acc, subject, nindex)
-        local nnindex, values = pack_Cmt_caps(func(subject, nindex, t_unpack(captures)))
+        -- print("# @ # %%% - Cmt EVAL", index, tmp_acc.n ~= 0)
+
+        local captures, mt_cap_i
+        if tmp_i == 1 then
+            captures, mt_cap_i = {s_sub(subject, index, nindex - 1)}, 2
+        else
+            tmp_acc.n = tmp_i
+            captures, mt_cap_i = evaluate(tmp_acc, subject, nindex)
+        end
+
+        local nnindex, values = pack_Cmt_caps(
+            func(subject, nindex, t_unpack(captures, 1, mt_cap_i - 1))
+        )
 
         if not nnindex then return false, index, cap_i end
 

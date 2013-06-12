@@ -30,18 +30,202 @@ end
 
 --=============================================================================
 do local _ENV = _ENV
-packages['analizer'] = function (...)
-
+packages['datastructures'] = function (...)
+local getmetatable, pairs, pcall, print, setmetatable, type
+    = getmetatable, pairs, pcall, print, setmetatable, type
+local m, t = require"math", require"table"
+local m_min, m_max, t_concat, t_insert, t_sort
+    = m.min, m.max, t.concat, t.insert, t.sort
 local u = require"util"
-local nop, weakkey = u.nop, u.weakkey
-local hasVcache, hasCmtcache , lengthcache
-    = weakkey{}, weakkey{},    weakkey{}
-return {
-    hasV = nop,
-    hasCmt = nop,
-    length = nop,
-    hasCapture = nop
+local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
+    = u.all, u.expose, u.extend, u.load, u.map, u.map_all, u.max, u.unpack
+local compat = require"compat"
+local ffi if compat.luajit then
+    ffi = require"ffi"
+end
+local _ENV = u.noglobals() ----------------------------------------------------
+local structfor = {}
+local byteset_new, isboolset, isbyteset
+local byteset_mt = {}
+local
+function byteset_constructor (upper)
+    local set = setmetatable(load(t_concat{
+        "return{ [0]=false",
+        (", false"):rep(upper),
+        " }"
+    })(),
+    byteset_mt)
+    return set
+end
+if compat.jit then
+    local struct, empty, boolset_constructor = {v={}}
+    function byteset_mt.__index(s,i)
+        if i == nil or i > s.upper then return nil end
+        return s.v[i]
+    end
+    function byteset_mt.__len(s)
+        return s.upper
+    end
+    function byteset_mt.__newindex(s,i,v)
+        s.v[i] = v
+    end
+    boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
+    function byteset_new (t)
+        if type(t) == "number" then
+            local tmp
+            local res = boolset_constructor(t+1)
+            res.upper = t
+            return res
+        end
+        local upper = u_max(t)
+        struct.upper = upper
+        if upper > 255 then error"bool_set overflow" end
+        local set = boolset_constructor(upper+1)
+        set.upper = upper
+        for i = 1, #t do set[t[i]] = true end
+        return set
+    end
+    function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
+    isbyteset = isboolset
+else
+    function byteset_new (t)
+        if type(t) == "number" then return byteset_constructor(t) end
+        local set = byteset_constructor(u_max(t))
+        for i = 1, #t do set[t[i]] = true end
+        return set
+    end
+    function isboolset(s) return false end
+    function isbyteset (s)
+        return getmetatable(s) == byteset_mt
+    end
+end
+local
+function byterange_new (low, high)
+    high = ( low <= high ) and high or -1
+    local set = byteset_new(high)
+    for i = low, high do
+        set[i] = true
+    end
+    return set
+end
+local
+function byteset_union (a ,b)
+    local upper = m_max(#a, #b)
+    local res = byteset_new(upper)
+    for i = 0, upper do
+        res[i] = a[i] or b[i] or false
+    end
+    return res
+end
+local
+function byteset_difference (a, b)
+    local res = {}
+    for i = 0, 255 do
+        res[i] = a[i] and not b[i]
+    end
+    return res
+end
+local
+function byteset_tostring (s)
+    local list = {}
+    for i = 0, 255 do
+        list[#list+1] = (s[i] == true) and i or nil
+    end
+    return t_concat(list,", ")
+end
+local function byteset_has(set, elem)
+    if elem > 255 then return false end
+    return set[elem]
+end
+structfor.binary = {
+    set ={
+        new = byteset_new,
+        union = byteset_union,
+        difference = byteset_difference,
+        tostring = byteset_tostring
+    },
+    Range = byterange_new,
+    isboolset = isboolset,
+    isbyteset = isbyteset,
+    isset = isbyteset
 }
+local set_mt = {}
+local
+function set_new (t)
+    local set = setmetatable({}, set_mt)
+    for i = 1, #t do set[t[i]] = true end
+    return set
+end
+local -- helper for the union code.
+function add_elements(a, res)
+    for k in pairs(a) do res[k] = true end
+    return res
+end
+local
+function set_union (a, b)
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
+    local res = set_new{}
+    add_elements(a, res)
+    add_elements(b, res)
+    return res
+end
+local
+function set_difference(a, b)
+    local list = {}
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
+    for el in pairs(a) do
+        if a[i] and not b[i] then
+            list[#list+1] = i
+        end
+    end
+    return set_new(list)
+end
+local
+function set_tostring (s)
+    local list = {}
+    for el in pairs(s) do
+        t_insert(list,el)
+    end
+    t_sort(list)
+    return t_concat(list, ",")
+end
+local
+function isset (s)
+    return (getmetatable(s) == set_mt)
+end
+local range_mt = {}
+local
+function range_new (start, finish)
+    local list = {}
+    for i = start, finish do
+        list[#list + 1] = i
+    end
+    return set_new(list)
+end
+structfor.other = {
+    set = {
+        new = set_new,
+        union = set_union,
+        tostring = set_tostring,
+        difference = set_difference,
+    },
+    Range = range_new,
+    isboolset = isboolset,
+    isbyteset = isbyteset,
+    isset = isset,
+    isrange = function(a) return false end
+}
+return function(Builder, LL)
+    local cs = (Builder.options or {}).charset or "binary"
+    if type(cs) == "string" then
+        cs = (cs == "binary") and "binary" or "other"
+    else
+        cs = cs.binary and "binary" or "other"
+    end
+    return extend(Builder, structfor[cs])
+end
 
 end
 end
@@ -194,16 +378,23 @@ local function pack_Cmt_caps(i,...) return i, t_pack(...) end
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-        local new_acc, success, nindex = {
+        local tmp_acc = {
             type = "insert",
             parent = cap_acc,
             parent_i = cap_i
         }
-        success, nindex, new_acc.n = matcher(subject, index, new_acc, 1, state)
+        local success, nindex, tmp_i = matcher(subject, index, tmp_acc, 1, state)
         if not success then return false, index, cap_i end
-        local captures = #new_acc == 0 and {s_sub(subject, index, nindex - 1)}
-                                       or  evaluate(new_acc, subject, nindex)
-        local nnindex, values = pack_Cmt_caps(func(subject, nindex, t_unpack(captures)))
+        local captures, mt_cap_i
+        if tmp_i == 1 then
+            captures, mt_cap_i = {s_sub(subject, index, nindex - 1)}, 2
+        else
+            tmp_acc.n = tmp_i
+            captures, mt_cap_i = evaluate(tmp_acc, subject, nindex)
+        end
+        local nnindex, values = pack_Cmt_caps(
+            func(subject, nindex, t_unpack(captures, 1, mt_cap_i - 1))
+        )
         if not nnindex then return false, index, cap_i end
         if nnindex == true then nnindex = nindex end
         if type(nnindex) == "number"
@@ -494,202 +685,18 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['datastructures'] = function (...)
-local getmetatable, pairs, pcall, print, setmetatable, type
-    = getmetatable, pairs, pcall, print, setmetatable, type
-local m, t = require"math", require"table"
-local m_min, m_max, t_concat, t_insert, t_sort
-    = m.min, m.max, t.concat, t.insert, t.sort
+packages['analizer'] = function (...)
+
 local u = require"util"
-local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
-    = u.all, u.expose, u.extend, u.load, u.map, u.map_all, u.max, u.unpack
-local compat = require"compat"
-local ffi if compat.luajit then
-    ffi = require"ffi"
-end
-local _ENV = u.noglobals() ----------------------------------------------------
-local structfor = {}
-local byteset_new, isboolset, isbyteset
-local byteset_mt = {}
-local
-function byteset_constructor (upper)
-    local set = setmetatable(load(t_concat{
-        "return{ [0]=false",
-        (", false"):rep(upper),
-        " }"
-    })(),
-    byteset_mt)
-    return set
-end
-if compat.jit then
-    local struct, empty, boolset_constructor = {v={}}
-    function byteset_mt.__index(s,i)
-        if i == nil or i > s.upper then return nil end
-        return s.v[i]
-    end
-    function byteset_mt.__len(s)
-        return s.upper
-    end
-    function byteset_mt.__newindex(s,i,v)
-        s.v[i] = v
-    end
-    boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
-    function byteset_new (t)
-        if type(t) == "number" then
-            local tmp
-            local res = boolset_constructor(t+1)
-            res.upper = t
-            return res
-        end
-        local upper = u_max(t)
-        struct.upper = upper
-        if upper > 255 then error"bool_set overflow" end
-        local set = boolset_constructor(upper+1)
-        set.upper = upper
-        for i = 1, #t do set[t[i]] = true end
-        return set
-    end
-    function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
-    isbyteset = isboolset
-else
-    function byteset_new (t)
-        if type(t) == "number" then return byteset_constructor(t) end
-        local set = byteset_constructor(u_max(t))
-        for i = 1, #t do set[t[i]] = true end
-        return set
-    end
-    function isboolset(s) return false end
-    function isbyteset (s)
-        return getmetatable(s) == byteset_mt
-    end
-end
-local
-function byterange_new (low, high)
-    high = ( low <= high ) and high or -1
-    local set = byteset_new(high)
-    for i = low, high do
-        set[i] = true
-    end
-    return set
-end
-local
-function byteset_union (a ,b)
-    local upper = m_max(#a, #b)
-    local res = byteset_new(upper)
-    for i = 0, upper do
-        res[i] = a[i] or b[i] or false
-    end
-    return res
-end
-local
-function byteset_difference (a, b)
-    local res = {}
-    for i = 0, 255 do
-        res[i] = a[i] and not b[i]
-    end
-    return res
-end
-local
-function byteset_tostring (s)
-    local list = {}
-    for i = 0, 255 do
-        list[#list+1] = (s[i] == true) and i or nil
-    end
-    return t_concat(list,", ")
-end
-local function byteset_has(set, elem)
-    if elem > 255 then return false end
-    return set[elem]
-end
-structfor.binary = {
-    set ={
-        new = byteset_new,
-        union = byteset_union,
-        difference = byteset_difference,
-        tostring = byteset_tostring
-    },
-    Range = byterange_new,
-    isboolset = isboolset,
-    isbyteset = isbyteset,
-    isset = isbyteset
+local nop, weakkey = u.nop, u.weakkey
+local hasVcache, hasCmtcache , lengthcache
+    = weakkey{}, weakkey{},    weakkey{}
+return {
+    hasV = nop,
+    hasCmt = nop,
+    length = nop,
+    hasCapture = nop
 }
-local set_mt = {}
-local
-function set_new (t)
-    local set = setmetatable({}, set_mt)
-    for i = 1, #t do set[t[i]] = true end
-    return set
-end
-local -- helper for the union code.
-function add_elements(a, res)
-    for k in pairs(a) do res[k] = true end
-    return res
-end
-local
-function set_union (a, b)
-    a, b = (type(a) == "number") and set_new{a} or a
-         , (type(b) == "number") and set_new{b} or b
-    local res = set_new{}
-    add_elements(a, res)
-    add_elements(b, res)
-    return res
-end
-local
-function set_difference(a, b)
-    local list = {}
-    a, b = (type(a) == "number") and set_new{a} or a
-         , (type(b) == "number") and set_new{b} or b
-    for el in pairs(a) do
-        if a[i] and not b[i] then
-            list[#list+1] = i
-        end
-    end
-    return set_new(list)
-end
-local
-function set_tostring (s)
-    local list = {}
-    for el in pairs(s) do
-        t_insert(list,el)
-    end
-    t_sort(list)
-    return t_concat(list, ",")
-end
-local
-function isset (s)
-    return (getmetatable(s) == set_mt)
-end
-local range_mt = {}
-local
-function range_new (start, finish)
-    local list = {}
-    for i = start, finish do
-        list[#list + 1] = i
-    end
-    return set_new(list)
-end
-structfor.other = {
-    set = {
-        new = set_new,
-        union = set_union,
-        tostring = set_tostring,
-        difference = set_difference,
-    },
-    Range = range_new,
-    isboolset = isboolset,
-    isbyteset = isbyteset,
-    isset = isset,
-    isrange = function(a) return false end
-}
-return function(Builder, LL)
-    local cs = (Builder.options or {}).charset or "binary"
-    if type(cs) == "string" then
-        cs = (cs == "binary") and "binary" or "other"
-    else
-        cs = cs.binary and "binary" or "other"
-    end
-    return extend(Builder, structfor[cs])
-end
 
 end
 end
@@ -1546,33 +1553,28 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['compat'] = function (...)
+packages['locale'] = function (...)
 
-local _, debug, jit
-_, debug = pcall(require, "debug")
-debug = _ and debug
-_, jit = pcall(require, "jit")
-jit = _ and jit
-local compat = {
-    debug = debug,
-    lua51 = (_VERSION == "Lua 5.1") and not jit,
-    lua52 = _VERSION == "Lua 5.2",
-    luajit = jit and true or false,
-    jit = jit and jit.status(),
-    lua52_len = not #setmetatable({},{__len = nop}),
-    proxies = newproxy
-        and (function()
-            local ok, result = pcall(newproxy)
-            return ok and (type(result) == "userdata" )
-        end)()
-        and type(debug) == "table"
-        and (function()
-            local prox, mt = newproxy(), {}
-            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
-            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
-}
-return compat
+local extend = require"util".extend
+local _ENV = require"util".noglobals() ----------------------------------------
+return function(Builder, LL) -- Module wrapper {-------------------------------
+local R, S = LL.R, LL.S
+local locale = {}
+locale["cntrl"] = R"\0\31" + "\127"
+locale["digit"] = R"09"
+locale["lower"] = R"az"
+locale["print"] = R" ~" -- 0x20 to 0xee
+locale["space"] = S" \f\n\r\t\v" -- \f == form feed (for a printer), \v == vtab
+locale["upper"] = R"AZ"
+locale["alpha"]  = locale["lower"] + locale["upper"]
+locale["alnum"]  = locale["alpha"] + locale["digit"]
+locale["graph"]  = locale["print"] - locale["space"]
+locale["punct"]  = locale["graph"] - locale["alnum"]
+locale["xdigit"] = locale["digit"] + R"af" + R"AF"
+function LL.locale (t)
+    return extend(t or {}, locale)
+end
+end -- Module wrapper --------------------------------------------------------}
 
 end
 end
@@ -1788,6 +1790,26 @@ local function computeidex(i, len)
     end
 end
 function LL.match(pt, subject, index, ...)
+    pt = LL_P(pt)
+    assert(type(subject) == "string", "string expected for the match subject")
+    index = computeidex(index, #subject)
+    local matcher, cap_acc, state, success, cap_i, nindex
+        = LL_compile(pt, {})
+        , {type = "insert"}   -- capture accumulator
+        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
+        , 0 -- matcher state
+    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+    if success then
+        cap_acc.n = cap_i
+        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
+        if cap_i == 1
+        then return nindex
+        else return t_unpack(cap_values, 1, cap_i - 1) end
+    else
+        return nil
+    end
+end
+function LL.dmatch(pt, subject, index, ...)
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
@@ -2702,28 +2724,33 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['locale'] = function (...)
+packages['compat'] = function (...)
 
-local extend = require"util".extend
-local _ENV = require"util".noglobals() ----------------------------------------
-return function(Builder, LL) -- Module wrapper {-------------------------------
-local R, S = LL.R, LL.S
-local locale = {}
-locale["cntrl"] = R"\0\31" + "\127"
-locale["digit"] = R"09"
-locale["lower"] = R"az"
-locale["print"] = R" ~" -- 0x20 to 0xee
-locale["space"] = S" \f\n\r\t\v" -- \f == form feed (for a printer), \v == vtab
-locale["upper"] = R"AZ"
-locale["alpha"]  = locale["lower"] + locale["upper"]
-locale["alnum"]  = locale["alpha"] + locale["digit"]
-locale["graph"]  = locale["print"] - locale["space"]
-locale["punct"]  = locale["graph"] - locale["alnum"]
-locale["xdigit"] = locale["digit"] + R"af" + R"AF"
-function LL.locale (t)
-    return extend(t or {}, locale)
-end
-end -- Module wrapper --------------------------------------------------------}
+local _, debug, jit
+_, debug = pcall(require, "debug")
+debug = _ and debug
+_, jit = pcall(require, "jit")
+jit = _ and jit
+local compat = {
+    debug = debug,
+    lua51 = (_VERSION == "Lua 5.1") and not jit,
+    lua52 = _VERSION == "Lua 5.2",
+    luajit = jit and true or false,
+    jit = jit and jit.status(),
+    lua52_len = not #setmetatable({},{__len = nop}),
+    proxies = newproxy
+        and (function()
+            local ok, result = pcall(newproxy)
+            return ok and (type(result) == "userdata" )
+        end)()
+        and type(debug) == "table"
+        and (function()
+            local prox, mt = newproxy(), {}
+            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
+            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
+        end)()
+}
+return compat
 
 end
 end
