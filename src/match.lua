@@ -31,6 +31,28 @@ end
 
 
 function LL.match(pt, subject, index, ...)
+    pt = LL_P(pt)
+    assert(type(subject) == "string", "string expected for the match subject")
+    index = computeidex(index, #subject)
+    local matcher, cap_acc, state, success, cap_i, nindex
+        = LL_compile(pt, {})
+        , {type = "insert"}   -- capture accumulator
+        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
+        , 0 -- matcher state
+    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+    if success then
+        cap_acc.n = cap_i
+        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
+        if cap_i == 1
+        then return nindex
+        else return t_unpack(cap_values, 1, cap_i - 1) end
+    else
+        return nil
+    end
+end
+
+-- With some debug info.
+function LL.dmatch(pt, subject, index, ...)
     -- [[DBG]] print("@!!! Match !!!@")
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
