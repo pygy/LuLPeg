@@ -29,9 +29,9 @@ local compilers = {}
 local
 function compile(pt, ccache)
     -- print("Compile", pt.ptype)
-    if not LL_ispattern(pt) then 
+    if not LL_ispattern(pt) then
         --[[DBG]]expose(pt)
-        error("pattern expected") 
+        error("pattern expected")
     end
     local typ = pt.ptype
     if typ == "grammar" then
@@ -62,16 +62,16 @@ LL.compile = compile
 
 
 for k, v in pairs{
-    ["C"] = "C", 
-    ["Cf"] = "Cf", 
-    ["Cg"] = "Cg", 
+    ["C"] = "C",
+    ["Cf"] = "Cf",
+    ["Cg"] = "Cg",
     ["Cs"] = "Cs",
     ["Ct"] = "Ct",
     ["/string"] = "/string",
     ["/table"] = "/table",
     ["/number"] = "/number",
     ["/function"] = "/function",
-} do 
+} do
     compilers[k] = load(([[
     local compile = ...
     return function (pt, ccache)
@@ -87,7 +87,7 @@ for k, v in pairs{
             }
             success, index, new_acc.n
                 = matcher(subject, index, new_acc, 1, state)
-            if success then 
+            if success then
                 -- dprint("\n\nXXXX captured: start:"..new_acc.start.." finish: "..index.."\n")
                 new_acc.finish = index
                 cap_acc[cap_i] = new_acc
@@ -136,12 +136,12 @@ compilers["Cc"] = function (pt, ccache)
     local values = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
         cap_acc[cap_i] = {
-            type = "values", 
+            type = "values",
             values = values,
             start = index,
             finish = index,
             n = values.n
-        } 
+        }
         return true, index, cap_i + 1
     end
 end
@@ -164,13 +164,13 @@ compilers["Ctag"] = function (pt, ccache)
     local matcher, tag = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
         local new_acc, success = {
-            type = "Cg", 
+            type = "Cg",
             start = index,
             Ctag = tag,
             parent = cap_acc,
             parent_i = cap_i
         }
-        success, new_acc.finish, new_acc.n 
+        success, new_acc.finish, new_acc.n
             = matcher(subject, index, new_acc, 1, state)
         if success then
             cap_acc[cap_i] = new_acc
@@ -195,8 +195,8 @@ compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
         local new_acc, success, nindex = {
-            type = "insert", 
-            parent = cap_acc, 
+            type = "insert",
+            parent = cap_acc,
             parent_i = cap_i
         }
         success, nindex, new_acc.n = matcher(subject, index, new_acc, 1, state)
@@ -211,13 +211,13 @@ compilers["Cmt"] = function (pt, ccache)
 
         if nnindex == true then nnindex = nindex end
 
-        if type(nnindex) == "number" 
+        if type(nnindex) == "number"
         and index <= nnindex and nnindex <= #subject + 1
         then
             if #values > 0 then
                 cap_acc[cap_i] = {
                     type = "values",
-                    values = values, 
+                    values = values,
                     start = index,
                     finish = nnindex,
                     n = values.n
@@ -261,7 +261,7 @@ compilers["string"] = function (pt, ccache)
 end
 
 
-compilers["char"]= function (pt, ccache)
+compilers["char"] = function (pt, ccache)
     return load(([[
         local get_int = ...
         return function(subject, index, cap_acc, cap_i, state)
@@ -275,7 +275,7 @@ compilers["char"]= function (pt, ccache)
 end
 
 
-local 
+local
 function truecompiled (subject, index, cap_acc, cap_i, state)
      -- dprint("True    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     return true, index, cap_i
@@ -309,7 +309,7 @@ local
 function onecompiled (subject, index, cap_acc, cap_i, state)
      -- dprint("One     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     local char, nindex = get_int(subject, index)
-    if char 
+    if char
     then return true, nindex, cap_i
     else return false, index, cap_i end
 end
@@ -343,7 +343,7 @@ compilers["any"] = function (pt)
         return function(subject, index, cap_acc, cap_i, state)
              -- dprint("Any byte",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n = index + N
-            if n <= #subject then 
+            if n <= #subject then
                 -- dprint("%SAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return true, n + 1, cap_i
             else
@@ -409,7 +409,7 @@ compilers["set"] = function (pt)
     return function (subject, index, cap_acc, cap_i, state)
              -- dprint("Set, Set!",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         local char, nindex = get_int(subject, index, cap_acc, cap_i, state)
-        if s[char] 
+        if s[char]
         then return true, nindex, cap_i
         else return false, index, cap_i end
     end
@@ -423,12 +423,12 @@ compilers["ref"] = function (pt, ccache)
     local ref
     return function (subject, index, cap_acc, cap_i, state)
          -- dprint("Reference",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-        if not ref then 
+        if not ref then
             if #state.grammars == 0 then
                 error(("rule 'XXXX' used outside a grammar"):gsub("XXXX", tostring(name)))
             elseif not state.grammars[#state.grammars][name] then
                 error(("rule 'XXXX' undefined in given grammar"):gsub("XXXX", tostring(name)))
-            end                
+            end
             ref = state.grammars[#state.grammars][name]
         end
         -- print("Ref",cap_acc, index) --, subject)
@@ -513,7 +513,7 @@ compilers["at most"] = function (pt, ccache)
         for i = 1, n do
             success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
         end
-        return true, index, cap_i             
+        return true, index, cap_i
     end
 end
 
@@ -600,7 +600,7 @@ end
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -608,15 +608,15 @@ end
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -629,8 +629,8 @@ end
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

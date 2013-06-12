@@ -2,7 +2,7 @@ return function(Builder, LL)
 
 -- Print
 
-local ipairs, pairs, print, tostring, type 
+local ipairs, pairs, print, tostring, type
     = ipairs, pairs, print, tostring, type
 
 local s, t, u = require"string", require"table", require"util"
@@ -13,7 +13,7 @@ local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
-local s_char, t_concat 
+local s_char, t_concat
     = s.char, t.concat
 
 local   expose,   load,   map
@@ -50,13 +50,13 @@ for k, v in pairs{
     ref = [[
         "V( ",
             (type(pt.aux) == "string" and "\""..pt.aux.."\"")
-                          or tostring(pt.aux) 
+                          or tostring(pt.aux)
         , " )"
         ]],
     range = [[
         "R( ",
             t_concat(map(
-                pt.as_is, 
+                pt.as_is,
                 function(e) return '"'..e..'"' end), ", "
             )
         ," )"
@@ -91,7 +91,7 @@ for k, v in pairs{
         print(offset..prefix.."Grammar")
         -- dprint"Printer for Grammar"
         for k, pt in pairs(pt.aux) do
-            local prefix = ( type(k)~="string" 
+            local prefix = ( type(k)~="string"
                              and tostring(k)
                              or "\""..k.."\"" )
             LL_pprint(pt, offset.."  ", prefix .. " = ")
@@ -197,15 +197,15 @@ cprinters["insert"] = function (capture, offset, prefix)
 end
 
 for __, capname in ipairs{
-    "Cf", "Cg", "tag","C", "Cs", 
-    "/string", "/number", "/table", "/function" 
-} do 
+    "Cf", "Cg", "tag","C", "Cs",
+    "/string", "/number", "/table", "/function"
+} do
     cprinters[capname] = function (capture, offset, prefix)
         local message = offset..prefix..capname
-            ..": start = "..capture.start 
+            ..": start = "..capture.start
             ..", finish = "..capture.finish
             ..(capture.Ctag and " tag = "..capture.Ctag or "")
-        if capture.aux then 
+        if capture.aux then
             message = message .. ", aux = ".. tostring(capture.aux)
         end
         print(message)
@@ -219,7 +219,7 @@ end
 
 cprinters["Ct"] = function (capture, offset, prefix)
     local message = offset..prefix.."Ct: start = "..capture.start ..", finish = "..capture.finish
-    if capture.aux then 
+    if capture.aux then
         message = message .. ", aux = ".. tostring(capture.aux)
     end
     print(message)
@@ -227,7 +227,7 @@ cprinters["Ct"] = function (capture, offset, prefix)
         -- print ("Subcap type",subcap.type)
         cprinters[subcap.type](subcap, offset.."   ", i..". ")
     end
-    for k,v in pairs(capture.hash or {}) do 
+    for k,v in pairs(capture.hash or {}) do
         print(offset.."   "..k, "=", v)
         expose(v)
     end
@@ -254,7 +254,7 @@ end -- module wrapper ---------------------------------------------------------
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -262,15 +262,15 @@ end -- module wrapper ---------------------------------------------------------
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -283,8 +283,8 @@ end -- module wrapper ---------------------------------------------------------
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

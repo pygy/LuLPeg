@@ -21,12 +21,12 @@ local _ENV = u.noglobals() ---------------------------------------------------
 local s_byte, t_concat, t_insert, t_sort
     = s.byte, t.concat, t.insert, t.sort
 
-local   copy,   expose,   fold,   load,   map,   setify, t_pack, t_unpack 
+local   copy,   expose,   fold,   load,   map,   setify, t_pack, t_unpack
     = u.copy, u.expose, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
 
-local 
+local
 function charset_error(index, charset)
-    error("Character at position ".. index + 1 
+    error("Character at position ".. index + 1
             .." is not a valid "..charset.." one.",
         2)
 end
@@ -42,12 +42,12 @@ local binary_split_int, cs = Builder.binary_split_int, Builder.charset
 local constructors, LL_ispattern
     = Builder.constructors, LL.ispattern
 
-local truept, falsept, Cppt 
+local truept, falsept, Cppt
     = constructors.constant.truept
     , constructors.constant.falsept
-    , constructors.constant.Cppt 
+    , constructors.constant.Cppt
 
-local    split_int,    tochar,    validate 
+local    split_int,    tochar,    validate
     = cs.split_int, cs.tochar, cs.validate
 
 local Range, Set, S_union, S_tostring
@@ -66,12 +66,12 @@ end
 local
 function LL_P (v)
     if LL_ispattern(v) then
-        return v 
+        return v
     elseif type(v) == "function" then
         return true and LL.Cmt("", v)
     elseif type(v) == "string" then
         local success, index = validate(v)
-        if not success then 
+        if not success then
             charset_error(index, charset)
         end
         if v == "" then return LL_P(true) end
@@ -81,9 +81,9 @@ function LL_P (v)
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
         if not LL_ispattern(g[1]) then g[1] = LL.V(g[1]) end
-        return 
-            --[[DBG]] true and 
-            constructors.none("grammar", g) 
+        return
+            --[[DBG]] true and
+            constructors.none("grammar", g)
     elseif type(v) == "boolean" then
         return v and truept or falsept
     elseif type(v) == "number" then
@@ -91,11 +91,11 @@ function LL_P (v)
             return truept
         elseif v > 0 then
             return
-                --[[DBG]] true and 
+                --[[DBG]] true and
                 constructors.aux("any", v)
         else
             return
-                --[[DBG]] true and 
+                --[[DBG]] true and
                 - constructors.aux("any", -v)
         end
     end
@@ -104,17 +104,17 @@ LL.P = LL_P
 
 local
 function LL_S (set)
-    if set == "" then 
-        return 
+    if set == "" then
+        return
             --[[DBG]] true and
             LL_P(false)
-    else 
+    else
         local success, index = validate(set)
-        if not success then 
+        if not success then
             charset_error(index, charset)
         end
         return
-            --[[DBG]] true and 
+            --[[DBG]] true and
             constructors.aux("set", Set(split_int(set)), set)
     end
 end
@@ -129,17 +129,17 @@ function LL_R (...)
         -- [[DBG]]expose(range)
         for _, r in ipairs{...} do
             local success, index = validate(r)
-            if not success then 
+            if not success then
                 charset_error(index, charset)
             end
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         -- This is awful.
-        local representation = t_concat(map(tochar, 
+        local representation = t_concat(map(tochar,
                 {load("return "..S_tostring(range))()}))
         local p = constructors.aux("set", range, representation)
-        return 
-            --[[DBG]] true and 
+        return
+            --[[DBG]] true and
             constructors.aux("set", range, representation)
     end
 end
@@ -148,15 +148,15 @@ LL.R = LL_R
 local
 function LL_V (name)
     assert(name ~= nil)
-    return 
-        --[[DBG]] true and 
+    return
+        --[[DBG]] true and
         constructors.aux("ref",  name)
 end
 LL.V = LL_V
 
 
 
-do 
+do
     local one = setify{"set", "range", "one", "char"}
     local zero = setify{"true", "false", "lookahead", "unm"}
     local forbidden = setify{
@@ -206,7 +206,7 @@ do
     end
 end
 
- 
+
 -- pt*pt
 local
 function LL_choice (a, b, ...)
@@ -217,12 +217,12 @@ function LL_choice (a, b, ...)
 
     local ch = factorize_choice(a, b, ...)
 
-    if #ch == 0 then 
+    if #ch == 0 then
         return falsept
-    elseif #ch == 1 then 
+    elseif #ch == 1 then
         return ch[1]
     else
-        return 
+        return
             --[[DBG]] true and
             constructors.aux("choice", ch)
     end
@@ -230,7 +230,7 @@ end
 LL.__add = LL_choice
 
 
- -- pt+pt, 
+ -- pt+pt,
 local
 function sequence (a, b, ...)
     if b ~= nil then
@@ -238,13 +238,13 @@ function sequence (a, b, ...)
     end
     local seq = factorize_sequence(a, b, ...)
 
-    if #seq == 0 then 
+    if #seq == 0 then
         return truept
-    elseif #seq == 1 then 
+    elseif #seq == 1 then
         return seq[1]
     end
 
-    return 
+    return
         --[[DBG]] true and
         constructors.aux("sequence", seq)
 end
@@ -257,13 +257,13 @@ function LL_lookahead (pt)
     if pt == truept
     or pt == falsept
     or pt.ptype == "unm"
-    or pt.ptype == "lookahead" 
-    then 
+    or pt.ptype == "lookahead"
+    then
         return pt
     end
     -- -- The general case
     -- [[DB]] print("LL_lookahead", constructors.subpt("lookahead", pt))
-    return 
+    return
         --[[DBG]] true and
         constructors.subpt("lookahead", pt)
 end
@@ -273,9 +273,9 @@ LL.L = LL_lookahead
 local
 function LL_unm(pt)
     -- Simplifications
-    return 
+    return
         --[[DBG]] true and
-        factorize_unm(pt) 
+        factorize_unm(pt)
         or constructors.subpt("unm", pt)
 end
 LL.__unm = LL_unm
@@ -303,7 +303,7 @@ LL.__pow = LL_repeat
 for __, cap in pairs{"C", "Cs", "Ct"} do
     LL[cap] = function(pt, aux)
         pt = LL_P(pt)
-        return 
+        return
             --[[DBG]] true and
             constructors.subpt(cap, pt)
     end
@@ -311,7 +311,7 @@ end
 
 
 LL["Cb"] = function(aux)
-    return 
+    return
         --[[DBG]] true and
         constructors.aux("Cb", aux)
 end
@@ -320,7 +320,7 @@ end
 LL["Carg"] = function(aux)
     assert(type(aux)=="number", "Number expected as parameter to Carg capture.")
     assert( 0 < aux and aux <= 200, "Argument out of bounds in Carg capture.")
-    return 
+    return
         --[[DBG]] true and
         constructors.aux("Carg", aux)
 end
@@ -334,7 +334,7 @@ LL.Cp = LL_Cp
 
 local
 function LL_Cc (...)
-    return 
+    return
         --[[DBG]] true and
         constructors.none("Cc", t_pack(...))
 end
@@ -345,7 +345,7 @@ for __, cap in pairs{"Cf", "Cmt"} do
     LL[cap] = function(pt, aux)
     assert(type(aux) == "function", msg)
     pt = LL_P(pt)
-    return 
+    return
         --[[DBG]] true and
         constructors.both(cap, pt, aux)
     end
@@ -355,12 +355,12 @@ end
 local
 function LL_Cg (pt, tag)
     pt = LL_P(pt)
-    if tag ~= nil then 
-        return  
+    if tag ~= nil then
+        return
             --[[DBG]] true and
             constructors.both("Ctag", pt, tag)
     else
-        return 
+        return
             --[[DBG]] true and
             constructors.subpt("Cg", pt)
     end
@@ -371,19 +371,19 @@ LL.Cg = LL_Cg
 local valid_slash_type = setify{"string", "number", "table", "function"}
 local
 function LL_slash (pt, aux)
-    if LL_ispattern(aux) then 
+    if LL_ispattern(aux) then
         error"The right side of a '/' capture cannot be a pattern."
     elseif not valid_slash_type[type(aux)] then
         error("The right side of a '/' capture must be of type "
             .."string, number, table or function.")
     end
     local name
-    if aux == 0 then 
-        name = "/zero" 
-    else 
-        name = "/"..type(aux) 
+    if aux == 0 then
+        name = "/zero"
+    else
+        name = "/"..type(aux)
     end
-    return 
+    return
         --[[DBG]] true and
         constructors.both(name, pt, aux)
 end
@@ -408,7 +408,7 @@ end -- module wrapper --------------------------------------------------------
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -416,15 +416,15 @@ end -- module wrapper --------------------------------------------------------
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -437,8 +437,8 @@ end -- module wrapper --------------------------------------------------------
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

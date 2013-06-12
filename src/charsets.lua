@@ -13,7 +13,7 @@
 
 
 
--- We provide: 
+-- We provide:
 -- * utf8_validate(subject, start, finish) -- validator
 -- * utf8_split_int(subject)               --> table{int}
 -- * utf8_split_char(subject)              --> table{char}
@@ -65,8 +65,8 @@ end
 
 
 -- validate a given (sub)string.
--- returns two values: 
--- * The first is either true, false or nil, respectively on success, error, or 
+-- returns two values:
+-- * The first is either true, false or nil, respectively on success, error, or
 --   incomplete subject.
 -- * The second is the index of the last byte of the last valid char.
 local
@@ -105,7 +105,7 @@ end
 --     729
 --     169
 --     8730
-local 
+local
 function utf8_next_int (subject, i)
     i = i and i+1 or 1
     if i > #subject then return end
@@ -160,14 +160,14 @@ function utf8_split_char (subject)
     return chars
 end
 
-local 
+local
 function utf8_get_int(subject, i)
     if i > #subject then return end
     local c = s_byte(subject, i)
     local offset, val = utf8_offset(c)
     for i = i+1, i+offset do
         c = s_byte(subject, i)
-        val = val * 64 + ( c - 128 ) 
+        val = val * 64 + ( c - 128 )
     end
     return val, i + offset + 1
 end
@@ -218,18 +218,18 @@ function utf8_get_int2 (subject, i)
     if byte < 128 then return byte, i + 1
     elseif byte < 192 then
         error("Byte values between 0x80 to 0xBF cannot start a multibyte sequence")
-    elseif byte < 224 then 
+    elseif byte < 224 then
         return (byte - 192)*64 + s_byte(subject, i+1), i+2
-    elseif byte < 240 then 
+    elseif byte < 240 then
             b2, b1 = s_byte(subject, i+1, i+2)
         return (byte-224)*4096 + b2%64*64 + b1%64, i+3
-    elseif byte < 248 then 
+    elseif byte < 248 then
         b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3)
         return (byte-240)*262144 + b3%64*4096 + b2%64*64 + b1%64, i+4
-    elseif byte < 252 then 
+    elseif byte < 252 then
         b4, b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3, i+4)
         return (byte-248)*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64, i+5
-    elseif byte < 254 then 
+    elseif byte < 254 then
         b5, b4, b3, b2, b1 = s_byte(subject, i+1, i+2, 1+3, i+4, i+5)
         return (byte-252)*1073741824 + b5%64*16777216 + b4%64*262144 + b3%64*4096 + b2%64*64 + b1%64, i+6
     else
@@ -249,16 +249,16 @@ local
 function utf8_char(c)
     if     c < 128 then
         return                                                                               s_char(c)
-    elseif c < 2048 then 
+    elseif c < 2048 then
         return                                                          s_char(192 + c/64, 128 + c%64)
     elseif c < 65536 then
-        return                                         s_char(224 + c/4096, 128 + c/64%64, 128 + c%64) 
-    elseif c < 2097152 then 
-        return                      s_char(240 + c/262144, 128 + c/4096%64, 128 + c/64%64, 128 + c%64) 
+        return                                         s_char(224 + c/4096, 128 + c/64%64, 128 + c%64)
+    elseif c < 2097152 then
+        return                      s_char(240 + c/262144, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
     elseif c < 67108864 then
-        return s_char(248 + c/16777216, 128 + c/262144%64, 128 + c/4096%64, 128 + c/64%64, 128 + c%64) 
-    elseif c < 2147483648 then 
-        return s_char( 252 + c/1073741824, 
+        return s_char(248 + c/16777216, 128 + c/262144%64, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
+    elseif c < 2147483648 then
+        return s_char( 252 + c/1073741824,
                    128 + c/16777216%64, 128 + c/262144%64, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
     end
     error("Bad Unicode code point: "..c..".")
@@ -277,7 +277,7 @@ function binary_validate (subject, start, finish)
     return true, finish
 end
 
-local 
+local
 function binary_next_int (subject, i)
     i = i and i+1 or 1
     if i >= #subject then return end
@@ -351,7 +351,7 @@ local charsets = {
 
 return function (Builder)
     local cs = Builder.options.charset or "binary"
-    if charsets[cs] then 
+    if charsets[cs] then
         Builder.charset = copy(charsets[cs])
         Builder.binary_split_int = binary_split_int
     else
@@ -369,7 +369,7 @@ end
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -377,15 +377,15 @@ end
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -398,8 +398,8 @@ end
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

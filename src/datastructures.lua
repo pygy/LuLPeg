@@ -37,12 +37,12 @@ local byteset_mt = {}
 
 local
 function byteset_constructor (upper)
-    local set = setmetatable(load(t_concat{ 
-        "return{ [0]=false", 
-        (", false"):rep(upper), 
+    local set = setmetatable(load(t_concat{
+        "return{ [0]=false",
+        (", false"):rep(upper),
         " }"
     })(),
-    byteset_mt) 
+    byteset_mt)
     return set
 end
 
@@ -99,7 +99,7 @@ else
 
     function isboolset(s) return false end
     function isbyteset (s)
-        return getmetatable(s) == byteset_mt 
+        return getmetatable(s) == byteset_mt
     end
 end
 
@@ -119,16 +119,16 @@ function byteset_union (a ,b)
     -- [[DBG]] print("\nUNION\n", #a, #b, m_max(#a,#b))
     local upper = m_max(#a, #b)
     local res = byteset_new(upper)
-    for i = 0, upper do 
+    for i = 0, upper do
         res[i] = a[i] or b[i] or false
         -- [[DBG]] print(i, res[i])
     end
     -- [[DBG]] print("BS Un ==========================")
-    -- [[DBG]] print"/// A ///////////////////////  " 
+    -- [[DBG]] print"/// A ///////////////////////  "
     -- [[DBG]] expose(a)
-    -- [[DBG]] print"*** B ***********************  " 
+    -- [[DBG]] print"*** B ***********************  "
     -- [[DBG]] expose(b)
-    -- [[DBG]] print"   RES   " 
+    -- [[DBG]] print"   RES   "
     -- [[DBG]] expose(res)
     return res
 end
@@ -177,7 +177,7 @@ structfor.binary = {
 --- Bit sets: TODO? to try, at least.
 --
 
--- From Mike Pall's suggestion found at 
+-- From Mike Pall's suggestion found at
 -- http://lua-users.org/lists/lua-l/2011-08/msg00382.html
 
 -- local bit = require("bit")
@@ -216,8 +216,8 @@ local
 function set_new (t)
     -- optimization for byte sets.
     -- [[BS]] if all(map_all(t, function(e)return type(e) == "number" end))
-    -- and u_max(t) <= 255 
-    -- or #t == 0 
+    -- and u_max(t) <= 255
+    -- or #t == 0
     -- then
     --     return byteset_new(t)
     -- end
@@ -232,14 +232,14 @@ function add_elements(a, res)
     --     for i = 0, 255 do
     --         if a[i] then res[i] = true end
     --     end
-    -- else 
+    -- else
     for k in pairs(a) do res[k] = true end
     return res
 end
 
 local
 function set_union (a, b)
-    -- [[BS]] if isbyteset(a) and isbyteset(b) then 
+    -- [[BS]] if isbyteset(a) and isbyteset(b) then
     --     return byteset_union(a,b)
     -- end
     a, b = (type(a) == "number") and set_new{a} or a
@@ -253,7 +253,7 @@ end
 local
 function set_difference(a, b)
     local list = {}
-    -- [[BS]] if isbyteset(a) and isbyteset(b) then 
+    -- [[BS]] if isbyteset(a) and isbyteset(b) then
     --     return byteset_difference(a,b)
     -- end
     a, b = (type(a) == "number") and set_new{a} or a
@@ -275,9 +275,9 @@ function set_difference(a, b)
     for el in pairs(a) do
         if a[i] and not b[i] then
             list[#list+1] = i
-        end            
+        end
     end
-    -- [[BS]] end 
+    -- [[BS]] end
     return set_new(list)
 end
 
@@ -294,7 +294,7 @@ end
 
 local
 function isset (s)
-    return (getmetatable(s) == set_mt) 
+    return (getmetatable(s) == set_mt)
         -- [[BS]] or isbyteset(s)
 end
 
@@ -305,8 +305,8 @@ end
 -- For now emulated using sets.
 
 local range_mt = {}
-    
-local 
+
+local
 function range_new (start, finish)
     local list = {}
     for i = start, finish do
@@ -315,7 +315,7 @@ function range_new (start, finish)
     return set_new(list)
 end
 
--- local 
+-- local
 -- function range_overlap (r1, r2)
 --     return r1[1] <= r2[2] and r2[1] <= r1[2]
 -- end
@@ -370,7 +370,7 @@ end
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -378,15 +378,15 @@ end
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -399,8 +399,8 @@ end
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

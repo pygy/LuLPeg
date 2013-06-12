@@ -10,7 +10,7 @@
 -- standard libraries must be require()d.
 
 --[[DBG]] local debug, print_ = require"debug", print
---[[DBG]] local print = function(...) 
+--[[DBG]] local print = function(...)
 --[[DBG]]    print_(debug.traceback(2))
 --[[DBG]]    print_("RE print", ...)
 --[[DBG]]    return ...
@@ -29,7 +29,7 @@ local getmetatable, pairs, setmetatable
     = getmetatable, pairs, setmetatable
 
 local u = require"util"
-local   map,   nop, t_unpack 
+local   map,   nop, t_unpack
     = u.map, u.nop, u.unpack
 
 -- The module decorators.
@@ -56,7 +56,7 @@ local VERSION = "0.12"
 local LuVERSION = "0.1.0"
 
 local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
-local function register(lpeg, env) 
+local function register(lpeg, env)
     pcall(function()
         package.loaded.lpeg = self
         package.loaded.re = self.re
@@ -67,7 +67,7 @@ local function register(lpeg, env)
     return self
 end
 
-local 
+local
 function LuLPeg(options)
     options = options and copy(options) or {}
 
@@ -88,7 +88,7 @@ function LuLPeg(options)
     LL.ispattern = LL_ispattern
 
     function LL.type(pt)
-        if LL_ispattern(pt) then 
+        if LL_ispattern(pt) then
             return "pattern"
         else
             return nil
@@ -116,7 +116,7 @@ local LL = LuLPeg()
 
 -- restore the global libraries
 --[[DBG]] for lib, tbl in pairs(tmp_globals) do
---[[DBG]]     globalenv[lib] = tmp_globals[lib] 
+--[[DBG]]     globalenv[lib] = tmp_globals[lib]
 --[[DBG]] end
 
 
@@ -131,7 +131,7 @@ return LL
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -139,15 +139,15 @@ return LL
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -160,8 +160,8 @@ return LL
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

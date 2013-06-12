@@ -39,7 +39,7 @@ LL.evaluate = evaluate
 -- The evaluators and the `insert()` helper take as parameters:
 -- * capture:  the current capture object.
 -- * subject:  the subject string
--- * acc:      the value accumulator, whose unpacked values will be returned 
+-- * acc:      the value accumulator, whose unpacked values will be returned
 --             by `pattern:match(...)`
 -- * subj_i: the current position in the subject string.
 -- * val_i: the position of the next value to be inserted in the value accumulator.
@@ -49,7 +49,7 @@ function insert (capture, subject, acc, subj_i, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
         -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
-            local c 
+            local c
             subj_i, val_i =
                 evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
     end
@@ -71,16 +71,16 @@ function lookback(capture, tag, subj_i)
         capture, subj_i = capture.parent, capture.parent_i
     until found or not capture
 
-    if found then 
+    if found then
         return found
-    else 
+    else
         tag = type(tag) == "string" and "'"..tag.."'" or tostring(tag)
         error("back reference "..tag.." not found")
     end
 end
 
 evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref, Ctag, _ 
+    local ref, Ctag, _
     ref = lookback(capture.parent, capture.tag, capture.parent_i)
     ref.Ctag, Ctag = nil, ref.Ctag
     _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
@@ -97,10 +97,10 @@ evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
     local func, fold_acc, first_val_i, _ = capture.aux, {}
     subj_i, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
 
-    if first_val_i == 1 then 
+    if first_val_i == 1 then
         error"No first value"
     end
-    
+
     local result = fold_acc[1]
 
     for i = 2, capture.n - 1 do
@@ -294,7 +294,7 @@ end  -- Decorator wrapper
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -302,15 +302,15 @@ end  -- Decorator wrapper
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -323,8 +323,8 @@ end  -- Decorator wrapper
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

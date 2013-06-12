@@ -2,10 +2,10 @@
 -- Constructors
 
 -- Patterns have the following, optional fields:
--- 
+--
 -- - type: the pattern type. ~1 to 1 correspondance with the pattern constructors
 --     described in the LPeg documentation.
--- - pattern: the one subpattern held by the pattern, like most captures, or 
+-- - pattern: the one subpattern held by the pattern, like most captures, or
 --     `#pt`, `-pt` and `pt^n`.
 -- - aux: any other type of data associated to the pattern. Like the string of a
 --     `P"string"`, the range of an `R`, or the list of subpatterns of a `+` or
@@ -13,11 +13,11 @@
 --     the `as_is` field holds the data as passed to the constructor.
 -- - as_is: see aux.
 -- - meta: A table holding meta information about patterns, like their
---     minimal and maximal width, the form they can take when compiled, 
+--     minimal and maximal width, the form they can take when compiled,
 --     whether they are terminal or not (no V patterns), and so on.
 
 
-local ipairs, newproxy, print, setmetatable 
+local ipairs, newproxy, print, setmetatable
     = ipairs, newproxy, print, setmetatable
 
 local t, u, dtst, compat
@@ -50,15 +50,15 @@ local patternwith = {
     -- only aux
     aux = {
         "string", "any",
-        "char", "range", "set", 
+        "char", "range", "set",
         "ref", "sequence", "choice",
         "Carg", "Cb"
     },
     -- only sub pattern
     subpt = {
-        "unm", "lookahead", "C", "Cf", 
+        "unm", "lookahead", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero"
-    }, 
+    },
     -- both
     both = {
         "behind", "at least", "at most", "Ctag", "Cmt",
@@ -74,7 +74,7 @@ return function(Builder, LL) --- module wrapper.
 --
 
 
-local split_int, S_tostring 
+local split_int, S_tostring
     = Builder.charset.split_int, Builder.set.tostring
 
 
@@ -82,8 +82,8 @@ local split_int, S_tostring
 --- Base pattern constructor
 --
 
-local newpattern do 
-    -- This deals with the Lua 5.1/5.2 compatibility, and restricted 
+local newpattern do
+    -- This deals with the Lua 5.1/5.2 compatibility, and restricted
     -- environements without access to newproxy and/or debug.setmetatable.
     local setmetatable = setmetatable
 
@@ -92,8 +92,8 @@ local newpattern do
     if compat.lua52_len then
         -- Lua 5.2 or LuaJIT + 5.2 compat. No need to do the proxy dance.
         function newpattern(pt)
-            return setmetatable(pt,LL) 
-        end    
+            return setmetatable(pt,LL)
+        end
     elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
         local d_setmetatable, newproxy
             = compat.debug.setmetatable, newproxy
@@ -101,11 +101,11 @@ local newpattern do
         local proxycache = weakkey{}
         local __index_LL = {__index = LL}
         LL.proxycache = proxycache
-        function newpattern(cons) 
+        function newpattern(cons)
             local pt = newproxy()
             setmetatable(cons, __index_LL)
             proxycache[pt]=cons
-            d_setmetatable(pt,LL) 
+            d_setmetatable(pt,LL)
             return pt
         end
         function LL:__index(k)
@@ -116,15 +116,15 @@ local newpattern do
         end
         function LL.get_direct(p) return proxycache[p] end
     else
-        -- Fallback if neither __len(table) nor newproxy work 
+        -- Fallback if neither __len(table) nor newproxy work
         -- for example in restricted sandboxes.
         if LL.warnings then
             print("Warning: The `__len` metatethod won't work with patterns, "
                 .."use `LL.L(pattern)` for lookaheads.")
         end
         function newpattern(pt)
-            return setmetatable(pt,LL) 
-        end    
+            return setmetatable(pt,LL)
+        end
     end
 end
 
@@ -184,8 +184,8 @@ local getauxkey = {
     range = function(aux, as_is)
         return t_concat(as_is, "|")
     end,
-    sequence = function(aux, as_is) 
-        return t_concat(map(getuniqueid, aux),"|") 
+    sequence = function(aux, as_is)
+        return t_concat(map(getuniqueid, aux),"|")
     end
 }
 
@@ -216,7 +216,7 @@ constructors["none"] = function(typ, aux)
 end
 
 constructors["subpt"] = function(typ, pt)
-    -- [[DP]]print("CONS: ", typ, pt, aux) 
+    -- [[DP]]print("CONS: ", typ, pt, aux)
     local cache = ptcache[typ]
     if not cache[pt] then
         cache[pt] = newpattern{
@@ -256,7 +256,7 @@ end -- module wrapper
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -264,15 +264,15 @@ end -- module wrapper
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -285,8 +285,8 @@ end -- module wrapper
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

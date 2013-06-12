@@ -76,17 +76,17 @@ else
 end
 
 if compat.luajit and compat.jit then
-    local function _fold(len, ary, func) 
-        local acc = ary[1] 
-        for i = 2, len do acc =func(acc, ary[i]) end 
-        return acc 
+    local function _fold(len, ary, func)
+        local acc = ary[1]
+        for i = 2, len do acc =func(acc, ary[i]) end
+        return acc
     end
     function util.max (ary)
         local max = 0
-        for i = 1, #ary do 
+        for i = 1, #ary do
             max = m_max(max,ary[i])
         end
-        return max        
+        return max
     end
 elseif compat.luajit then
     local t_unpack = util.unpack
@@ -94,9 +94,9 @@ elseif compat.luajit then
      local len = #ary
         if len <=30 or len > 10240 then
             local max = 0
-            for i = 1, #ary do 
-                local j = ary[i] 
-                if j > max then max = j end 
+            for i = 1, #ary do
+                local j = ary[i]
+                if j > max then max = j end
             end
             return max
         else
@@ -124,13 +124,13 @@ else
         until off >= len
         return max
     end
-end            
+end
 
 
 local
 function setmode(t,mode)
     local mt = getmetatable(t) or {}
-    if mt.__mode then 
+    if mt.__mode then
         error("The mode has already been set on table "..tostring(t)..".")
     end
     mt.__mode = mode
@@ -170,7 +170,7 @@ util.getuniqueid = getuniqueid
 
 do
     local counter = 0
-    function util.gensym () 
+    function util.gensym ()
         counter = counter + 1
         return "___SYM_"..counter
     end
@@ -201,10 +201,10 @@ function val_to_str_ ( v, acc, indent, str_indent )
         else
             acc[#acc+1] = t_concat{'"', s_gsub(v,'"', '\\"' ), '"' }
         end
-    elseif "cdata" == type( v ) then 
+    elseif "cdata" == type( v ) then
             cdata_to_str( v, acc, indent )
     elseif "table" == type(v) then
-        if t_cache[v] then 
+        if t_cache[v] then
             acc[#acc+1] = t_cache[t]
         else
             t_cache[v] = tostring( v )
@@ -251,7 +251,7 @@ function table_tostring ( tbl, acc, indent )
         key_to_str( k, acc, indent + 1)
 
         if acc[#acc] == " ]"
-        and acc[#acc - 2] == "[ " 
+        and acc[#acc - 2] == "[ "
         then str_indent = 8 + #acc[#acc - 1]
         end
 
@@ -349,7 +349,7 @@ end
 function util.filter(a1,func)
     local res = {}
     for i = 1,#ary do
-        if func(ary[i]) then 
+        if func(ary[i]) then
             t_insert(res, ary[i])
         end
     end
@@ -367,8 +367,8 @@ local function OR  (a,b) return a or b  end
 
 function util.copy (tbl) return map_all(tbl, id) end
 
-function util.all (ary, mfunc) 
-    if mfunc then 
+function util.all (ary, mfunc)
+    if mfunc then
         return map_fold(ary, mfunc, AND)
     else
         return fold(ary, AND)
@@ -376,34 +376,34 @@ function util.all (ary, mfunc)
 end
 
 function util.any (ary, mfunc)
-    if mfunc then 
+    if mfunc then
         return map_fold(ary, mfunc, OR)
     else
         return fold(ary, OR)
     end
 end
 
-function util.get(field) 
-    return function(tbl) return tbl[field] end 
+function util.get(field)
+    return function(tbl) return tbl[field] end
 end
 
-function util.lt(ref) 
+function util.lt(ref)
     return function(val) return val < ref end
 end
 
--- function util.lte(ref) 
+-- function util.lte(ref)
 --     return function(val) return val <= ref end
 -- end
 
--- function util.gt(ref) 
+-- function util.gt(ref)
 --     return function(val) return val > ref end
 -- end
 
--- function util.gte(ref) 
+-- function util.gte(ref)
 --     return function(val) return val >= ref end
 -- end
 
-function util.compose(f,g) 
+function util.compose(f,g)
     return function(...) return f(g(...)) end
 end
 
@@ -442,7 +442,7 @@ return util
 --
 --            The PureLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -450,15 +450,15 @@ return util
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -471,8 +471,8 @@ return util
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.

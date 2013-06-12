@@ -20,7 +20,7 @@ local _ENV = u.noglobals() ----------------------------------------------------
 ---- helpers
 --
 
--- handle the identity or break properties of P(true) and P(false) in 
+-- handle the identity or break properties of P(true) and P(false) in
 -- sequences/arrays.
 local
 function process_booleans(lst, opts)
@@ -38,7 +38,7 @@ function process_booleans(lst, opts)
 end
 
 
--- Some sequence factorizers. 
+-- Some sequence factorizers.
 -- Those who depend on LL are defined in the wrapper.
 local
 function append (acc, p1, p2)
@@ -59,7 +59,7 @@ local unary = setify{
     "/table", "/function", "at least", "at most"
 }
 
--- patterns where p1 + p2 == p1 U p2 
+-- patterns where p1 + p2 == p1 U p2
 local unifiable = setify{"char", "set", "range"}
 
 
@@ -74,7 +74,7 @@ end
 
 return function (Builder, LL) --------------------------------------------------
 
-if Builder.options.factorize == false then 
+if Builder.options.factorize == false then
     print"No factorization"
     return {
         choice = arrayify,
@@ -102,13 +102,13 @@ function flatten(typ, ary)
 end
 
 local constructors, LL_P =  Builder.constructors, LL.P
-local truept, falsept 
+local truept, falsept
     = constructors.constant.truept
     , constructors.constant.falsept
 
-local --Range, Set, 
+local --Range, Set,
     S_union
-    = --Builder.Range, Builder.set.new, 
+    = --Builder.Range, Builder.set.new,
     Builder.set.union
 
 
@@ -135,8 +135,8 @@ local seq_optimize = {
         any = seq_any_any,
         one = seq_any_any
     },
-    unm = { 
-        unm = append -- seq_unm_unm 
+    unm = {
+        unm = append -- seq_unm_unm
     }
 }
 
@@ -147,7 +147,7 @@ local metaappend_mt = {
 for k,v in pairs(seq_optimize) do
     setmetatable(v, metaappend_mt)
 end
-local metaappend = setmetatable({}, metaappend_mt) 
+local metaappend = setmetatable({}, metaappend_mt)
 setmetatable(seq_optimize, {
     __index = function() return metaappend end
 })
@@ -167,7 +167,7 @@ local
 function choice (a,b, ...)
     -- 1. flatten  (a + b) + (c + d) => a + b + c + d
     local dest
-    if b ~= nil then 
+    if b ~= nil then
         dest = flatten("choice", {a,b,...})
     else
         dest = flatten("choice", a)
@@ -186,7 +186,7 @@ function choice (a,b, ...)
             if type1 == "set" and type2 == "set" then
                 -- Merge character sets. S"abc" + S"ABC" => S"abcABC"
                 dest[#dest] = constructors.aux(
-                    "set", S_union(p1.aux, p2.aux), 
+                    "set", S_union(p1.aux, p2.aux),
                     "Union( "..p1.as_is.." || "..p2.as_is.." )"
                 )
                 changed = true
@@ -222,8 +222,8 @@ function sequence(a, b, ...)
     -- [[DP]] print("Factorize Sequence")
     -- A few optimizations:
     -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
-    local seq1 
-    if b ~=nil then 
+    local seq1
+    if b ~=nil then
         seq1 = flatten("sequence", {a, b, ...})
     else
         seq1 = flatten("sequence", a)
@@ -268,7 +268,7 @@ end
 --
 --            The LuLPeg library
 --
---                                             \ 
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -276,15 +276,15 @@ end
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / thing...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -297,8 +297,8 @@ end
 --            -- Pierre-Yves
 --
 --
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.
