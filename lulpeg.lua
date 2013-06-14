@@ -177,8 +177,9 @@ compilers["Ctag"] = function (pt, ccache)
             = matcher(subject, index, new_acc, 1, state)
         if success then
             cap_acc[cap_i] = new_acc
+            cap_i = cap_i + 1
         end
-        return success, new_acc.finish, cap_i + 1
+        return success, new_acc.finish, cap_i
     end
 end
 compilers["/zero"] = function (pt, ccache)

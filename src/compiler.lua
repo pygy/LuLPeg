@@ -165,6 +165,7 @@ end
 compilers["Ctag"] = function (pt, ccache)
     local matcher, tag = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
+        -- [[DBG]] print("Matcher Ctag. Start, cap_i = ", cap_i, tag, subject, index, subject:sub(1,index))
         local new_acc, success = {
             type = "Cg",
             start = index,
@@ -176,8 +177,11 @@ compilers["Ctag"] = function (pt, ccache)
             = matcher(subject, index, new_acc, 1, state)
         if success then
             cap_acc[cap_i] = new_acc
+        -- [[DBG]] print("Matcher Ctag. Success", tag, subject, index, subject:sub(1,index))
+        -- [[DBG]] expose(new_acc)
+            cap_i = cap_i + 1
         end
-        return success, new_acc.finish, cap_i + 1
+        return success, new_acc.finish, cap_i
     end
 end
 
