@@ -88,6 +88,7 @@ for k, v in pairs{
     ["/table"] = "/table",
     ["/number"] = "/number",
     ["/function"] = "/function",
+    ["Ctag"] = "Ctag"
 } do
     compilers[k] = load(([=[
     local compile = ...
@@ -146,8 +147,7 @@ compilers["Cc"] = function (pt, ccache)
             type = "values",
             values = values,
             start = index,
-            finish = index,
-            n = values.n
+            finish = index
         }
         return true, index, cap_i + 1
     end
@@ -161,25 +161,6 @@ compilers["Cp"] = function (pt, ccache)
             finish = index
         }
         return true, index, cap_i + 1
-    end
-end
-compilers["Ctag"] = function (pt, ccache)
-    local matcher, tag = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local new_acc, success = {
-            type = "Cg",
-            start = index,
-            Ctag = tag,
-            parent = cap_acc,
-            parent_i = cap_i
-        }
-        success, new_acc.finish, new_acc.n
-            = matcher(subject, index, new_acc, 1, state)
-        if success then
-            cap_acc[cap_i] = new_acc
-            cap_i = cap_i + 1
-        end
-        return success, new_acc.finish, cap_i
     end
 end
 compilers["/zero"] = function (pt, ccache)
@@ -1166,7 +1147,7 @@ function lookback(capture, tag, subj_i)
     local found
     repeat
         for i = subj_i - 1, 1, -1 do
-            if  capture[i].Ctag == tag then
+            if  capture[i].type == "Ctag" and capture[i].aux == tag then
                 found = capture[i]
                 break
             end
@@ -1181,11 +1162,11 @@ function lookback(capture, tag, subj_i)
     end
 end
 evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref, Ctag
-    ref = lookback(capture.parent, capture.tag, capture.parent_i)
-    ref.Ctag, Ctag = nil, ref.Ctag
+    local ref = lookback(capture.parent, capture.tag, capture.parent_i)
     val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
-    ref.Ctag = Ctag
+    return val_i
+end
+evaluators["Ctag"] = function (capture, subject, acc, subj_i, val_i)
     return val_i
 end
 evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
@@ -1211,9 +1192,6 @@ end
 evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
-    if capture.Ctag ~= nil  then
-        return val_i
-    end
     local group_val_i = insert(capture, subject, group_acc, start, 1)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
@@ -1260,11 +1238,11 @@ evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
     for i = 1, capture.n - 1 do
         local cap = capture[i]
-        if cap.Ctag ~= nil then
+        if cap.type == "Ctag" then
             local tmp_acc = {}
             insert(cap, subject, tmp_acc, cap.start, 1)
             local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
-            tbl_acc[cap.Ctag] = val
+            tbl_acc[cap.aux] = val
         else
             new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
         end

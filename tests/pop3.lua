@@ -217,13 +217,13 @@ test([[<aaa@mail.ru>, "Info Mail List" <bbb@mail.ru>, Сакен Матов <sak
   for _,test_case in ipairs(tests)do
     local res = get_address_list(test_case[1])
     if not cmp_v(res, test_case.result ) then
-      require "pprint"
+      -- require "pprint"
       print"----------------------------------------------"
       print("ERROR:", test_case[1])
       print"EXPECTED:"
-      pprint(test_case.result)
+      -- pprint(test_case.result)
       print"RESULT:"
-      pprint(res)
+      -- pprint(res)
     end
   end
 end -- test --

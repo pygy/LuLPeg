@@ -73,6 +73,7 @@ for k, v in pairs{
     ["/table"] = "/table",
     ["/number"] = "/number",
     ["/function"] = "/function",
+    ["Ctag"] = "Ctag"
 } do
     compilers[k] = load(([=[
     local compile = ...
@@ -141,8 +142,7 @@ compilers["Cc"] = function (pt, ccache)
             type = "values",
             values = values,
             start = index,
-            finish = index,
-            n = values.n
+            finish = index
         }
         return true, index, cap_i + 1
     end
@@ -158,30 +158,6 @@ compilers["Cp"] = function (pt, ccache)
             finish = index
         }
         return true, index, cap_i + 1
-    end
-end
-
-
-compilers["Ctag"] = function (pt, ccache)
-    local matcher, tag = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        -- [[DBG]] print("Matcher Ctag. Start, cap_i = ", cap_i, tag, subject, index, subject:sub(1,index))
-        local new_acc, success = {
-            type = "Cg",
-            start = index,
-            Ctag = tag,
-            parent = cap_acc,
-            parent_i = cap_i
-        }
-        success, new_acc.finish, new_acc.n
-            = matcher(subject, index, new_acc, 1, state)
-        if success then
-            cap_acc[cap_i] = new_acc
-        -- [[DBG]] print("Matcher Ctag. Success", tag, subject, index, subject:sub(1,index))
-        -- [[DBG]] expose(new_acc)
-            cap_i = cap_i + 1
-        end
-        return success, new_acc.finish, cap_i
     end
 end
 
