@@ -18,7 +18,7 @@ local compat = {
     jit = jit and jit.status(),
 
     -- LuaJIT can optionally support __len on tables.
-    lua52_len = not #setmetatable({},{__len = nop}),
+    lua52_len = not #setmetatable({},{__len = function()end}),
 
     proxies = newproxy
         and (function()
@@ -32,6 +32,12 @@ local compat = {
             return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
         end)()
 }
+
+if compat.lua52 then
+    compat._goto = true
+elseif compat.luajit then
+    compat._goto = loadstring"::R::" and true or false
+end
 
 return compat
 

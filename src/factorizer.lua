@@ -1,7 +1,5 @@
-local ipairs, pairs, print, setmetatable, type
-    = ipairs, pairs, print, setmetatable, type
-
-local t_insert = require"table".insert
+local ipairs, pairs, print, setmetatable
+    = ipairs, pairs, print, setmetatable
 
 --[[DBG]] local debug = require "debug"
 local u = require"util"
@@ -144,7 +142,7 @@ local seq_optimize = {
 local metaappend_mt = {
     __index = function()return append end
 }
-for k,v in pairs(seq_optimize) do
+for _, v in pairs(seq_optimize) do
     setmetatable(v, metaappend_mt)
 end
 local metaappend = setmetatable({}, metaappend_mt)
@@ -162,7 +160,7 @@ local type2cons = {
     ["at most"] = "__exp",
     ["Ctag"] = "Cg",
 }
-local level = 0
+--[[DBG]] local level = 0
 local
 function choice (a,b, ...)
     -- 1. flatten  (a + b) + (c + d) => a + b + c + d

@@ -1,5 +1,7 @@
-local pairs, print, error, tostring, type
-    = pairs, print, error, tostring, type
+local pairs, error, tostring, type
+    = pairs, error, tostring, type
+
+--[[DBG]] local print = print
 
 local s, t, u = require"string", require"table", require"util"
 
@@ -12,10 +14,10 @@ local _ENV = u.noglobals() ----------------------------------------------------
 local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
     = s.byte, s.sub, t.concat, t.insert, t.remove, u.unpack
 
-local   expose,   load,   map,   map_all, t_pack
-    = u.expose, u.load, u.map, u.map_all, u.pack
+local   load,   map,   map_all, t_pack
+    = u.load, u.map, u.map_all, u.pack
 
-
+--[[DBG]] local expose = u.expose
 
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
@@ -43,7 +45,7 @@ function compile(pt, ccache)
         return ccache[pt]
     end
     if not pt.compiled then
-         -- dprint("Not compiled:")
+         -- [[DBG]] print("Not compiled:")
         -- LL.pprint(pt)
         pt.compiled = compilers[pt.ptype](pt, ccache)
     end
@@ -72,12 +74,12 @@ for k, v in pairs{
     ["/number"] = "/number",
     ["/function"] = "/function",
 } do
-    compilers[k] = load(([[
+    compilers[k] = load(([=[
     local compile = ...
     return function (pt, ccache)
         local matcher, aux = compile(pt.pattern, ccache), pt.aux
         return function (subject, index, cap_acc, cap_i, state)
-             -- dprint("XXXX    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("XXXX    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local new_acc, nindex, success = {
                 type = "XXXX",
                 start = index,
@@ -88,14 +90,14 @@ for k, v in pairs{
             success, index, new_acc.n
                 = matcher(subject, index, new_acc, 1, state)
             if success then
-                -- dprint("\n\nXXXX captured: start:"..new_acc.start.." finish: "..index.."\n")
+                -- [[DBG]] print("\n\nXXXX captured: start:"..new_acc.start.." finish: "..index.."\n")
                 new_acc.finish = index
                 cap_acc[cap_i] = new_acc
                 cap_i = cap_i + 1
             end
             return success, index, cap_i
         end
-    end]]):gsub("XXXX", v), k.." compiler")(compile)
+    end]=]):gsub("XXXX", v), k.." compiler")(compile)
 end
 
 
@@ -117,8 +119,8 @@ end
 compilers["Cb"] = function (pt, ccache)
     local tag = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Cb       ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
-         -- dprint("TAG: " .. ((state.tags[tag] or {}).type or "NONE"))
+         -- [[DBG]] print("Cb       ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("TAG: " .. ((state.tags[tag] or {}).type or "NONE"))
         cap_acc[cap_i] = {
             type = "Cb",
             start = index,
@@ -254,39 +256,39 @@ compilers["string"] = function (pt, ccache)
     local S = pt.aux
     local N = #S
     return function(subject, index, cap_acc, cap_i, state)
-         -- dprint("String    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("String    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         local in_1 = index - 1
         for i = 1, N do
             local c
             c = s_byte(subject,in_1 + i)
             if c ~= S[i] then
-         -- dprint("%FString    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("%FString    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return false, index, cap_i
             end
         end
-         -- dprint("%SString    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("%SString    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         return true, index + N, cap_i
     end
 end
 
 
 compilers["char"] = function (pt, ccache)
-    return load(([[
+    return load(([=[
         local s_byte = ...
         return function(subject, index, cap_acc, cap_i, state)
-             -- dprint("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Char    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local c, nindex = s_byte(subject, index), index + 1
             if c ~= __C0__ then
                 return false, index, cap_i
             end
             return true, nindex, cap_i
-        end]]):gsub("__C0__", tostring(pt.aux)))(s_byte)
+        end]=]):gsub("__C0__", tostring(pt.aux)))(s_byte)
 end
 
 
 local
 function truecompiled (subject, index, cap_acc, cap_i, state)
-     -- dprint("True    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+     -- [[DBG]] print("True    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     return true, index, cap_i
 end
 compilers["true"] = function (pt)
@@ -296,7 +298,7 @@ end
 
 local
 function falsecompiled (subject, index, cap_acc, cap_i, state)
-     -- dprint("False   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+     -- [[DBG]] print("False   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     return false, index, cap_i
 end
 compilers["false"] = function (pt)
@@ -306,7 +308,7 @@ end
 
 local
 function eoscompiled (subject, index, cap_acc, cap_i, state)
-     -- dprint("EOS     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+     -- [[DBG]] print("EOS     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     return index > #subject, index, cap_i
 end
 compilers["eos"] = function (pt)
@@ -316,7 +318,7 @@ end
 
 local
 function onecompiled (subject, index, cap_acc, cap_i, state)
-     -- dprint("One     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+     -- [[DBG]] print("One     ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
     local char, nindex = s_byte(subject, index), index + 1
     if char
     then return true, nindex, cap_i
@@ -334,29 +336,29 @@ compilers["any"] = function (pt)
         return onecompiled
     elseif not charset.binary then
         return function(subject, index, cap_acc, cap_i, state)
-             -- dprint("Any UTF-8",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Any UTF-8",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n, c, nindex = N
             while n > 0 do
                 c, nindex = s_byte(subject, index), index + 1
                 if not c then
-                     -- dprint("%FAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+                     -- [[DBG]] print("%FAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                     return false, index, cap_i
                 end
                 n = n -1
             end
-             -- dprint("%SAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("%SAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             return true, nindex, cap_i
         end
     else -- version optimized for byte-width encodings.
         N = pt.aux - 1
         return function(subject, index, cap_acc, cap_i, state)
-             -- dprint("Any byte",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Any byte",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local n = index + N
             if n <= #subject then
-                -- dprint("%SAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+                -- [[DBG]] print("%SAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return true, n + 1, cap_i
             else
-                 -- dprint("%FAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+                 -- [[DBG]] print("%FAny    ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return false, index, cap_i
             end
         end
@@ -378,11 +380,11 @@ do
         local gram = map_all(pt.aux, compile, ccache)
         local start = gram[1]
         return function (subject, index, cap_acc, cap_i, state)
-             -- dprint("Grammar ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Grammar ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             t_insert(state.grammars, gram)
             local success, nindex, cap_i = start(subject, index, cap_acc, cap_i, state)
             t_remove(state.grammars)
-             -- dprint("%Grammar ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("%Grammar ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             return success, nindex, cap_i
         end
     end
@@ -391,7 +393,7 @@ end
 compilers["behind"] = function (pt, ccache)
     local matcher, N = compile(pt.pattern, ccache), pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Behind  ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("Behind  ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         if index <= N then return false, index, cap_i end
 
         local success = matcher(subject, index - N, {type = "discard"}, cap_i, state)
@@ -402,7 +404,7 @@ end
 compilers["range"] = function (pt)
     local ranges = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Range   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("Range   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         local char, nindex = s_byte(subject, index), index + 1
         for i = 1, #ranges do
             local r = ranges[i]
@@ -416,7 +418,7 @@ end
 compilers["set"] = function (pt)
     local s = pt.aux
     return function (subject, index, cap_acc, cap_i, state)
-             -- dprint("Set, Set!",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Set, Set!",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         local char, nindex = s_byte(subject, index), index + 1
         if s[char]
         then return true, nindex, cap_i
@@ -431,7 +433,7 @@ compilers["ref"] = function (pt, ccache)
     local name = pt.aux
     local ref
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Reference",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+         -- [[DBG]] print("Reference",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
         if not ref then
             if #state.grammars == 0 then
                 error(("rule 'XXXX' used outside a grammar"):gsub("XXXX", tostring(name)))
@@ -448,12 +450,12 @@ end
 
 
 -- Unroll the loop using a template:
-local choice_tpl = [[
+local choice_tpl = [=[
             success, index, cap_i = XXXX(subject, index, cap_acc, cap_i, state)
             if success then
-                 -- dprint("%SChoice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+                 -- [[DBG]] print("%SChoice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return true, index, cap_i
-            end]]
+            end]=]
 compilers["choice"] = function (pt, ccache)
     local choices, n = map(pt.aux, compile, ccache), #pt.aux
     local names, chunks = {}, {}
@@ -463,15 +465,15 @@ compilers["choice"] = function (pt, ccache)
         chunks[ #names  ] = choice_tpl:gsub("XXXX", m)
     end
     local compiled = t_concat{
-        "local ", t_concat(names, ", "), [[ = ...
+        "local ", t_concat(names, ", "), [=[ = ...
         return function (subject, index, cap_acc, cap_i, state)
-             -- dprint("Choice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Choice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local success
-            ]],
-            t_concat(chunks,"\n"),[[
-             -- dprint("%FChoice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+            ]=],
+            t_concat(chunks,"\n"),[=[
+             -- [[DBG]] print("%FChoice   ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             return false, index, cap_i
-        end]]
+        end]=]
     }
     -- print(compiled)
     return load(compiled, "Choice")(t_unpack(choices))
@@ -479,13 +481,13 @@ end
 
 
 
-local sequence_tpl = [[
-             -- dprint("XXXX", nindex, cap_acc, new_i, state)
+local sequence_tpl = [=[
+             -- [[DBG]] print("XXXX", nindex, cap_acc, new_i, state)
             success, nindex, new_i = XXXX(subject, nindex, cap_acc, new_i, state)
             if not success then
-                 -- dprint("%FSequence",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+                 -- [[DBG]] print("%FSequence",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
                 return false, index, cap_i
-            end]]
+            end]=]
 compilers["sequence"] = function (pt, ccache)
     local sequence, n = map(pt.aux, compile, ccache), #pt.aux
     local names, chunks = {}, {}
@@ -497,16 +499,16 @@ compilers["sequence"] = function (pt, ccache)
         chunks[ #names  ] = sequence_tpl:gsub("XXXX", m)
     end
     local compiled = t_concat{
-        "local ", t_concat(names, ", "), [[ = ...
+        "local ", t_concat(names, ", "), [=[ = ...
         return function (subject, index, cap_acc, cap_i, state)
-             -- dprint("Sequence",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
+             -- [[DBG]] print("Sequence",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local nindex, new_i, success = index, cap_i
-            ]],
-            t_concat(chunks,"\n"),[[
-             -- dprint("%SSequence",cap_acc, cap_acc and cap_acc.type or "'nil'", new_i, index, state) --, subject)
-             -- dprint("NEW I:",new_i)
+            ]=],
+            t_concat(chunks,"\n"),[=[
+             -- [[DBG]] print("%SSequence",cap_acc, cap_acc and cap_acc.type or "'nil'", new_i, index, state) --, subject)
+             -- [[DBG]] print("NEW I:",new_i)
             return true, nindex, new_i
-        end]]
+        end]=]
     }
     -- print(compiled)
    return load(compiled, "Sequence")(t_unpack(sequence))
@@ -517,7 +519,7 @@ compilers["at most"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
     n = -n
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("At most   ",cap_acc, cap_acc and cap_acc.type or "'nil'", index) --, subject)
+         -- [[DBG]] print("At most   ",cap_acc, cap_acc and cap_acc.type or "'nil'", index) --, subject)
         local success = true
         for i = 1, n do
             success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
@@ -558,7 +560,7 @@ compilers["at least"] = function (pt, ccache)
         return function (subject, index, cap_acc, cap_i, state)
             -- [[DBG]] print("At least "..n.." ",cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state) --, subject)
             local success = true
-            for i = 1, n do
+            for _ = 1, n do
                 success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
                 if not success then return false, index, cap_i end
             end
@@ -580,7 +582,7 @@ compilers["unm"] = function (pt, ccache)
     end
     local matcher = compile(pt.pattern, ccache)
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Unm     ", cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
+         -- [[DBG]] print("Unm     ", cap_acc, cap_acc and cap_acc.type or "'nil'", cap_i, index, state)
         -- Throw captures away
         local success, _, _ = matcher(subject, index, {type = "discard", parent = cap_acc, parent_i = cap_i}, 1, state)
         return not success, index, cap_i
@@ -590,10 +592,10 @@ end
 compilers["lookahead"] = function (pt, ccache)
     local matcher = compile(pt.pattern, ccache)
     return function (subject, index, cap_acc, cap_i, state)
-         -- dprint("Lookahead", cap_acc, cap_acc and cap_acc.type or "'nil'", index, cap_i, state)
+         -- [[DBG]] print("Lookahead", cap_acc, cap_acc and cap_acc.type or "'nil'", index, cap_i, state)
         -- Throw captures away
         local success, _, _ = matcher(subject, index, {type = "discard", parent = cap_acc, parent_i = cap_i}, 1, state)
-         -- dprint("%Lookahead", cap_acc, cap_acc and cap_acc.type or "'nil'", index, cap_i, state)
+         -- [[DBG]] print("%Lookahead", cap_acc, cap_acc and cap_acc.type or "'nil'", index, cap_i, state)
         return success, index, cap_i
     end
 end

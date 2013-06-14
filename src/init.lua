@@ -25,12 +25,14 @@
 --[[DBG]] end
 --[[DBG]] end
 
-local getmetatable, pairs, setmetatable
-    = getmetatable, pairs, setmetatable
+--[[DBG]] local pairs = pairs
+
+local getmetatable, setmetatable
+    = getmetatable, setmetatable
 
 local u = require"util"
-local   map,   nop, t_unpack
-    = u.map, u.nop, u.unpack
+local   copy,   map,   nop, t_unpack
+    = u.copy, u.map, u.nop, u.unpack
 
 -- The module decorators.
 local API, charsets, compiler, constructors
@@ -62,7 +64,7 @@ local function register(self, env)
         package.loaded.re = self.re
     end)
     if env then
-        env.lpeg, env.re = lpeg, lpeg.re
+        env.lpeg, env.re = self, self.re
     end
     return self
 end

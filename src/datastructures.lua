@@ -1,25 +1,29 @@
-local getmetatable, pairs, pcall, print, setmetatable, type
-    = getmetatable, pairs, pcall, print, setmetatable, type
+local getmetatable, pairs, setmetatable, type
+    = getmetatable, pairs, setmetatable, type
 
-local m, t = require"math", require"table"
-local m_min, m_max, t_concat, t_insert, t_sort
-    = m.min, m.max, t.concat, t.insert, t.sort
+--[[DBG]] local debug, print = debug, print
 
-local u = require"util"
-local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
-    = u.all, u.expose, u.extend, u.load, u.map, u.map_all, u.max, u.unpack
+local m, t , u = require"math", require"table", require"util"
+
 
 local compat = require"compat"
-
 local ffi if compat.luajit then
     ffi = require"ffi"
 end
 
---[[DBG]] local debug = debug
+
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
 
+
+local   extend,   load, u_max
+    = u.extend, u.load, u.max
+
+--[[DBG]] local expose = u.expose
+
+local m_max, t_concat, t_insert, t_sort
+    = m.max, t.concat, t.insert, t.sort
 
 local structfor = {}
 
@@ -47,7 +51,7 @@ function byteset_constructor (upper)
 end
 
 if compat.jit then
-    local struct, empty, boolset_constructor = {v={}}
+    local struct, boolset_constructor = {v={}}
 
     function byteset_mt.__index(s,i)
         -- [[DBG]] print("GI", s,i)
@@ -69,7 +73,6 @@ if compat.jit then
     function byteset_new (t)
         -- [[DBG]] print ("Konstructor", type(t), t)
         if type(t) == "number" then
-            local tmp
             local res = boolset_constructor(t+1)
             res.upper = t
             --[[DBG]] for i = 0, res.upper do if res[i] then print("K", i, res[i]) end end
@@ -151,11 +154,6 @@ function byteset_tostring (s)
     end
     -- [[DBG]] print("BS TOS", t_concat(list,", "))
     return t_concat(list,", ")
-end
-
-local function byteset_has(set, elem)
-    if elem > 255 then return false end
-    return set[elem]
 end
 
 
@@ -273,8 +271,8 @@ function set_difference(a, b)
     --     end
     -- else
     for el in pairs(a) do
-        if a[i] and not b[i] then
-            list[#list+1] = i
+        if a[el] and not b[el] then
+            list[#list+1] = el
         end
     end
     -- [[BS]] end
@@ -303,8 +301,6 @@ end
 --
 
 -- For now emulated using sets.
-
-local range_mt = {}
 
 local
 function range_new (start, finish)

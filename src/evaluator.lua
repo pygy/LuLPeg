@@ -1,35 +1,35 @@
 
 -- Capture evaluators
 
-return function(Builder, LL) -- Decorator wrapper
-
-local cprint = LL.cprint
-
-local pcall, select, setmetatable, tonumber, tostring
-    = pcall, select, setmetatable, tonumber, tostring
+local select, tonumber, tostring
+    = select, tonumber, tostring
 
 local s, t, u = require"string", require"table", require"util"
+local s_sub, t_concat
+    = s.sub, t.concat
 
+local t_unpack
+    = u.unpack
+
+-- [[DBG]] local   expose = u.expose
 
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
-local s_sub, t_concat
-    = s.sub, t.concat
+return function(Builder, LL) -- Decorator wrapper
 
-local expose, strip_mt, t_unpack
-    = u.expose, u.strip_mt, u.unpack
+--[[DBG]] local cprint = LL.cprint
 
 local evaluators, insert = {}
 
 local
 function evaluate (capture, subject, subj_i)
-    -- print("*** Eval", subj_i)
-    -- cprint(capture)
+    -- [[DBG]] print("*** Eval", subj_i)
+    -- [[DBG]] cprint(capture)
     local acc, val_i, _ = {}
-    -- LL.cprint(capture)
+    -- [[DBG]] LL.cprint(capture)
     val_i = insert(capture, subject, acc, subj_i, 1)
     return acc, val_i
 end
@@ -48,8 +48,7 @@ LL.evaluate = evaluate
 function insert (capture, subject, acc, subj_i, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
-        -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
-            local c
+        -- [[DBG]] print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
             val_i =
                 evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
             subj_i = capture[i].finish
@@ -206,9 +205,9 @@ end
 
 
 evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
-local start, finish, values = capture.start, capture.finish, capture.values
-    for i = 1, values.n do
-        val_i, acc[val_i] = val_i + 1, values[i]
+local these_values = capture.values
+    for i = 1, these_values.n do
+        val_i, acc[val_i] = val_i + 1, these_values[i]
     end
     return val_i
 end

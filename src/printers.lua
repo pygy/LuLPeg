@@ -110,22 +110,22 @@ end
 --- Captures patterns
 --
 
--- for __, cap in pairs{"C", "Cs", "Ct"} do
--- for __, cap in pairs{"Carg", "Cb", "Cp"} do
+-- for _, cap in pairs{"C", "Cs", "Ct"} do
+-- for _, cap in pairs{"Carg", "Cb", "Cp"} do
 -- function LL_Cc (...)
--- for __, cap in pairs{"Cf", "Cmt"} do
+-- for _, cap in pairs{"Cf", "Cmt"} do
 -- function LL_Cg (pt, tag)
 -- local valid_slash_type = newset{"string", "number", "table", "function"}
 
 
-for __, cap in pairs{"C", "Cs", "Ct"} do
+for _, cap in pairs{"C", "Cs", "Ct"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap)
         LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
 
-for __, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
+for _, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
         LL_pprint(pt.pattern, offset.."  ", "")
@@ -137,7 +137,7 @@ printers["/string"] = function (pt, offset, prefix)
     LL_pprint(pt.pattern, offset.."  ", "")
 end
 
-for __, cap in pairs{"Carg", "Cp"} do
+for _, cap in pairs{"Carg", "Cp"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.."( "..tostring(pt.aux).." )")
     end
@@ -196,7 +196,7 @@ cprinters["insert"] = function (capture, offset, prefix)
 
 end
 
-for __, capname in ipairs{
+for _, capname in ipairs{
     "Cf", "Cg", "tag","C", "Cs",
     "/string", "/number", "/table", "/function"
 } do

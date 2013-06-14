@@ -4,11 +4,11 @@
 -- What follows is the core LPeg functions, the public API to create patterns.
 -- Think P(), R(), pt1 + pt2, etc.
 local assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, tostring, type
+    , require, select, tonumber, type
     = assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, tostring, type
+    , require, select, tonumber, type
 
-local s, t, u = require"string", require"table", require"util"
+local t, u = require"table", require"util"
 
 --[[DBG]] local debug = require"debug"
 
@@ -18,11 +18,12 @@ local _ENV = u.noglobals() ---------------------------------------------------
 
 
 
-local s_byte, t_concat, t_insert, t_sort
-    = s.byte, t.concat, t.insert, t.sort
+local t_concat = t.concat
 
-local   copy,   expose,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.copy, u.expose, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local   copy,   fold,   load,   map,   setify, t_pack, t_unpack
+    = u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+
+--[[DBG]] local expose = u.expose
 
 local
 function charset_error(index, charset)
@@ -37,7 +38,7 @@ return function(Builder, LL) -- module wrapper -------------------------------
 ------------------------------------------------------------------------------
 
 
-local binary_split_int, cs = Builder.binary_split_int, Builder.charset
+local cs = Builder.charset
 
 local constructors, LL_ispattern
     = Builder.constructors, LL.ispattern
@@ -72,7 +73,7 @@ function LL_P (v)
     elseif type(v) == "string" then
         local success, index = validate(v)
         if not success then
-            charset_error(index, charset)
+            charset_error(index, cs.name)
         end
         if v == "" then return LL_P(true) end
         return true and LL.__mul(map(makechar, split_int(v)))
@@ -111,7 +112,7 @@ function LL_S (set)
     else
         local success, index = validate(set)
         if not success then
-            charset_error(index, charset)
+            charset_error(index, cs.name)
         end
         return
             --[[DBG]] true and
@@ -130,14 +131,14 @@ function LL_R (...)
         for _, r in ipairs{...} do
             local success, index = validate(r)
             if not success then
-                charset_error(index, charset)
+                charset_error(index, cs.name)
             end
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         -- This is awful.
         local representation = t_concat(map(tochar,
                 {load("return "..S_tostring(range))()}))
-        local p = constructors.aux("set", range, representation)
+        -- [[DBG]] local p = constructors.aux("set", range, representation)
         return
             --[[DBG]] true and
             constructors.aux("set", range, representation)
@@ -300,8 +301,8 @@ LL.__pow = LL_repeat
 -------------------------------------------------------------------------------
 --- Captures
 --
-for __, cap in pairs{"C", "Cs", "Ct"} do
-    LL[cap] = function(pt, aux)
+for _, cap in pairs{"C", "Cs", "Ct"} do
+    LL[cap] = function(pt)
         pt = LL_P(pt)
         return
             --[[DBG]] true and
@@ -340,7 +341,7 @@ function LL_Cc (...)
 end
 LL.Cc = LL_Cc
 
-for __, cap in pairs{"Cf", "Cmt"} do
+for _, cap in pairs{"Cf", "Cmt"} do
     local msg = "Function expected in "..cap.." capture"
     LL[cap] = function(pt, aux)
     assert(type(aux) == "function", msg)

@@ -37,8 +37,8 @@ local _ENV = u.noglobals() ----------------------------------------------------
 
 local copy = u.copy
 
-local s_char, s_sub, s_byte, t_insert
-    = s.char, s.sub, s.byte, t.insert
+local s_char, s_sub, s_byte, t_concat, t_insert
+    = s.char, s.sub, s.byte, t.concat, t.insert
 
 -------------------------------------------------------------------------------
 --- UTF-8
@@ -120,7 +120,7 @@ end
 
 
 -- Usage:
---     for finish, start, cpt in utf8_next_int, "˙†ƒ˙©√" do
+--     for finish, start, cpt in utf8_next_char, "˙†ƒ˙©√" do
 --         print(cpt)
 --     end
 -- `start` and `finish` being the bounds of the character, and `cpt` being the UTF-8 code point.
@@ -198,19 +198,6 @@ function merge_generator (char)
     end
 end
 
-local
-function build_charset (funcs)
-    return {
-        name = funcs.name,
-        split_int = split_generator(funcs.next_int),
-        split_char = split_generator(funcs.next_char),
-        next_int = funcs.next_int,
-        next_char = funcs.next_char,
-        merge = merge_generator(funcs.tochar),
-        tochar = funcs.tochar,
-        validate = funcs.validate
-    }
-end
 
 local
 function utf8_get_int2 (subject, i)

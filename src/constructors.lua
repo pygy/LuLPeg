@@ -20,20 +20,21 @@
 local ipairs, newproxy, print, setmetatable
     = ipairs, newproxy, print, setmetatable
 
-local t, u, dtst, compat
-    = require"table", require"util", require"datastructures", require"compat"
+local t, u, compat
+    = require"table", require"util", require"compat"
 
 --[[DBG]] local debug = require"debug"
 
-local t_concat, t_sort
-    = t.concat, t.sort
+local t_concat = t.concat
 
-local copy, getuniqueid, id, map
-    , nop, weakkey, weakval
+local   copy,   getuniqueid,   id,   map
+    ,   weakkey,   weakval
     = u.copy, u.getuniqueid, u.id, u.map
-    , u.nop, u.weakkey, u.weakval
+    , u.weakkey, u.weakval
 
-local _ENV = u.noglobals()
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
@@ -74,8 +75,7 @@ return function(Builder, LL) --- module wrapper.
 --
 
 
-local split_int, S_tostring
-    = Builder.charset.split_int, Builder.set.tostring
+local S_tostring = Builder.set.tostring
 
 
 -------------------------------------------------------------------------------
@@ -85,7 +85,6 @@ local split_int, S_tostring
 local newpattern do
     -- This deals with the Lua 5.1/5.2 compatibility, and restricted
     -- environements without access to newproxy and/or debug.setmetatable.
-    local setmetatable = setmetatable
 
     function LL.get_direct (p) return p end
 
@@ -94,9 +93,10 @@ local newpattern do
         function newpattern(pt)
             return setmetatable(pt,LL)
         end
-    elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
-        local d_setmetatable, newproxy
-            = compat.debug.setmetatable, newproxy
+    elseif compat.proxies then 
+        -- Lua 5.1 / LuaJIT without compat.
+        local d_setmetatable
+            = compat.debug.setmetatable
 
         local proxycache = weakkey{}
         local __index_LL = {__index = LL}
