@@ -1,9 +1,8 @@
----------------------------------------  .   ,      ,       ,     ------------
----------------------------------------  |\ /| ,--. |-- ,-- |__   ------------
--- Match ------------------------------  | v | ,--| |   |   |  |  ------------
----------------------------------------  '   ' `--' `-- `-- '  '  ------------
 
-local assert, error, select, type = assert, error, select, type
+-- match.lua
+
+
+local assert, error, print, select, type = assert, error, print, select, type
 
 local u =require"util"
 
@@ -55,25 +54,25 @@ end
 
 -- With some debug info.
 function LL.dmatch(pt, subject, index, ...)
-    --[[DBG]] print("@!!! Match !!!@")
+    print("@!!! Match !!!@")
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
-    --[[DBG]] print(("-"):rep(30))
-    --[[DBG]] print(pt.ptype)
-    --[[DBG]] LL.pprint(pt)
+    print(("-"):rep(30))
+    print(pt.ptype)
+    LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
         , {type = "insert"}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    --[[DBG]] print("!!! Done Matching !!!")
+    print("!!! Done Matching !!!")
     if success then
         cap_acc.n = cap_i
-        --[[DBG]] print("cap_i = ",cap_i)
-        --[[DBG]] print("= $$$ captures $$$ =", cap_acc)
-        --[[DBG]] LL.cprint(cap_acc)
+        print("cap_i = ",cap_i)
+        print("= $$$ captures $$$ =", cap_acc)
+        LL.cprint(cap_acc)
         local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
         if cap_i == 1
         then return nindex

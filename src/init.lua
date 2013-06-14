@@ -27,8 +27,8 @@
 
 --[[DBG]] local pairs = pairs
 
-local getmetatable, setmetatable
-    = getmetatable, setmetatable
+local getmetatable, setmetatable, pcall
+    = getmetatable, setmetatable, pcall
 
 local u = require"util"
 local   copy,   map,   nop, t_unpack

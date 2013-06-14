@@ -1594,14 +1594,6 @@ function process_booleans(lst, opts)
     end
     return acc
 end
-local
-function append (acc, p1, p2)
-    acc[#acc + 1] = p2
-end
-local
-function seq_unm_unm (acc, p1, p2)
-    acc[#acc] = -(p1.pattern + p2.pattern)
-end
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
     "Ctag", "Cmt", "/string", "/number",
@@ -1648,38 +1640,6 @@ local --Range, Set,
     S_union
     = --Builder.Range, Builder.set.new,
     Builder.set.union
-local
-function seq_str_str (acc, p1, p2)
-    acc[#acc] = LL_P(p1.as_is .. p2.as_is)
-end
-local
-function seq_any_any (acc, p1, p2)
-    acc[#acc] = LL_P(p1.aux + p2.aux)
-end
-local seq_optimize = {
-    string = {string = seq_str_str},
-    any = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    one = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    unm = {
-        unm = append -- seq_unm_unm
-    }
-}
-local metaappend_mt = {
-    __index = function()return append end
-}
-for _, v in pairs(seq_optimize) do
-    setmetatable(v, metaappend_mt)
-end
-local metaappend = setmetatable({}, metaappend_mt)
-setmetatable(seq_optimize, {
-    __index = function() return metaappend end
-})
 local type2cons = {
     ["/zero"] = "__div",
     ["/number"] = "__div",
@@ -1727,6 +1687,37 @@ function lookahead (pt)
     return pt
 end
 local
+function append (acc, p1, p2)
+    acc[#acc + 1] = p2
+end
+local
+function seq_any_any (acc, p1, p2)
+    acc[#acc] = LL_P(p1.aux + p2.aux)
+end
+local seq_optimize = {
+    any = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    one = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    unm = {
+        unm = append -- seq_unm_unm
+    }
+}
+local metaappend_mt = {
+    __index = function()return append end
+}
+for _, v in pairs(seq_optimize) do
+    setmetatable(v, metaappend_mt)
+end
+local metaappend = setmetatable({}, metaappend_mt)
+setmetatable(seq_optimize, {
+    __index = function() return metaappend end
+})
+local
 function sequence(a, b, ...)
     local seq1
     if b ~=nil then
@@ -1764,8 +1755,8 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['match'] = function (...)
----------------------------------------  .   ,      ,       ,     ------------
-local assert, error, select, type = assert, error, select, type
+
+local assert, error, print, select, type = assert, error, print, select, type
 local u =require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local t_unpack = u.unpack
@@ -1800,17 +1791,25 @@ function LL.match(pt, subject, index, ...)
     end
 end
 function LL.dmatch(pt, subject, index, ...)
+    print("@!!! Match !!!@")
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
+    print(("-"):rep(30))
+    print(pt.ptype)
+    LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
         , {type = "insert"}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+    print("!!! Done Matching !!!")
     if success then
         cap_acc.n = cap_i
+        print("cap_i = ",cap_i)
+        print("= $$$ captures $$$ =", cap_acc)
+        LL.cprint(cap_acc)
         local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
         if cap_i == 1
         then return nindex
@@ -2633,8 +2632,8 @@ end
 do local _ENV = _ENV
 packages['init'] = function (...)
 
-local getmetatable, setmetatable
-    = getmetatable, setmetatable
+local getmetatable, setmetatable, pcall
+    = getmetatable, setmetatable, pcall
 local u = require"util"
 local   copy,   map,   nop, t_unpack
     = u.copy, u.map, u.nop, u.unpack

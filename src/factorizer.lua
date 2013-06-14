@@ -36,19 +36,6 @@ function process_booleans(lst, opts)
 end
 
 
--- Some sequence factorizers.
--- Those who depend on LL are defined in the wrapper.
-local
-function append (acc, p1, p2)
-    acc[#acc + 1] = p2
-end
-
-
-local
-function seq_unm_unm (acc, p1, p2)
-    acc[#acc] = -(p1.pattern + p2.pattern)
-end
-
 
 -- patterns where `C(x) + C(y) => C(x + y)` apply.
 local unary = setify{
@@ -110,45 +97,7 @@ local --Range, Set,
     Builder.set.union
 
 
--- sequence factorizers 2, back with a vengence.
-local
-function seq_str_str (acc, p1, p2)
-    acc[#acc] = LL_P(p1.as_is .. p2.as_is)
-end
 
-local
-function seq_any_any (acc, p1, p2)
-    acc[#acc] = LL_P(p1.aux + p2.aux)
-end
-
---- Lookup table for the sequence optimizers.
---
-local seq_optimize = {
-    string = {string = seq_str_str},
-    any = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    one = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    unm = {
-        unm = append -- seq_unm_unm
-    }
-}
-
--- Lookup misses end up with append.
-local metaappend_mt = {
-    __index = function()return append end
-}
-for _, v in pairs(seq_optimize) do
-    setmetatable(v, metaappend_mt)
-end
-local metaappend = setmetatable({}, metaappend_mt)
-setmetatable(seq_optimize, {
-    __index = function() return metaappend end
-})
 
 local type2cons = {
     ["/zero"] = "__div",
@@ -210,10 +159,54 @@ function choice (a,b, ...)
     return dest
 end
 
+
+
 local
 function lookahead (pt)
     return pt
 end
+
+
+
+-- Some sequence factorizers.
+-- Those who depend on LL are defined in the wrapper.
+local
+function append (acc, p1, p2)
+    acc[#acc + 1] = p2
+end
+
+local
+function seq_any_any (acc, p1, p2)
+    acc[#acc] = LL_P(p1.aux + p2.aux)
+end
+
+--- Lookup table for the sequence optimizers.
+--
+local seq_optimize = {
+    any = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    one = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    unm = {
+        unm = append -- seq_unm_unm
+    }
+}
+
+-- Lookup misses end up with append.
+local metaappend_mt = {
+    __index = function()return append end
+}
+for _, v in pairs(seq_optimize) do
+    setmetatable(v, metaappend_mt)
+end
+local metaappend = setmetatable({}, metaappend_mt)
+setmetatable(seq_optimize, {
+    __index = function() return metaappend end
+})
 
 local
 function sequence(a, b, ...)

@@ -11,7 +11,7 @@ local s_sub, t_concat
 local t_unpack
     = u.unpack
 
--- [[DBG]] local   expose = u.expose
+--[[DBG]] local print, expose = print, u.expose
 
 
 local _ENV = u.noglobals() ----------------------------------------------------
@@ -26,7 +26,7 @@ local evaluators, insert = {}
 
 local
 function evaluate (capture, subject, subj_i)
-    -- [[DBG]] print("*** Eval", subj_i)
+    -- [[DBG]] print("*** Eval", subj_i, capture, subject)
     -- [[DBG]] cprint(capture)
     local acc, val_i, _ = {}
     -- [[DBG]] LL.cprint(capture)
@@ -179,7 +179,6 @@ end
 
 evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
-
     for i = 1, capture.n - 1 do
         local cap = capture[i]
 
