@@ -20,17 +20,12 @@ local compat = {
     -- LuaJIT can optionally support __len on tables.
     lua52_len = not #setmetatable({},{__len = function()end}),
 
-    proxies = newproxy
-        and (function()
-            local ok, result = pcall(newproxy)
-            return ok and (type(result) == "userdata" )
-        end)()
-        and type(debug) == "table"
-        and (function()
-            local prox, mt = newproxy(), {}
-            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
-            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
+    proxies = pcall(function()
+        local prox, mt = newproxy(), {}
+        assert(type(prox) == "userdata")
+        debug.setmetatable(prox, mt)
+        assert(getmetatable(prox) == mt)
+    end)
 }
 
 if compat.lua52 then

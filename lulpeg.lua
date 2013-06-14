@@ -1527,17 +1527,12 @@ local compat = {
     luajit = jit and true or false,
     jit = jit and jit.status(),
     lua52_len = not #setmetatable({},{__len = function()end}),
-    proxies = newproxy
-        and (function()
-            local ok, result = pcall(newproxy)
-            return ok and (type(result) == "userdata" )
-        end)()
-        and type(debug) == "table"
-        and (function()
-            local prox, mt = newproxy(), {}
-            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
-            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
+    proxies = pcall(function()
+        local prox, mt = newproxy(), {}
+        assert(type(prox) == "userdata")
+        debug.setmetatable(prox, mt)
+        assert(getmetatable(prox) == mt)
+    end)
 }
 if compat.lua52 then
     compat._goto = true
@@ -2486,11 +2481,7 @@ return function(Builder, LL) --- module wrapper.
 local S_tostring = Builder.set.tostring
 local newpattern do
     function LL.get_direct (p) return p end
-    if compat.lua52_len then
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
-    elseif compat.proxies then 
+    if compat.proxies and not compat.lua52_len then 
         local d_setmetatable
             = compat.debug.setmetatable
         local proxycache = weakkey{}
@@ -2511,7 +2502,7 @@ local newpattern do
         end
         function LL.get_direct(p) return proxycache[p] end
     else
-        if LL.warnings then
+        if LL.warnings and not compat.lua52_len then
             print("Warning: The `__len` metatethod won't work with patterns, "
                 .."use `LL.L(pattern)` for lookaheads.")
         end

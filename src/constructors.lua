@@ -88,12 +88,7 @@ local newpattern do
 
     function LL.get_direct (p) return p end
 
-    if compat.lua52_len then
-        -- Lua 5.2 or LuaJIT + 5.2 compat. No need to do the proxy dance.
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
-    elseif compat.proxies then 
+    if compat.proxies and not compat.lua52_len then 
         -- Lua 5.1 / LuaJIT without compat.
         local d_setmetatable
             = compat.debug.setmetatable
@@ -118,7 +113,7 @@ local newpattern do
     else
         -- Fallback if neither __len(table) nor newproxy work
         -- for example in restricted sandboxes.
-        if LL.warnings then
+        if LL.warnings and not compat.lua52_len then
             print("Warning: The `__len` metatethod won't work with patterns, "
                 .."use `LL.L(pattern)` for lookaheads.")
         end
