@@ -386,6 +386,16 @@ function LL_slash (pt, aux)
 end
 LL.__div = LL_slash
 
+if Builder.proxymt then
+    for k, v in pairs(LL) do
+        if k:match"^__" then
+            Builder.proxymt[k] = v
+        end
+    end
+else
+    LL.__index = LL
+end
+
 local factorizer
     = Builder.factorizer(Builder, LL)
 

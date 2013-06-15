@@ -1517,7 +1517,6 @@ packages['compat'] = function (...)
 
 local _, debug, jit
 _, debug = pcall(require, "debug")
-debug = _ and debug
 _, jit = pcall(require, "jit")
 jit = _ and jit
 local compat = {
@@ -1528,15 +1527,15 @@ local compat = {
     jit = jit and jit.status(),
     lua52_len = not #setmetatable({},{__len = function()end}),
     proxies = pcall(function()
-        local prox, mt = newproxy(), {}
-        assert(type(prox) == "userdata")
-        debug.setmetatable(prox, mt)
-        assert(getmetatable(prox) == mt)
+        local prox = newproxy(true)
+        local prox2 = newproxy(prox)
+        assert (type(getmetatable(prox)) == "table" 
+                and (getmetatable(prox)) == (getmetatable(prox2)))
     end)
 }
 if compat.lua52 then
     compat._goto = true
-elseif compat.luajit then
+else
     compat._goto = loadstring"::R::" and true or false
 end
 return compat
@@ -2429,6 +2428,15 @@ function LL_slash (pt, aux)
         constructors.both(name, pt, aux)
 end
 LL.__div = LL_slash
+if Builder.proxymt then
+    for k, v in pairs(LL) do
+        if k:match"^__" then
+            Builder.proxymt[k] = v
+        end
+    end
+else
+    LL.__index = LL
+end
 local factorizer
     = Builder.factorizer(Builder, LL)
 factorize_choice,  factorize_lookahead,  factorize_sequence,  factorize_unm =
@@ -2441,8 +2449,8 @@ end
 do local _ENV = _ENV
 packages['constructors'] = function (...)
 
-local ipairs, newproxy, print, setmetatable
-    = ipairs, newproxy, print, setmetatable
+local getmetatable, ipairs, newproxy, print, setmetatable
+    = getmetatable, ipairs, newproxy, print, setmetatable
 local t, u, compat
     = require"table", require"util", require"compat"
 local t_concat = t.concat
@@ -2473,36 +2481,46 @@ local patternwith = {
 }
 return function(Builder, LL) --- module wrapper.
 local S_tostring = Builder.set.tostring
-local newpattern do
+local newpattern, pattmt
+if compat.proxies and not compat.lua52_len then 
+    local proxycache = weakkey{}
+    local __index_LL = {__index = LL}
+    local baseproxy = newproxy(true)
+    pattmt = getmetatable(baseproxy)
+    Builder.proxymt = pattmt
+    function pattmt:__index(k)
+        return proxycache[self][k]
+    end
+    function pattmt:__newindex(k, v)
+        proxycache[self][k] = v
+    end
+    function LL.get_direct(p) return proxycache[p] end
+    function newpattern(cons)
+        local pt = newproxy(baseproxy)
+        setmetatable(cons, __index_LL)
+        proxycache[pt]=cons
+        return pt
+    end
+else
+    if LL.warnings and not compat.lua52_len then
+        print("Warning: The `__len` metatethod won't work with patterns, "
+            .."use `LL.L(pattern)` for lookaheads.")
+    end
+    pattmt = ll
     function LL.get_direct (p) return p end
-    if compat.proxies and not compat.lua52_len then 
-        local d_setmetatable
-            = compat.debug.setmetatable
-        local proxycache = weakkey{}
-        local __index_LL = {__index = LL}
-        LL.proxycache = proxycache
-        function newpattern(cons)
-            local pt = newproxy()
-            setmetatable(cons, __index_LL)
-            proxycache[pt]=cons
-            d_setmetatable(pt,LL)
-            return pt
-        end
-        function LL:__index(k)
-            return proxycache[self][k]
-        end
-        function LL:__newindex(k, v)
-            proxycache[self][k] = v
-        end
-        function LL.get_direct(p) return proxycache[p] end
+    function newpattern(pt)
+        return setmetatable(pt,LL)
+    end
+end
+Builder.newpattern = newpattern
+local
+function LL_ispattern(pt) return getmetatable(pt) == pattmt end
+LL.ispattern = LL_ispattern
+function LL.type(pt)
+    if LL_ispattern(pt) then
+        return "pattern"
     else
-        if LL.warnings and not compat.lua52_len then
-            print("Warning: The `__len` metatethod won't work with patterns, "
-                .."use `LL.L(pattern)` for lookaheads.")
-        end
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
+        return nil
     end
 end
 local ptcache, meta
@@ -2632,7 +2650,6 @@ function LuLPeg(options)
           , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
-    LL.__index = LL
     local
     function LL_ispattern(pt) return getmetatable(pt) == LL end
     LL.ispattern = LL_ispattern

@@ -83,8 +83,6 @@ function LuLPeg(options)
           , setmaxstack = nop --Just a stub, for compatibility.
           }
 
-    LL.__index = LL
-
     local
     function LL_ispattern(pt) return getmetatable(pt) == LL end
     LL.ispattern = LL_ispattern

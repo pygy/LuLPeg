@@ -4,7 +4,6 @@
 local _, debug, jit
 
 _, debug = pcall(require, "debug")
-debug = _ and debug
 
 _, jit = pcall(require, "jit")
 jit = _ and jit
@@ -21,16 +20,16 @@ local compat = {
     lua52_len = not #setmetatable({},{__len = function()end}),
 
     proxies = pcall(function()
-        local prox, mt = newproxy(), {}
-        assert(type(prox) == "userdata")
-        debug.setmetatable(prox, mt)
-        assert(getmetatable(prox) == mt)
+        local prox = newproxy(true)
+        local prox2 = newproxy(prox)
+        assert (type(getmetatable(prox)) == "table" 
+                and (getmetatable(prox)) == (getmetatable(prox2)))
     end)
 }
 
 if compat.lua52 then
     compat._goto = true
-elseif compat.luajit then
+else
     compat._goto = loadstring"::R::" and true or false
 end
 
