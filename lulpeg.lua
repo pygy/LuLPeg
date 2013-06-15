@@ -9,10 +9,8 @@
 -- 
 -- The re.lua module and the test suite (tests/lpeg.*.*.tests.lua)
 -- are part of the original LPeg distribution.
-local module_name = ...
-local _ENV,       error,          loaded, packages, release, require_ 
-    = _ENV or _G, error or print, {},     {},       true,    require
-local t_concat = require"table".concat
+local _ENV,       loaded, packages, release, require_ 
+    = _ENV or _G, {},     {},       true,    require
 
 local function require(...)
     local lib = ...
@@ -30,216 +28,32 @@ end
 
 --=============================================================================
 do local _ENV = _ENV
-packages['datastructures'] = function (...)
-local getmetatable, pairs, pcall, print, setmetatable, type
-    = getmetatable, pairs, pcall, print, setmetatable, type
-local m, t = require"math", require"table"
-local m_min, m_max, t_concat, t_insert, t_sort
-    = m.min, m.max, t.concat, t.insert, t.sort
+packages['analizer'] = function (...)
+
 local u = require"util"
-local   all,   expose,   extend,   load,   map,   map_all, u_max, t_unpack
-    = u.all, u.expose, u.extend, u.load, u.map, u.map_all, u.max, u.unpack
-local compat = require"compat"
-local ffi if compat.luajit then
-    ffi = require"ffi"
-end
-local _ENV = u.noglobals() ----------------------------------------------------
-local structfor = {}
-local byteset_new, isboolset, isbyteset
-local byteset_mt = {}
-local
-function byteset_constructor (upper)
-    local set = setmetatable(load(t_concat{
-        "return{ [0]=false",
-        (", false"):rep(upper),
-        " }"
-    })(),
-    byteset_mt)
-    return set
-end
-if compat.jit then
-    local struct, empty, boolset_constructor = {v={}}
-    function byteset_mt.__index(s,i)
-        if i == nil or i > s.upper then return nil end
-        return s.v[i]
-    end
-    function byteset_mt.__len(s)
-        return s.upper
-    end
-    function byteset_mt.__newindex(s,i,v)
-        s.v[i] = v
-    end
-    boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
-    function byteset_new (t)
-        if type(t) == "number" then
-            local tmp
-            local res = boolset_constructor(t+1)
-            res.upper = t
-            return res
-        end
-        local upper = u_max(t)
-        struct.upper = upper
-        if upper > 255 then error"bool_set overflow" end
-        local set = boolset_constructor(upper+1)
-        set.upper = upper
-        for i = 1, #t do set[t[i]] = true end
-        return set
-    end
-    function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
-    isbyteset = isboolset
-else
-    function byteset_new (t)
-        if type(t) == "number" then return byteset_constructor(t) end
-        local set = byteset_constructor(u_max(t))
-        for i = 1, #t do set[t[i]] = true end
-        return set
-    end
-    function isboolset(s) return false end
-    function isbyteset (s)
-        return getmetatable(s) == byteset_mt
-    end
-end
-local
-function byterange_new (low, high)
-    high = ( low <= high ) and high or -1
-    local set = byteset_new(high)
-    for i = low, high do
-        set[i] = true
-    end
-    return set
-end
-local
-function byteset_union (a ,b)
-    local upper = m_max(#a, #b)
-    local res = byteset_new(upper)
-    for i = 0, upper do
-        res[i] = a[i] or b[i] or false
-    end
-    return res
-end
-local
-function byteset_difference (a, b)
-    local res = {}
-    for i = 0, 255 do
-        res[i] = a[i] and not b[i]
-    end
-    return res
-end
-local
-function byteset_tostring (s)
-    local list = {}
-    for i = 0, 255 do
-        list[#list+1] = (s[i] == true) and i or nil
-    end
-    return t_concat(list,", ")
-end
-local function byteset_has(set, elem)
-    if elem > 255 then return false end
-    return set[elem]
-end
-structfor.binary = {
-    set ={
-        new = byteset_new,
-        union = byteset_union,
-        difference = byteset_difference,
-        tostring = byteset_tostring
-    },
-    Range = byterange_new,
-    isboolset = isboolset,
-    isbyteset = isbyteset,
-    isset = isbyteset
+local nop, weakkey = u.nop, u.weakkey
+local hasVcache, hasCmtcache , lengthcache
+    = weakkey{}, weakkey{},    weakkey{}
+return {
+    hasV = nop,
+    hasCmt = nop,
+    length = nop,
+    hasCapture = nop
 }
-local set_mt = {}
-local
-function set_new (t)
-    local set = setmetatable({}, set_mt)
-    for i = 1, #t do set[t[i]] = true end
-    return set
-end
-local -- helper for the union code.
-function add_elements(a, res)
-    for k in pairs(a) do res[k] = true end
-    return res
-end
-local
-function set_union (a, b)
-    a, b = (type(a) == "number") and set_new{a} or a
-         , (type(b) == "number") and set_new{b} or b
-    local res = set_new{}
-    add_elements(a, res)
-    add_elements(b, res)
-    return res
-end
-local
-function set_difference(a, b)
-    local list = {}
-    a, b = (type(a) == "number") and set_new{a} or a
-         , (type(b) == "number") and set_new{b} or b
-    for el in pairs(a) do
-        if a[i] and not b[i] then
-            list[#list+1] = i
-        end
-    end
-    return set_new(list)
-end
-local
-function set_tostring (s)
-    local list = {}
-    for el in pairs(s) do
-        t_insert(list,el)
-    end
-    t_sort(list)
-    return t_concat(list, ",")
-end
-local
-function isset (s)
-    return (getmetatable(s) == set_mt)
-end
-local range_mt = {}
-local
-function range_new (start, finish)
-    local list = {}
-    for i = start, finish do
-        list[#list + 1] = i
-    end
-    return set_new(list)
-end
-structfor.other = {
-    set = {
-        new = set_new,
-        union = set_union,
-        tostring = set_tostring,
-        difference = set_difference,
-    },
-    Range = range_new,
-    isboolset = isboolset,
-    isbyteset = isbyteset,
-    isset = isset,
-    isrange = function(a) return false end
-}
-return function(Builder, LL)
-    local cs = (Builder.options or {}).charset or "binary"
-    if type(cs) == "string" then
-        cs = (cs == "binary") and "binary" or "other"
-    else
-        cs = cs.binary and "binary" or "other"
-    end
-    return extend(Builder, structfor[cs])
-end
 
 end
 end
 --=============================================================================
 do local _ENV = _ENV
 packages['compiler'] = function (...)
-local pairs, print, error, tostring, type
-    = pairs, print, error, tostring, type
+local pairs, error, tostring, type
+    = pairs, error, tostring, type
 local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ----------------------------------------------------
 local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
     = s.byte, s.sub, t.concat, t.insert, t.remove, u.unpack
-local   expose,   load,   map,   map_all, t_pack
-    = u.expose, u.load, u.map, u.map_all, u.pack
+local   load,   map,   map_all, t_pack
+    = u.load, u.map, u.map_all, u.pack
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
 local charset = Builder.charset
@@ -274,8 +88,9 @@ for k, v in pairs{
     ["/table"] = "/table",
     ["/number"] = "/number",
     ["/function"] = "/function",
+    ["Ctag"] = "Ctag"
 } do
-    compilers[k] = load(([[
+    compilers[k] = load(([=[
     local compile = ...
     return function (pt, ccache)
         local matcher, aux = compile(pt.pattern, ccache), pt.aux
@@ -296,7 +111,7 @@ for k, v in pairs{
             end
             return success, index, cap_i
         end
-    end]]):gsub("XXXX", v), k.." compiler")(compile)
+    end]=]):gsub("XXXX", v), k.." compiler")(compile)
 end
 compilers["Carg"] = function (pt, ccache)
     local n = pt.aux
@@ -332,8 +147,7 @@ compilers["Cc"] = function (pt, ccache)
             type = "values",
             values = values,
             start = index,
-            finish = index,
-            n = values.n
+            finish = index
         }
         return true, index, cap_i + 1
     end
@@ -347,24 +161,6 @@ compilers["Cp"] = function (pt, ccache)
             finish = index
         }
         return true, index, cap_i + 1
-    end
-end
-compilers["Ctag"] = function (pt, ccache)
-    local matcher, tag = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local new_acc, success = {
-            type = "Cg",
-            start = index,
-            Ctag = tag,
-            parent = cap_acc,
-            parent_i = cap_i
-        }
-        success, new_acc.finish, new_acc.n
-            = matcher(subject, index, new_acc, 1, state)
-        if success then
-            cap_acc[cap_i] = new_acc
-        end
-        return success, new_acc.finish, cap_i + 1
     end
 end
 compilers["/zero"] = function (pt, ccache)
@@ -435,7 +231,7 @@ compilers["string"] = function (pt, ccache)
     end
 end
 compilers["char"] = function (pt, ccache)
-    return load(([[
+    return load(([=[
         local s_byte = ...
         return function(subject, index, cap_acc, cap_i, state)
             local c, nindex = s_byte(subject, index), index + 1
@@ -443,7 +239,7 @@ compilers["char"] = function (pt, ccache)
                 return false, index, cap_i
             end
             return true, nindex, cap_i
-        end]]):gsub("__C0__", tostring(pt.aux)))(s_byte)
+        end]=]):gsub("__C0__", tostring(pt.aux)))(s_byte)
 end
 local
 function truecompiled (subject, index, cap_acc, cap_i, state)
@@ -569,11 +365,11 @@ compilers["ref"] = function (pt, ccache)
         return ref(subject, index, cap_acc, cap_i, state)
     end
 end
-local choice_tpl = [[
+local choice_tpl = [=[
             success, index, cap_i = XXXX(subject, index, cap_acc, cap_i, state)
             if success then
                 return true, index, cap_i
-            end]]
+            end]=]
 compilers["choice"] = function (pt, ccache)
     local choices, n = map(pt.aux, compile, ccache), #pt.aux
     local names, chunks = {}, {}
@@ -583,21 +379,21 @@ compilers["choice"] = function (pt, ccache)
         chunks[ #names  ] = choice_tpl:gsub("XXXX", m)
     end
     local compiled = t_concat{
-        "local ", t_concat(names, ", "), [[ = ...
+        "local ", t_concat(names, ", "), [=[ = ...
         return function (subject, index, cap_acc, cap_i, state)
             local success
-            ]],
-            t_concat(chunks,"\n"),[[
+            ]=],
+            t_concat(chunks,"\n"),[=[
             return false, index, cap_i
-        end]]
+        end]=]
     }
     return load(compiled, "Choice")(t_unpack(choices))
 end
-local sequence_tpl = [[
+local sequence_tpl = [=[
             success, nindex, new_i = XXXX(subject, nindex, cap_acc, new_i, state)
             if not success then
                 return false, index, cap_i
-            end]]
+            end]=]
 compilers["sequence"] = function (pt, ccache)
     local sequence, n = map(pt.aux, compile, ccache), #pt.aux
     local names, chunks = {}, {}
@@ -607,13 +403,13 @@ compilers["sequence"] = function (pt, ccache)
         chunks[ #names  ] = sequence_tpl:gsub("XXXX", m)
     end
     local compiled = t_concat{
-        "local ", t_concat(names, ", "), [[ = ...
+        "local ", t_concat(names, ", "), [=[ = ...
         return function (subject, index, cap_acc, cap_i, state)
             local nindex, new_i, success = index, cap_i
-            ]],
-            t_concat(chunks,"\n"),[[
+            ]=],
+            t_concat(chunks,"\n"),[=[
             return true, nindex, new_i
-        end]]
+        end]=]
     }
    return load(compiled, "Sequence")(t_unpack(sequence))
 end
@@ -651,7 +447,7 @@ compilers["at least"] = function (pt, ccache)
     else
         return function (subject, index, cap_acc, cap_i, state)
             local success = true
-            for i = 1, n do
+            for _ = 1, n do
                 success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
                 if not success then return false, index, cap_i end
             end
@@ -685,18 +481,195 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['analizer'] = function (...)
-
-local u = require"util"
-local nop, weakkey = u.nop, u.weakkey
-local hasVcache, hasCmtcache , lengthcache
-    = weakkey{}, weakkey{},    weakkey{}
-return {
-    hasV = nop,
-    hasCmt = nop,
-    length = nop,
-    hasCapture = nop
+packages['datastructures'] = function (...)
+local getmetatable, pairs, setmetatable, type
+    = getmetatable, pairs, setmetatable, type
+local m, t , u = require"math", require"table", require"util"
+local compat = require"compat"
+local ffi if compat.luajit then
+    ffi = require"ffi"
+end
+local _ENV = u.noglobals() ----------------------------------------------------
+local   extend,   load, u_max
+    = u.extend, u.load, u.max
+local m_max, t_concat, t_insert, t_sort
+    = m.max, t.concat, t.insert, t.sort
+local structfor = {}
+local byteset_new, isboolset, isbyteset
+local byteset_mt = {}
+local
+function byteset_constructor (upper)
+    local set = setmetatable(load(t_concat{
+        "return{ [0]=false",
+        (", false"):rep(upper),
+        " }"
+    })(),
+    byteset_mt)
+    return set
+end
+if compat.jit then
+    local struct, boolset_constructor = {v={}}
+    function byteset_mt.__index(s,i)
+        if i == nil or i > s.upper then return nil end
+        return s.v[i]
+    end
+    function byteset_mt.__len(s)
+        return s.upper
+    end
+    function byteset_mt.__newindex(s,i,v)
+        s.v[i] = v
+    end
+    boolset_constructor = ffi.metatype('struct { int upper; bool v[?]; }', byteset_mt)
+    function byteset_new (t)
+        if type(t) == "number" then
+            local res = boolset_constructor(t+1)
+            res.upper = t
+            return res
+        end
+        local upper = u_max(t)
+        struct.upper = upper
+        if upper > 255 then error"bool_set overflow" end
+        local set = boolset_constructor(upper+1)
+        set.upper = upper
+        for i = 1, #t do set[t[i]] = true end
+        return set
+    end
+    function isboolset(s) return type(s)=="cdata" and ffi.istype(s, boolset_constructor) end
+    isbyteset = isboolset
+else
+    function byteset_new (t)
+        if type(t) == "number" then return byteset_constructor(t) end
+        local set = byteset_constructor(u_max(t))
+        for i = 1, #t do set[t[i]] = true end
+        return set
+    end
+    function isboolset(s) return false end
+    function isbyteset (s)
+        return getmetatable(s) == byteset_mt
+    end
+end
+local
+function byterange_new (low, high)
+    high = ( low <= high ) and high or -1
+    local set = byteset_new(high)
+    for i = low, high do
+        set[i] = true
+    end
+    return set
+end
+local
+function byteset_union (a ,b)
+    local upper = m_max(#a, #b)
+    local res = byteset_new(upper)
+    for i = 0, upper do
+        res[i] = a[i] or b[i] or false
+    end
+    return res
+end
+local
+function byteset_difference (a, b)
+    local res = {}
+    for i = 0, 255 do
+        res[i] = a[i] and not b[i]
+    end
+    return res
+end
+local
+function byteset_tostring (s)
+    local list = {}
+    for i = 0, 255 do
+        list[#list+1] = (s[i] == true) and i or nil
+    end
+    return t_concat(list,", ")
+end
+structfor.binary = {
+    set ={
+        new = byteset_new,
+        union = byteset_union,
+        difference = byteset_difference,
+        tostring = byteset_tostring
+    },
+    Range = byterange_new,
+    isboolset = isboolset,
+    isbyteset = isbyteset,
+    isset = isbyteset
 }
+local set_mt = {}
+local
+function set_new (t)
+    local set = setmetatable({}, set_mt)
+    for i = 1, #t do set[t[i]] = true end
+    return set
+end
+local -- helper for the union code.
+function add_elements(a, res)
+    for k in pairs(a) do res[k] = true end
+    return res
+end
+local
+function set_union (a, b)
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
+    local res = set_new{}
+    add_elements(a, res)
+    add_elements(b, res)
+    return res
+end
+local
+function set_difference(a, b)
+    local list = {}
+    a, b = (type(a) == "number") and set_new{a} or a
+         , (type(b) == "number") and set_new{b} or b
+    for el in pairs(a) do
+        if a[el] and not b[el] then
+            list[#list+1] = el
+        end
+    end
+    return set_new(list)
+end
+local
+function set_tostring (s)
+    local list = {}
+    for el in pairs(s) do
+        t_insert(list,el)
+    end
+    t_sort(list)
+    return t_concat(list, ",")
+end
+local
+function isset (s)
+    return (getmetatable(s) == set_mt)
+end
+local
+function range_new (start, finish)
+    local list = {}
+    for i = start, finish do
+        list[#list + 1] = i
+    end
+    return set_new(list)
+end
+structfor.other = {
+    set = {
+        new = set_new,
+        union = set_union,
+        tostring = set_tostring,
+        difference = set_difference,
+    },
+    Range = range_new,
+    isboolset = isboolset,
+    isbyteset = isbyteset,
+    isset = isset,
+    isrange = function(a) return false end
+}
+return function(Builder, LL)
+    local cs = (Builder.options or {}).charset or "binary"
+    if type(cs) == "string" then
+        cs = (cs == "binary") and "binary" or "other"
+    else
+        cs = cs.binary and "binary" or "other"
+    end
+    return extend(Builder, structfor[cs])
+end
 
 end
 end
@@ -707,8 +680,8 @@ packages['charsets'] = function (...)
 local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ----------------------------------------------------
 local copy = u.copy
-local s_char, s_sub, s_byte, t_insert
-    = s.char, s.sub, s.byte, t.insert
+local s_char, s_sub, s_byte, t_concat, t_insert
+    = s.char, s.sub, s.byte, t.concat, t.insert
 local
 function utf8_offset (byte)
     if byte < 128 then return 0, byte
@@ -814,19 +787,6 @@ function merge_generator (char)
         end
         return t_concat(res)
     end
-end
-local
-function build_charset (funcs)
-    return {
-        name = funcs.name,
-        split_int = split_generator(funcs.next_int),
-        split_char = split_generator(funcs.next_char),
-        next_int = funcs.next_int,
-        next_char = funcs.next_char,
-        merge = merge_generator(funcs.tochar),
-        tochar = funcs.tochar,
-        validate = funcs.validate
-    }
 end
 local
 function utf8_get_int2 (subject, i)
@@ -957,7 +917,7 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['re'] = function (...)
-local compat = require"compat"
+
 return function(Builder, LL)
 local tonumber, type, print, error = tonumber, type, print, error
 local setmetatable = setmetatable
@@ -1002,7 +962,6 @@ local function updatelocale ()
   setmetatable(gmem, mt)
 end
 updatelocale()
-local I = m.P(function (s,i) print(i, s:sub(1, i-1)); return i end)
 local function getdef (id, defs)
   local c = defs and defs[id]
   if not c then error("undefined name: " .. id) end
@@ -1158,38 +1117,37 @@ end
 do local _ENV = _ENV
 packages['evaluator'] = function (...)
 
-return function(Builder, LL) -- Decorator wrapper
-local cprint = LL.cprint
-local pcall, select, setmetatable, tonumber, tostring
-    = pcall, select, setmetatable, tonumber, tostring
+local select, tonumber, tostring
+    = select, tonumber, tostring
 local s, t, u = require"string", require"table", require"util"
-local _ENV = u.noglobals() ----------------------------------------------------
 local s_sub, t_concat
     = s.sub, t.concat
-local expose, strip_mt, t_unpack
-    = u.expose, u.strip_mt, u.unpack
+local t_unpack
+    = u.unpack
+local _ENV = u.noglobals() ----------------------------------------------------
+return function(Builder, LL) -- Decorator wrapper
 local evaluators, insert = {}
 local
 function evaluate (capture, subject, subj_i)
     local acc, val_i, _ = {}
-    _, val_i = insert(capture, subject, acc, subj_i, 1)
+    val_i = insert(capture, subject, acc, subj_i, 1)
     return acc, val_i
 end
 LL.evaluate = evaluate
 function insert (capture, subject, acc, subj_i, val_i)
     for i = 1, capture.n - 1 do
-            local c
-            subj_i, val_i =
+            val_i =
                 evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
+            subj_i = capture[i].finish
     end
-    return subj_i, val_i
+    return val_i
 end
 local
 function lookback(capture, tag, subj_i)
     local found
     repeat
         for i = subj_i - 1, 1, -1 do
-            if  capture[i].Ctag == tag then
+            if  capture[i].type == "Ctag" and capture[i].aux == tag then
                 found = capture[i]
                 break
             end
@@ -1204,53 +1162,52 @@ function lookback(capture, tag, subj_i)
     end
 end
 evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref, Ctag, _
-    ref = lookback(capture.parent, capture.tag, capture.parent_i)
-    ref.Ctag, Ctag = nil, ref.Ctag
-    _, val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
-    ref.Ctag = Ctag
-    return subj_i, val_i
+    local ref = lookback(capture.parent, capture.tag, capture.parent_i)
+    val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
+    return val_i
+end
+evaluators["Ctag"] = function (capture, subject, acc, subj_i, val_i)
+    return val_i
 end
 evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
     if capture.n == 0 then
         error"No First Value"
     end
-    local func, fold_acc, first_val_i, _ = capture.aux, {}
-    subj_i, first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
+    local func, fold_acc, first_val_i = capture.aux, {}
+    first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
     if first_val_i == 1 then
         error"No first value"
     end
+    subj_i = capture[1].finish
     local result = fold_acc[1]
     for i = 2, capture.n - 1 do
-        local fold_acc2, vi = {}
-        subj_i, vi = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
-        result = func(result, t_unpack(fold_acc2, 1, vi - 1))
+        local fold_acc2 = {}
+        local val_i = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
+        subj_i = capture[i].finish
+        result = func(result, t_unpack(fold_acc2, 1, val_i - 1))
     end
     acc[val_i] = result
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
-    if capture.Ctag ~= nil  then
-        return start, val_i
-    end
-    local _, group_val_i = insert(capture, subject, group_acc, start, 1)
+    local group_val_i = insert(capture, subject, group_acc, start, 1)
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
-        return finish, val_i + 1
+        return val_i + 1
     else
         for i = 1, group_val_i - 1 do
             val_i, acc[val_i] = val_i + 1, group_acc[i]
         end
-        return capture.finish, val_i
+        return val_i
     end
 end
 evaluators["C"] = function (capture, subject, acc, subj_i, val_i)
     val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
     local _
-    _, val_i = insert(capture, subject, acc, capture.start, val_i)
-    return capture.finish, val_i
+    val_i = insert(capture, subject, acc, capture.start, val_i)
+    return val_i
 end
 evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish, n = capture.start, capture.finish, capture.n
@@ -1259,47 +1216,50 @@ evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
     else
         local subst_acc, cap_i, subst_i = {}, 1, 1
         repeat
-            local cap, tmp_acc, tmp_i, _ = capture[cap_i], {}
+            local cap, tmp_acc = capture[cap_i], {}
             subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
             subst_i = subst_i + 1
-            start, tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
+            local tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
             if tmp_i > 1 then
                 subst_acc[subst_i] = tmp_acc[1]
                 subst_i = subst_i + 1
+                start = cap.finish
+            else
+                start = cap.start
             end
             cap_i = cap_i + 1
         until cap_i == n
         subst_acc[subst_i] = s_sub(subject, start, finish - 1)
         acc[val_i] = t_concat(subst_acc)
     end
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
     for i = 1, capture.n - 1 do
         local cap = capture[i]
-        if cap.Ctag ~= nil then
+        if cap.type == "Ctag" then
             local tmp_acc = {}
             insert(cap, subject, tmp_acc, cap.start, 1)
             local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
-            tbl_acc[cap.Ctag] = val
+            tbl_acc[cap.aux] = val
         else
-            _, new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
+            new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
         end
     end
     acc[val_i] = tbl_acc
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["value"] = function (capture, subject, acc, subj_i, val_i)
     acc[val_i] = capture.value
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
-local start, finish, values = capture.start, capture.finish, capture.values
-    for i = 1, values.n do
-        val_i, acc[val_i] = val_i + 1, values[i]
+local these_values = capture.values
+    for i = 1, these_values.n do
+        val_i, acc[val_i] = val_i + 1, these_values[i]
     end
-    return finish, val_i
+    return val_i
 end
 evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
     local n, cached = capture.n, {}
@@ -1313,22 +1273,22 @@ evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
             if d == 0 then
                 cached[d] = s_sub(subject, capture.start, capture.finish - 1)
             else
-                local tmp_acc, _, vi = {}
-                _, vi = evaluators[capture[d].type](capture[d], subject, tmp_acc, capture.start, 1)
-                if vi == 1 then error("no values in capture at index"..d.."in /string capture.") end
+                local tmp_acc = {}
+                local val_i = evaluators[capture[d].type](capture[d], subject, tmp_acc, capture.start, 1)
+                if val_i == 1 then error("no values in capture at index"..d.." in /string capture.") end
                 cached[d] = tmp_acc[1]
             end
         end
         return cached[d]
     end)
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
-    local new_acc, _, vi = {}
-    _, vi = insert(capture, subject, new_acc, capture.start, 1)
-    if capture.aux >= vi then error("no capture '"..capture.aux.."' in /number capture.") end
+    local new_acc = {}
+    local new_val_i = insert(capture, subject, new_acc, capture.start, 1)
+    if capture.aux >= new_val_i then error("no capture '"..capture.aux.."' in /number capture.") end
     acc[val_i] = new_acc[capture.aux]
-    return capture.finish, val_i + 1
+    return val_i + 1
 end
 evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
     local key
@@ -1341,9 +1301,9 @@ evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
     end
     if capture.aux[key] then
         acc[val_i] = capture.aux[key]
-        return capture.finish, val_i + 1
+        return val_i + 1
     else
-        return capture.start, val_i
+        return val_i
     end
 end
 local
@@ -1355,16 +1315,16 @@ function insert_divfunc_results(acc, val_i, ...)
     return val_i
 end
 evaluators["/function"] = function (capture, subject, acc, subj_i, val_i)
-    local func, params, new_val_i, _ = capture.aux
+    local func, params, new_val_i = capture.aux
     if capture.n > 1 then
         params = {}
-        _, new_val_i = insert(capture, subject, params, capture.start, 1)
+        new_val_i = insert(capture, subject, params, capture.start, 1)
     else
         new_val_i = 2
         params = {s_sub(subject, capture.start, capture.finish - 1)}
     end
     val_i = insert_divfunc_results(acc, val_i, func(t_unpack(params, 1, new_val_i - 1)))
-    return capture.finish, val_i
+    return val_i
 end
 end  -- Decorator wrapper
 
@@ -1457,13 +1417,13 @@ for k, v in pairs{
         end
     ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type)
 end
-for __, cap in pairs{"C", "Cs", "Ct"} do
+for _, cap in pairs{"C", "Cs", "Ct"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap)
         LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
-for __, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
+for _, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
         LL_pprint(pt.pattern, offset.."  ", "")
@@ -1473,7 +1433,7 @@ printers["/string"] = function (pt, offset, prefix)
     print(offset..prefix..'/string "'..tostring(pt.aux or "")..'"')
     LL_pprint(pt.pattern, offset.."  ", "")
 end
-for __, cap in pairs{"Carg", "Cp"} do
+for _, cap in pairs{"Carg", "Cp"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.."( "..tostring(pt.aux).." )")
     end
@@ -1509,7 +1469,7 @@ cprinters["insert"] = function (capture, offset, prefix)
         cprinters[subcap.type](subcap, offset.."|  ", i..". ")
     end
 end
-for __, capname in ipairs{
+for _, capname in ipairs{
     "Cf", "Cg", "tag","C", "Cs",
     "/string", "/number", "/table", "/function"
 } do
@@ -1553,37 +1513,40 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['locale'] = function (...)
+packages['compat'] = function (...)
 
-local extend = require"util".extend
-local _ENV = require"util".noglobals() ----------------------------------------
-return function(Builder, LL) -- Module wrapper {-------------------------------
-local R, S = LL.R, LL.S
-local locale = {}
-locale["cntrl"] = R"\0\31" + "\127"
-locale["digit"] = R"09"
-locale["lower"] = R"az"
-locale["print"] = R" ~" -- 0x20 to 0xee
-locale["space"] = S" \f\n\r\t\v" -- \f == form feed (for a printer), \v == vtab
-locale["upper"] = R"AZ"
-locale["alpha"]  = locale["lower"] + locale["upper"]
-locale["alnum"]  = locale["alpha"] + locale["digit"]
-locale["graph"]  = locale["print"] - locale["space"]
-locale["punct"]  = locale["graph"] - locale["alnum"]
-locale["xdigit"] = locale["digit"] + R"af" + R"AF"
-function LL.locale (t)
-    return extend(t or {}, locale)
+local _, debug, jit
+_, debug = pcall(require, "debug")
+_, jit = pcall(require, "jit")
+jit = _ and jit
+local compat = {
+    debug = debug,
+    lua51 = (_VERSION == "Lua 5.1") and not jit,
+    lua52 = _VERSION == "Lua 5.2",
+    luajit = jit and true or false,
+    jit = jit and jit.status(),
+    lua52_len = not #setmetatable({},{__len = function()end}),
+    proxies = pcall(function()
+        local prox = newproxy(true)
+        local prox2 = newproxy(prox)
+        assert (type(getmetatable(prox)) == "table" 
+                and (getmetatable(prox)) == (getmetatable(prox2)))
+    end)
+}
+if compat.lua52 then
+    compat._goto = true
+else
+    compat._goto = loadstring"::R::" and true or false
 end
-end -- Module wrapper --------------------------------------------------------}
+return compat
 
 end
 end
 --=============================================================================
 do local _ENV = _ENV
 packages['factorizer'] = function (...)
-local ipairs, pairs, print, setmetatable, type
-    = ipairs, pairs, print, setmetatable, type
-local t_insert = require"table".insert
+local ipairs, pairs, print, setmetatable
+    = ipairs, pairs, print, setmetatable
 local u = require"util"
 local   id,   setify,   arrayify
     = u.id, u.setify, u.arrayify
@@ -1602,14 +1565,6 @@ function process_booleans(lst, opts)
         end
     end
     return acc
-end
-local
-function append (acc, p1, p2)
-    acc[#acc + 1] = p2
-end
-local
-function seq_unm_unm (acc, p1, p2)
-    acc[#acc] = -(p1.pattern + p2.pattern)
 end
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
@@ -1657,38 +1612,6 @@ local --Range, Set,
     S_union
     = --Builder.Range, Builder.set.new,
     Builder.set.union
-local
-function seq_str_str (acc, p1, p2)
-    acc[#acc] = LL_P(p1.as_is .. p2.as_is)
-end
-local
-function seq_any_any (acc, p1, p2)
-    acc[#acc] = LL_P(p1.aux + p2.aux)
-end
-local seq_optimize = {
-    string = {string = seq_str_str},
-    any = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    one = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    unm = {
-        unm = append -- seq_unm_unm
-    }
-}
-local metaappend_mt = {
-    __index = function()return append end
-}
-for k,v in pairs(seq_optimize) do
-    setmetatable(v, metaappend_mt)
-end
-local metaappend = setmetatable({}, metaappend_mt)
-setmetatable(seq_optimize, {
-    __index = function() return metaappend end
-})
 local type2cons = {
     ["/zero"] = "__div",
     ["/number"] = "__div",
@@ -1699,7 +1622,6 @@ local type2cons = {
     ["at most"] = "__exp",
     ["Ctag"] = "Cg",
 }
-local level = 0
 local
 function choice (a,b, ...)
     local dest
@@ -1736,6 +1658,37 @@ local
 function lookahead (pt)
     return pt
 end
+local
+function append (acc, p1, p2)
+    acc[#acc + 1] = p2
+end
+local
+function seq_any_any (acc, p1, p2)
+    acc[#acc] = LL_P(p1.aux + p2.aux)
+end
+local seq_optimize = {
+    any = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    one = {
+        any = seq_any_any,
+        one = seq_any_any
+    },
+    unm = {
+        unm = append -- seq_unm_unm
+    }
+}
+local metaappend_mt = {
+    __index = function()return append end
+}
+for _, v in pairs(seq_optimize) do
+    setmetatable(v, metaappend_mt)
+end
+local metaappend = setmetatable({}, metaappend_mt)
+setmetatable(seq_optimize, {
+    __index = function() return metaappend end
+})
 local
 function sequence(a, b, ...)
     local seq1
@@ -1774,14 +1727,14 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['match'] = function (...)
----------------------------------------  .   ,      ,       ,     ------------
-local assert, error, select, type = assert, error, select, type
+
+local assert, error, print, select, type = assert, error, print, select, type
 local u =require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local t_unpack = u.unpack
 return function(Builder, LL) -------------------------------------------------
-local LL_compile, LL_cprint, LL_evaluate, LL_P, LL_pprint
-    = LL.compile, LL.Cprint, LL.evaluate, LL.P, LL.pprint
+local LL_compile, LL_evaluate, LL_P
+    = LL.compile, LL.evaluate, LL.P
 local function computeidex(i, len)
     if i == 0 or i == 1 or i == nil then return 1
     elseif type(i) ~= "number" then error"number or nil expected for the stating index"
@@ -1810,17 +1763,25 @@ function LL.match(pt, subject, index, ...)
     end
 end
 function LL.dmatch(pt, subject, index, ...)
+    print("@!!! Match !!!@")
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
+    print(("-"):rep(30))
+    print(pt.ptype)
+    LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
         , {type = "insert"}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+    print("!!! Done Matching !!!")
     if success then
         cap_acc.n = cap_i
+        print("cap_i = ",cap_i)
+        print("= $$$ captures $$$ =", cap_acc)
+        LL.cprint(cap_acc)
         local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
         if cap_i == 1
         then return nindex
@@ -1837,10 +1798,10 @@ end
 do local _ENV = _ENV
 packages['util'] = function (...)
 
-local getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
-    = getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
+local getmetatable, setmetatable, load, loadstring, next
+    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    = getmetatable, setmetatable, load, loadstring, next
+    , pairs, print, rawget, rawset, select, tostring, type, unpack
 local m, s, t = require"math", require"string", require"table"
 local m_max, s_match, s_gsub, t_concat, t_insert
     = m.max, s.match, s.gsub, t.concat, t.insert
@@ -1890,11 +1851,6 @@ else
     util.load = load
 end
 if compat.luajit and compat.jit then
-    local function _fold(len, ary, func)
-        local acc = ary[1]
-        for i = 2, len do acc =func(acc, ary[i]) end
-        return acc
-    end
     function util.max (ary)
         local max = 0
         for i = 1, #ary do
@@ -1928,7 +1884,7 @@ else
         local max = array[1] -- seed max.
         repeat
             if off_end > len then off_end = len end
-            local seg_max = m_max(unpack(array, off, off_end))
+            local seg_max = m_max(t_unpack(array, off, off_end))
             if seg_max > max then
                 max = seg_max
             end
@@ -2127,7 +2083,7 @@ function util.zip_all(t1, t2)
     end
     return res
 end
-function util.filter(a1,func)
+function util.filter(ary,func)
     local res = {}
     for i = 1,#ary do
         if func(ary[i]) then
@@ -2191,15 +2147,14 @@ do local _ENV = _ENV
 packages['API'] = function (...)
 
 local assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, tostring, type
+    , require, select, tonumber, type
     = assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, tostring, type
-local s, t, u = require"string", require"table", require"util"
+    , require, select, tonumber, type
+local t, u = require"table", require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
-local s_byte, t_concat, t_insert, t_sort
-    = s.byte, t.concat, t.insert, t.sort
-local   copy,   expose,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.copy, u.expose, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local t_concat = t.concat
+local   copy,   fold,   load,   map,   setify, t_pack, t_unpack
+    = u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
 local
 function charset_error(index, charset)
     error("Character at position ".. index + 1
@@ -2207,7 +2162,7 @@ function charset_error(index, charset)
         2)
 end
 return function(Builder, LL) -- module wrapper -------------------------------
-local binary_split_int, cs = Builder.binary_split_int, Builder.charset
+local cs = Builder.charset
 local constructors, LL_ispattern
     = Builder.constructors, LL.ispattern
 local truept, falsept, Cppt
@@ -2229,14 +2184,16 @@ function LL_P (v)
     if LL_ispattern(v) then
         return v
     elseif type(v) == "function" then
-        return true and LL.Cmt("", v)
+        return 
+            LL.Cmt("", v)
     elseif type(v) == "string" then
         local success, index = validate(v)
         if not success then
-            charset_error(index, charset)
+            charset_error(index, cs.name)
         end
-        if v == "" then return LL_P(true) end
-        return true and LL.__mul(map(makechar, split_int(v)))
+        if v == "" then return truept end
+        return 
+            LL.__mul(map(makechar, split_int(v)))
     elseif type(v) == "table" then
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
@@ -2262,12 +2219,8 @@ local
 function LL_S (set)
     if set == "" then
         return
-            LL_P(false)
+            falsept
     else
-        local success, index = validate(set)
-        if not success then
-            charset_error(index, charset)
-        end
         return
             constructors.aux("set", Set(split_int(set)), set)
     end
@@ -2280,15 +2233,10 @@ function LL_R (...)
     else
         local range = Range(1,0)--Set("")
         for _, r in ipairs{...} do
-            local success, index = validate(r)
-            if not success then
-                charset_error(index, charset)
-            end
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         local representation = t_concat(map(tochar,
                 {load("return "..S_tostring(range))()}))
-        local p = constructors.aux("set", range, representation)
         return
             constructors.aux("set", range, representation)
     end
@@ -2412,8 +2360,8 @@ function LL_repeat (pt, n)
     return constructors.both(( n < 0 and "at most" or "at least" ), pt, n)
 end
 LL.__pow = LL_repeat
-for __, cap in pairs{"C", "Cs", "Ct"} do
-    LL[cap] = function(pt, aux)
+for _, cap in pairs{"C", "Cs", "Ct"} do
+    LL[cap] = function(pt)
         pt = LL_P(pt)
         return
             constructors.subpt(cap, pt)
@@ -2440,7 +2388,7 @@ function LL_Cc (...)
         constructors.none("Cc", t_pack(...))
 end
 LL.Cc = LL_Cc
-for __, cap in pairs{"Cf", "Cmt"} do
+for _, cap in pairs{"Cf", "Cmt"} do
     local msg = "Function expected in "..cap.." capture"
     LL[cap] = function(pt, aux)
     assert(type(aux) == "function", msg)
@@ -2480,6 +2428,15 @@ function LL_slash (pt, aux)
         constructors.both(name, pt, aux)
 end
 LL.__div = LL_slash
+if Builder.proxymt then
+    for k, v in pairs(LL) do
+        if k:match"^__" then
+            Builder.proxymt[k] = v
+        end
+    end
+else
+    LL.__index = LL
+end
 local factorizer
     = Builder.factorizer(Builder, LL)
 factorize_choice,  factorize_lookahead,  factorize_sequence,  factorize_unm =
@@ -2492,17 +2449,16 @@ end
 do local _ENV = _ENV
 packages['constructors'] = function (...)
 
-local ipairs, newproxy, print, setmetatable
-    = ipairs, newproxy, print, setmetatable
-local t, u, dtst, compat
-    = require"table", require"util", require"datastructures", require"compat"
-local t_concat, t_sort
-    = t.concat, t.sort
-local copy, getuniqueid, id, map
-    , nop, weakkey, weakval
+local getmetatable, ipairs, newproxy, print, setmetatable
+    = getmetatable, ipairs, newproxy, print, setmetatable
+local t, u, compat
+    = require"table", require"util", require"compat"
+local t_concat = t.concat
+local   copy,   getuniqueid,   id,   map
+    ,   weakkey,   weakval
     = u.copy, u.getuniqueid, u.id, u.map
-    , u.nop, u.weakkey, u.weakval
-local _ENV = u.noglobals()
+    , u.weakkey, u.weakval
+local _ENV = u.noglobals() ----------------------------------------------------
 local patternwith = {
     constant = {
         "Cp", "true", "false"
@@ -2524,43 +2480,47 @@ local patternwith = {
     none = "grammar", "Cc"
 }
 return function(Builder, LL) --- module wrapper.
-local split_int, S_tostring
-    = Builder.charset.split_int, Builder.set.tostring
-local newpattern do
-    local setmetatable = setmetatable
+local S_tostring = Builder.set.tostring
+local newpattern, pattmt
+if compat.proxies and not compat.lua52_len then 
+    local proxycache = weakkey{}
+    local __index_LL = {__index = LL}
+    local baseproxy = newproxy(true)
+    pattmt = getmetatable(baseproxy)
+    Builder.proxymt = pattmt
+    function pattmt:__index(k)
+        return proxycache[self][k]
+    end
+    function pattmt:__newindex(k, v)
+        proxycache[self][k] = v
+    end
+    function LL.get_direct(p) return proxycache[p] end
+    function newpattern(cons)
+        local pt = newproxy(baseproxy)
+        setmetatable(cons, __index_LL)
+        proxycache[pt]=cons
+        return pt
+    end
+else
+    if LL.warnings and not compat.lua52_len then
+        print("Warning: The `__len` metatethod won't work with patterns, "
+            .."use `LL.L(pattern)` for lookaheads.")
+    end
+    pattmt = ll
     function LL.get_direct (p) return p end
-    if compat.lua52_len then
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
-    elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
-        local d_setmetatable, newproxy
-            = compat.debug.setmetatable, newproxy
-        local proxycache = weakkey{}
-        local __index_LL = {__index = LL}
-        LL.proxycache = proxycache
-        function newpattern(cons)
-            local pt = newproxy()
-            setmetatable(cons, __index_LL)
-            proxycache[pt]=cons
-            d_setmetatable(pt,LL)
-            return pt
-        end
-        function LL:__index(k)
-            return proxycache[self][k]
-        end
-        function LL:__newindex(k, v)
-            proxycache[self][k] = v
-        end
-        function LL.get_direct(p) return proxycache[p] end
+    function newpattern(pt)
+        return setmetatable(pt,LL)
+    end
+end
+Builder.newpattern = newpattern
+local
+function LL_ispattern(pt) return getmetatable(pt) == pattmt end
+LL.ispattern = LL_ispattern
+function LL.type(pt)
+    if LL_ispattern(pt) then
+        return "pattern"
     else
-        if LL.warnings then
-            print("Warning: The `__len` metatethod won't work with patterns, "
-                .."use `LL.L(pattern)` for lookaheads.")
-        end
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
+        return nil
     end
 end
 local ptcache, meta
@@ -2653,11 +2613,11 @@ end
 do local _ENV = _ENV
 packages['init'] = function (...)
 
-local getmetatable, pairs, setmetatable
-    = getmetatable, pairs, setmetatable
+local getmetatable, setmetatable, pcall
+    = getmetatable, setmetatable, pcall
 local u = require"util"
-local   map,   nop, t_unpack
-    = u.map, u.nop, u.unpack
+local   copy,   map,   nop, t_unpack
+    = u.copy, u.map, u.nop, u.unpack
 local API, charsets, compiler, constructors
     , datastructures, evaluator, factorizer
     , locale, match, printers, re
@@ -2669,14 +2629,14 @@ local _, package = pcall(require, "package")
 local _ENV = u.noglobals() ----------------------------------------------------
 local VERSION = "0.12"
 local LuVERSION = "0.1.0"
-local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
-local function register(lpeg, env)
+local function global(self, env) setmetatable(env,{__index = self}) end
+local function register(self, env)
     pcall(function()
         package.loaded.lpeg = self
         package.loaded.re = self.re
     end)
     if env then
-        env.lpeg, env.re = lpeg, lpeg.re
+        env.lpeg, env.re = self, self.re
     end
     return self
 end
@@ -2690,7 +2650,6 @@ function LuLPeg(options)
           , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
-    LL.__index = LL
     local
     function LL_ispattern(pt) return getmetatable(pt) == LL end
     LL.ispattern = LL_ispattern
@@ -2724,33 +2683,28 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['compat'] = function (...)
+packages['locale'] = function (...)
 
-local _, debug, jit
-_, debug = pcall(require, "debug")
-debug = _ and debug
-_, jit = pcall(require, "jit")
-jit = _ and jit
-local compat = {
-    debug = debug,
-    lua51 = (_VERSION == "Lua 5.1") and not jit,
-    lua52 = _VERSION == "Lua 5.2",
-    luajit = jit and true or false,
-    jit = jit and jit.status(),
-    lua52_len = not #setmetatable({},{__len = nop}),
-    proxies = newproxy
-        and (function()
-            local ok, result = pcall(newproxy)
-            return ok and (type(result) == "userdata" )
-        end)()
-        and type(debug) == "table"
-        and (function()
-            local prox, mt = newproxy(), {}
-            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
-            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
-}
-return compat
+local extend = require"util".extend
+local _ENV = require"util".noglobals() ----------------------------------------
+return function(Builder, LL) -- Module wrapper {-------------------------------
+local R, S = LL.R, LL.S
+local locale = {}
+locale["cntrl"] = R"\0\31" + "\127"
+locale["digit"] = R"09"
+locale["lower"] = R"az"
+locale["print"] = R" ~" -- 0x20 to 0xee
+locale["space"] = S" \f\n\r\t\v" -- \f == form feed (for a printer), \v == vtab
+locale["upper"] = R"AZ"
+locale["alpha"]  = locale["lower"] + locale["upper"]
+locale["alnum"]  = locale["alpha"] + locale["digit"]
+locale["graph"]  = locale["print"] - locale["space"]
+locale["punct"]  = locale["graph"] - locale["alnum"]
+locale["xdigit"] = locale["digit"] + R"af" + R"AF"
+function LL.locale (t)
+    return extend(t or {}, locale)
+end
+end -- Module wrapper --------------------------------------------------------}
 
 end
 end
@@ -2811,8 +2765,9 @@ return require"init"
 -- 
 -- -----------------------------------------------------------------------------            
 -- 
--- Licence for the `re` module and lpeg.*.*.test.lua:
+-- LuLPeg, Copyright (C) 2013 Pierre-Yves Gérardy.
 -- 
+-- The `re` module and lpeg.*.*.test.lua,
 -- Copyright (C) 2013 Lua.org, PUC-Rio.
 -- 
 -- Permission is hereby granted, free of charge,

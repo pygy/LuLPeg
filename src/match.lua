@@ -1,9 +1,8 @@
----------------------------------------  .   ,      ,       ,     ------------
----------------------------------------  |\ /| ,--. |-- ,-- |__   ------------
--- Match ------------------------------  | v | ,--| |   |   |  |  ------------
----------------------------------------  '   ' `--' `-- `-- '  '  ------------
 
-local assert, error, select, type = assert, error, select, type
+-- match.lua
+
+
+local assert, error, print, select, type = assert, error, print, select, type
 
 local u =require"util"
 
@@ -18,8 +17,10 @@ local t_unpack = u.unpack
 
 return function(Builder, LL) -------------------------------------------------
 
-local LL_compile, LL_cprint, LL_evaluate, LL_P, LL_pprint
-    = LL.compile, LL.Cprint, LL.evaluate, LL.P, LL.pprint
+--[[DBG]] local LL_cprint, LL_pprint = LL.cprint, LL.pprint
+
+local LL_compile, LL_evaluate, LL_P
+    = LL.compile, LL.evaluate, LL.P
 
 local function computeidex(i, len)
     if i == 0 or i == 1 or i == nil then return 1
@@ -53,25 +54,25 @@ end
 
 -- With some debug info.
 function LL.dmatch(pt, subject, index, ...)
-    -- [[DBG]] print("@!!! Match !!!@")
+    print("@!!! Match !!!@")
     pt = LL_P(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
-    -- print(("-"):rep(30))
-    -- print(pt.ptype)
-    -- LL.pprint(pt)
+    print(("-"):rep(30))
+    print(pt.ptype)
+    LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
         , {type = "insert"}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    -- [[DP]] print("!!! Done Matching !!!")
+    print("!!! Done Matching !!!")
     if success then
         cap_acc.n = cap_i
-        -- print("cap_i = ",cap_i)
-        -- print("= $$$ captures $$$ =", cap_acc)
-        -- LL.cprint(cap_acc)
+        print("cap_i = ",cap_i)
+        print("= $$$ captures $$$ =", cap_acc)
+        LL.cprint(cap_acc)
         local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
         if cap_i == 1
         then return nindex

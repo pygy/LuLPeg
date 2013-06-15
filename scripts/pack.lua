@@ -37,10 +37,8 @@ end
 scandir( root )
  
 acc={(io.open("../ABOUT"):read("*all").."\n"):gsub( "([^\n]-\n)","-- %1" ),[[
-local module_name = ...
-local _ENV,       error,          loaded, packages, release, require_ 
-    = _ENV or _G, error or print, {},     {},       true,    require
-local t_concat = require"table".concat
+local _ENV,       loaded, packages, release, require_ 
+    = _ENV or _G, {},     {},       true,    require
 
 local function require(...)
     local lib = ...

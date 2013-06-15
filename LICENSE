@@ -45,8 +45,9 @@
 
 -----------------------------------------------------------------------------            
 
-Licence for the `re` module and lpeg.*.*.test.lua:
+LuLPeg, Copyright (C) 2013 Pierre-Yves Gérardy.
 
+The `re` module and lpeg.*.*.test.lua,
 Copyright (C) 2013 Lua.org, PUC-Rio.
 
 Permission is hereby granted, free of charge,

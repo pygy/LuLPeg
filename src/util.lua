@@ -3,10 +3,10 @@
 
 --[[DGB]] local debug = require"debug"
 
-local getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
-    = getmetatable, setmetatable, ipairs, load, loadstring, next
-    , pairs, print, rawget, rawset, select, table, tostring, type, unpack
+local getmetatable, setmetatable, load, loadstring, next
+    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    = getmetatable, setmetatable, load, loadstring, next
+    , pairs, print, rawget, rawset, select, tostring, type, unpack
 
 local m, s, t = require"math", require"string", require"table"
 
@@ -76,11 +76,6 @@ else
 end
 
 if compat.luajit and compat.jit then
-    local function _fold(len, ary, func)
-        local acc = ary[1]
-        for i = 2, len do acc =func(acc, ary[i]) end
-        return acc
-    end
     function util.max (ary)
         local max = 0
         for i = 1, #ary do
@@ -115,7 +110,7 @@ else
         local max = array[1] -- seed max.
         repeat
             if off_end > len then off_end = len end
-            local seg_max = m_max(unpack(array, off, off_end))
+            local seg_max = m_max(t_unpack(array, off, off_end))
             if seg_max > max then
                 max = seg_max
             end
@@ -346,7 +341,7 @@ function util.zip_all(t1, t2)
     return res
 end
 
-function util.filter(a1,func)
+function util.filter(ary,func)
     local res = {}
     for i = 1,#ary do
         if func(ary[i]) then

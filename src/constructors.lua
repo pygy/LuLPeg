@@ -17,23 +17,24 @@
 --     whether they are terminal or not (no V patterns), and so on.
 
 
-local ipairs, newproxy, print, setmetatable
-    = ipairs, newproxy, print, setmetatable
+local getmetatable, ipairs, newproxy, print, setmetatable
+    = getmetatable, ipairs, newproxy, print, setmetatable
 
-local t, u, dtst, compat
-    = require"table", require"util", require"datastructures", require"compat"
+local t, u, compat
+    = require"table", require"util", require"compat"
 
 --[[DBG]] local debug = require"debug"
 
-local t_concat, t_sort
-    = t.concat, t.sort
+local t_concat = t.concat
 
-local copy, getuniqueid, id, map
-    , nop, weakkey, weakval
+local   copy,   getuniqueid,   id,   map
+    ,   weakkey,   weakval
     = u.copy, u.getuniqueid, u.id, u.map
-    , u.nop, u.weakkey, u.weakval
+    , u.weakkey, u.weakval
 
-local _ENV = u.noglobals()
+
+
+local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
@@ -74,57 +75,68 @@ return function(Builder, LL) --- module wrapper.
 --
 
 
-local split_int, S_tostring
-    = Builder.charset.split_int, Builder.set.tostring
+local S_tostring = Builder.set.tostring
 
 
 -------------------------------------------------------------------------------
 --- Base pattern constructor
 --
 
-local newpattern do
-    -- This deals with the Lua 5.1/5.2 compatibility, and restricted
-    -- environements without access to newproxy and/or debug.setmetatable.
-    local setmetatable = setmetatable
+local newpattern, pattmt
+-- This deals with the Lua 5.1/5.2 compatibility, and restricted
+-- environements without access to newproxy and/or debug.setmetatable.
 
+if compat.proxies and not compat.lua52_len then 
+    -- Lua 5.1 / LuaJIT without compat.
+    local proxycache = weakkey{}
+    local __index_LL = {__index = LL}
+
+    local baseproxy = newproxy(true)
+    pattmt = getmetatable(baseproxy)
+    Builder.proxymt = pattmt
+
+    function pattmt:__index(k)
+        return proxycache[self][k]
+    end
+
+    function pattmt:__newindex(k, v)
+        proxycache[self][k] = v
+    end
+
+    function LL.get_direct(p) return proxycache[p] end
+
+    function newpattern(cons)
+        local pt = newproxy(baseproxy)
+        setmetatable(cons, __index_LL)
+        proxycache[pt]=cons
+        return pt
+    end
+else
+    -- Fallback if neither __len(table) nor newproxy work
+    -- for example in restricted sandboxes.
+    if LL.warnings and not compat.lua52_len then
+        print("Warning: The `__len` metatethod won't work with patterns, "
+            .."use `LL.L(pattern)` for lookaheads.")
+    end
+    pattmt = ll
     function LL.get_direct (p) return p end
 
-    if compat.lua52_len then
-        -- Lua 5.2 or LuaJIT + 5.2 compat. No need to do the proxy dance.
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
-    elseif compat.proxies then -- Lua 5.1 / LuaJIT without compat.
-        local d_setmetatable, newproxy
-            = compat.debug.setmetatable, newproxy
+    function newpattern(pt)
+        return setmetatable(pt,LL)
+    end
+end
 
-        local proxycache = weakkey{}
-        local __index_LL = {__index = LL}
-        LL.proxycache = proxycache
-        function newpattern(cons)
-            local pt = newproxy()
-            setmetatable(cons, __index_LL)
-            proxycache[pt]=cons
-            d_setmetatable(pt,LL)
-            return pt
-        end
-        function LL:__index(k)
-            return proxycache[self][k]
-        end
-        function LL:__newindex(k, v)
-            proxycache[self][k] = v
-        end
-        function LL.get_direct(p) return proxycache[p] end
+Builder.newpattern = newpattern
+
+local
+function LL_ispattern(pt) return getmetatable(pt) == pattmt end
+LL.ispattern = LL_ispattern
+
+function LL.type(pt)
+    if LL_ispattern(pt) then
+        return "pattern"
     else
-        -- Fallback if neither __len(table) nor newproxy work
-        -- for example in restricted sandboxes.
-        if LL.warnings then
-            print("Warning: The `__len` metatethod won't work with patterns, "
-                .."use `LL.L(pattern)` for lookaheads.")
-        end
-        function newpattern(pt)
-            return setmetatable(pt,LL)
-        end
+        return nil
     end
 end
 

@@ -25,12 +25,14 @@
 --[[DBG]] end
 --[[DBG]] end
 
-local getmetatable, pairs, setmetatable
-    = getmetatable, pairs, setmetatable
+--[[DBG]] local pairs = pairs
+
+local getmetatable, setmetatable, pcall
+    = getmetatable, setmetatable, pcall
 
 local u = require"util"
-local   map,   nop, t_unpack
-    = u.map, u.nop, u.unpack
+local   copy,   map,   nop, t_unpack
+    = u.copy, u.map, u.nop, u.unpack
 
 -- The module decorators.
 local API, charsets, compiler, constructors
@@ -55,14 +57,14 @@ local VERSION = "0.12"
 -- The LuLPeg version.
 local LuVERSION = "0.1.0"
 
-local function global(lpeg, env) setmetatable(env,{__index = lpeg}) end
-local function register(lpeg, env)
+local function global(self, env) setmetatable(env,{__index = self}) end
+local function register(self, env)
     pcall(function()
         package.loaded.lpeg = self
         package.loaded.re = self.re
     end)
     if env then
-        env.lpeg, env.re = lpeg, lpeg.re
+        env.lpeg, env.re = self, self.re
     end
     return self
 end
@@ -80,8 +82,6 @@ function LuLPeg(options)
           , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
-
-    LL.__index = LL
 
     local
     function LL_ispattern(pt) return getmetatable(pt) == LL end

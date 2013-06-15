@@ -1,4 +1,3 @@
-local compat = require"compat"
 
 -- re.lua by Roberto Ierusalimschy. see LICENSE in the root folder.
 
@@ -74,7 +73,7 @@ updatelocale()
 
 
 
-local I = m.P(function (s,i) print(i, s:sub(1, i-1)); return i end)
+--[[DBG]] local I = m.P(function (s,i) print(i, s:sub(1, i-1)); return i end)
 
 
 local function getdef (id, defs)

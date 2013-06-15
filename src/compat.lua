@@ -4,7 +4,6 @@
 local _, debug, jit
 
 _, debug = pcall(require, "debug")
-debug = _ and debug
 
 _, jit = pcall(require, "jit")
 jit = _ and jit
@@ -18,20 +17,21 @@ local compat = {
     jit = jit and jit.status(),
 
     -- LuaJIT can optionally support __len on tables.
-    lua52_len = not #setmetatable({},{__len = nop}),
+    lua52_len = not #setmetatable({},{__len = function()end}),
 
-    proxies = newproxy
-        and (function()
-            local ok, result = pcall(newproxy)
-            return ok and (type(result) == "userdata" )
-        end)()
-        and type(debug) == "table"
-        and (function()
-            local prox, mt = newproxy(), {}
-            local pcall_ok, db_setmt_ok = pcall(debug.setmetatable, prox, mt)
-            return pcall_ok and db_setmt_ok and (getmetatable(prox) == mt)
-        end)()
+    proxies = pcall(function()
+        local prox = newproxy(true)
+        local prox2 = newproxy(prox)
+        assert (type(getmetatable(prox)) == "table" 
+                and (getmetatable(prox)) == (getmetatable(prox2)))
+    end)
 }
+
+if compat.lua52 then
+    compat._goto = true
+else
+    compat._goto = loadstring"::R::" and true or false
+end
 
 return compat
 

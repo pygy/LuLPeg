@@ -1,35 +1,35 @@
 
 -- Capture evaluators
 
-return function(Builder, LL) -- Decorator wrapper
-
-local cprint = LL.cprint
-
-local pcall, select, setmetatable, tonumber, tostring
-    = pcall, select, setmetatable, tonumber, tostring
+local select, tonumber, tostring
+    = select, tonumber, tostring
 
 local s, t, u = require"string", require"table", require"util"
+local s_sub, t_concat
+    = s.sub, t.concat
 
+local t_unpack
+    = u.unpack
+
+--[[DBG]] local print, expose = print, u.expose
 
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
-local s_sub, t_concat
-    = s.sub, t.concat
+return function(Builder, LL) -- Decorator wrapper
 
-local expose, strip_mt, t_unpack
-    = u.expose, u.strip_mt, u.unpack
+--[[DBG]] local cprint = LL.cprint
 
 local evaluators, insert = {}
 
 local
 function evaluate (capture, subject, subj_i)
-    -- print("*** Eval", subj_i)
-    -- cprint(capture)
+    -- [[DBG]] print("*** Eval", subj_i, capture, subject)
+    -- [[DBG]] cprint(capture)
     local acc, val_i, _ = {}
-    -- LL.cprint(capture)
+    -- [[DBG]] LL.cprint(capture)
     val_i = insert(capture, subject, acc, subj_i, 1)
     return acc, val_i
 end
@@ -48,8 +48,7 @@ LL.evaluate = evaluate
 function insert (capture, subject, acc, subj_i, val_i)
     -- print("Insert", capture.start, capture.finish)
     for i = 1, capture.n - 1 do
-        -- print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
-            local c
+        -- [[DBG]] print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
             val_i =
                 evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
             subj_i = capture[i].finish
@@ -63,7 +62,7 @@ function lookback(capture, tag, subj_i)
     repeat
         for i = subj_i - 1, 1, -1 do
             -- print("LB for",capture[i].type)
-            if  capture[i].Ctag == tag then
+            if  capture[i].type == "Ctag" and capture[i].aux == tag then
                 -- print"Found"
                 found = capture[i]
                 break
@@ -81,11 +80,12 @@ function lookback(capture, tag, subj_i)
 end
 
 evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref, Ctag
-    ref = lookback(capture.parent, capture.tag, capture.parent_i)
-    ref.Ctag, Ctag = nil, ref.Ctag
+    local ref = lookback(capture.parent, capture.tag, capture.parent_i)
     val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
-    ref.Ctag = Ctag
+    return val_i
+end
+
+evaluators["Ctag"] = function (capture, subject, acc, subj_i, val_i)
     return val_i
 end
 
@@ -119,12 +119,8 @@ end
 evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
-
-    if capture.Ctag ~= nil  then
-        return val_i
-    end
-
     local group_val_i = insert(capture, subject, group_acc, start, 1)
+
     if group_val_i == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
         return val_i + 1
@@ -180,16 +176,15 @@ end
 
 evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
     local tbl_acc, new_val_i, _ = {}, 1
-
     for i = 1, capture.n - 1 do
         local cap = capture[i]
 
-        if cap.Ctag ~= nil then
+        if cap.type == "Ctag" then
             local tmp_acc = {}
 
             insert(cap, subject, tmp_acc, cap.start, 1)
             local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
-            tbl_acc[cap.Ctag] = val
+            tbl_acc[cap.aux] = val
         else
             new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
         end
@@ -206,9 +201,9 @@ end
 
 
 evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
-local start, finish, values = capture.start, capture.finish, capture.values
-    for i = 1, values.n do
-        val_i, acc[val_i] = val_i + 1, values[i]
+local these_values = capture.values
+    for i = 1, these_values.n do
+        val_i, acc[val_i] = val_i + 1, these_values[i]
     end
     return val_i
 end
