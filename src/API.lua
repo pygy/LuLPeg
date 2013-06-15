@@ -69,14 +69,18 @@ function LL_P (v)
     if LL_ispattern(v) then
         return v
     elseif type(v) == "function" then
-        return true and LL.Cmt("", v)
+        return 
+            --[[DBG]] true and 
+            LL.Cmt("", v)
     elseif type(v) == "string" then
         local success, index = validate(v)
         if not success then
             charset_error(index, cs.name)
         end
-        if v == "" then return LL_P(true) end
-        return true and LL.__mul(map(makechar, split_int(v)))
+        if v == "" then return truept end
+        return 
+            --[[DBG]] true and 
+            LL.__mul(map(makechar, split_int(v)))
     elseif type(v) == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
@@ -108,12 +112,8 @@ function LL_S (set)
     if set == "" then
         return
             --[[DBG]] true and
-            LL_P(false)
+            falsept
     else
-        local success, index = validate(set)
-        if not success then
-            charset_error(index, cs.name)
-        end
         return
             --[[DBG]] true and
             constructors.aux("set", Set(split_int(set)), set)
@@ -129,10 +129,6 @@ function LL_R (...)
         local range = Range(1,0)--Set("")
         -- [[DBG]]expose(range)
         for _, r in ipairs{...} do
-            local success, index = validate(r)
-            if not success then
-                charset_error(index, cs.name)
-            end
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         -- This is awful.
