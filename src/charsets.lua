@@ -238,7 +238,7 @@ function utf8_char(c)
         return                                                                               s_char(c)
     elseif c < 2048 then
         return                                                          s_char(192 + c/64, 128 + c%64)
-    elseif c < 65536 then
+    elseif c < 55296 or 57343 < c and c < 65536 then
         return                                         s_char(224 + c/4096, 128 + c/64%64, 128 + c%64)
     elseif c < 2097152 then
         return                      s_char(240 + c/262144, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
