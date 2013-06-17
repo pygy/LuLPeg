@@ -83,17 +83,6 @@ function LuLPeg(options)
           , setmaxstack = nop --Just a stub, for compatibility.
           }
 
-    local
-    function LL_ispattern(pt) return getmetatable(pt) == LL end
-    LL.ispattern = LL_ispattern
-
-    function LL.type(pt)
-        if LL_ispattern(pt) then
-            return "pattern"
-        else
-            return nil
-        end
-    end
     LL.util = u
     LL.global = global
     LL.register = register

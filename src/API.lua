@@ -159,13 +159,13 @@ do
     local forbidden = setify{
         "Carg", "Cb", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero",
-        "Ctag", "Cmt", "Cc", "Cp",
+        "Clb", "Cmt", "Cc", "Cp",
         "/string", "/number", "/table", "/function",
         "at least", "at most", "behind"
     }
     local function fixedlen(pt, gram, cycle)
-        -- [[DP]] print("Fixed Len",pt.ptype)
-        local typ = pt.ptype
+        -- [[DP]] print("Fixed Len",pt.pkind)
+        local typ = pt.pkind
         if forbidden[typ] then return false
         elseif one[typ]  then return 1
         elseif zero[typ] then return 0
@@ -176,7 +176,7 @@ do
         elseif typ == "sequence" then
             return fold(map(pt.aux, fixedlen), function(a,b) return a and b and a + b end)
         elseif typ == "grammar" then
-            if pt.aux[1].ptype == "ref" then
+            if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
             else
                 return fixedlen(pt.aux[1], pt.aux, {})
@@ -253,8 +253,8 @@ function LL_lookahead (pt)
     -- Simplifications
     if pt == truept
     or pt == falsept
-    or pt.ptype == "unm"
-    or pt.ptype == "lookahead"
+    or pt.pkind == "unm"
+    or pt.pkind == "lookahead"
     then
         return pt
     end
@@ -355,7 +355,7 @@ function LL_Cg (pt, tag)
     if tag ~= nil then
         return
             --[[DBG]] true and
-            constructors.both("Ctag", pt, tag)
+            constructors.both("Clb", pt, tag)
     else
         return
             --[[DBG]] true and

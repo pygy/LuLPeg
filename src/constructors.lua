@@ -62,7 +62,7 @@ local patternwith = {
     },
     -- both
     both = {
-        "behind", "at least", "at most", "Ctag", "Cmt",
+        "behind", "at least", "at most", "Clb", "Cmt",
         "/string", "/number", "/table", "/function"
     },
     none = "grammar", "Cc"
@@ -180,9 +180,9 @@ local constructors = {}
 Builder.constructors = constructors
 
 constructors["constant"] = {
-    truept  = newpattern{ ptype = "true" },
-    falsept = newpattern{ ptype = "false" },
-    Cppt    = newpattern{ ptype = "Cp" }
+    truept  = newpattern{ pkind = "true" },
+    falsept = newpattern{ pkind = "false" },
+    Cppt    = newpattern{ pkind = "Cp" }
 }
 
 -- data manglers that produce cache keys for each aux type.
@@ -209,7 +209,7 @@ constructors["aux"] = function(typ, aux, as_is)
     local key = (getauxkey[typ] or id)(aux, as_is)
     if not cache[key] then
         cache[key] = newpattern{
-            ptype = typ,
+            pkind = typ,
             aux = aux,
             as_is = as_is
         }
@@ -222,7 +222,7 @@ constructors["none"] = function(typ, aux)
     -- [[DBG]] print("CONS: ", typ, _, aux)
     -- [[DBG]] print(debug.traceback(1))
     return newpattern{
-        ptype = typ,
+        pkind = typ,
         aux = aux
     }
 end
@@ -232,7 +232,7 @@ constructors["subpt"] = function(typ, pt)
     local cache = ptcache[typ]
     if not cache[pt] then
         cache[pt] = newpattern{
-            ptype = typ,
+            pkind = typ,
             pattern = pt
         }
     end
@@ -248,7 +248,7 @@ constructors["both"] = function(typ, pt, aux)
     end
     if not cache[pt] then
         cache[pt] = newpattern{
-            ptype = typ,
+            pkind = typ,
             pattern = pt,
             aux = aux,
             cache = cache -- needed to keep the cache as long as the pattern exists.

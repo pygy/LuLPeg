@@ -1,5 +1,5 @@
 
--- Capture evaluators
+-- Capture eval
 
 local select, tonumber, tostring
     = select, tonumber, tostring
@@ -22,138 +22,198 @@ return function(Builder, LL) -- Decorator wrapper
 
 --[[DBG]] local cprint = LL.cprint
 
-local evaluators, insert = {}
-
-local
-function evaluate (capture, subject, subj_i)
-    -- [[DBG]] print("*** Eval", subj_i, capture, subject)
-    -- [[DBG]] cprint(capture)
-    local acc, val_i, _ = {}
-    -- [[DBG]] LL.cprint(capture)
-    val_i = insert(capture, subject, acc, subj_i, 1)
-    return acc, val_i
-end
-LL.evaluate = evaluate
-
-
 -- The evaluators and the `insert()` helper take as parameters:
--- * capture:  the current capture object.
--- * subject:  the subject string
--- * acc:      the value accumulator, whose unpacked values will be returned
---             by `pattern:match(...)`
--- * subj_i: the current position in the subject string.
--- * val_i: the position of the next value to be inserted in the value accumulator.
+-- * caps: the capture array
+-- * sj:   the subject string
+-- * vals: the value accumulator, whose unpacked values will be returned
+--         by `pattern:match()`
+-- * ci:   the current position in capture array.
+-- * vi:   the position of the next value to be inserted in the value accumulator.
 
+local eval = {}
 
-function insert (capture, subject, acc, subj_i, val_i)
+local
+function insert (caps, sj, vals, ci, vi)
     -- print("Insert", capture.start, capture.finish)
-    for i = 1, capture.n - 1 do
-        -- [[DBG]] print("Eval Insert: ", capture[i].type, capture[i].start, capture[i])
-            val_i =
-                evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
-            subj_i = capture[i].finish
+    local openclose, kind = caps.openclose, caps.kind
+    while kind[ci] and openclose[ci] >= 0 do
+        ci, vi = eval[kind[ci]](caps, sj, vals, ci, vi)
     end
-    return val_i
+
+    return ci, vi
 end
 
 local
-function lookback(capture, tag, subj_i)
-    local found
-    repeat
-        for i = subj_i - 1, 1, -1 do
-            -- print("LB for",capture[i].type)
-            if  capture[i].type == "Ctag" and capture[i].aux == tag then
-                -- print"Found"
-                found = capture[i]
-                break
-            end
+function insertone (caps, sj, vals, ci, vi)
+    -- print("Insert", capture.start, capture.finish)
+    local kind = caps.kind
+    while kind[ci] and openclose[ci] >= 0 do
+        ci, vi = eval[kind[i]](caps, sj, vals, ci, vi)
+    end
+
+    return ci, vi
+end
+
+function eval.C (caps, sj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sj, caps.bounds[ci], caps.openclose[ci])
+        return ci + 1, vi + 1
+    else
+        vals[vi] = false -- pad it for now
+        local vj, cj = insert(caps, sj, vals, ci + 1, vi + 1)
+        vals[vi] = s_sub(sj, caps.bounds[ci], caps.bounds[cj])
+        return cj + 1, vj + 1
+    end
+end
+
+function eval.Clb (caps, sj, vals, ci, vi)
+    return ci + 1, vi
+end
+
+function eval.Ct (caps, sj, vals, ci, vi)
+    local aux, openclose, kind = caps. aux, caps.openclose, caps.kind
+    local tblv = {}
+    vals[vi] = tbl_vals
+
+    if openclose[ci] > 0 then
+        return ci + 1, vi + 1
+    end
+
+    local tbl_vi, Clb_vals = 1, {}
+    ci = ci + 1
+
+    while kind[ci] and openclose[ci] >= 0 do
+        if kind[ci] == "Clb" then
+            local label, _ = aux[ci], 1
+            ci, _ = eval.Cg(caps, sj, Clb_vals, ci, 1)
+            if Clb+i ~= 1 then tblv[label] = Clbl_vals[1] end
+        else
+            ci, tbl_vi =  eval[kind[ci]](caps, sj, tbl_vals, ci, tbl_vi)
         end
-        capture, subj_i = capture.parent, capture.parent_i
-    until found or not capture
+    end
+
+    return ci, vi + 1
+end
+
+local inf = 1/0
+
+function eval.value (caps, sj, vals, ci, vi)
+    local val 
+    -- nils are encoded as inf in both aux and openclose.
+    if caps.aux[vi] ~= inf and caps.openclose[vi] ~= inf
+        then val = caps.aux[vi]
+    end
+    vals[vi] = val
+    return ci + 1, vi + 1
+end
+
+
+function eval.values (caps, sj, vals, ci, vi)
+    local these_values = caps.aux[ci]
+    for i = 1, these_values.n do
+        vi, vals[vi] = vi + 1, these_values[i]
+    end
+    return ci + 1, vi
+end
+
+
+local
+function lookback (caps, label, ci)
+    local aux, openclose, kind, found, oc
+    repeat
+        aux, openclose, kind = caps.aux, caps.openclose, caps.kind
+        repeat 
+            ci = ci - 1
+            oc = openclose[ci]
+            if oc < 0 then ci = ci + oc end -- a closing 
+            if kind[ci] == "Clabel" and label == aux[ci] then found = true; break end
+        until ci == 1
+
+        if found then break end
+        caps, ci = caps.parent, caps.parent_i
+
+    until not caps
 
     if found then
-        return found
+        return caps, ci
     else
-        tag = type(tag) == "string" and "'"..tag.."'" or tostring(tag)
+        tag = tupe(tag) == "string" and "'"..tag.."'" or tostring(tag)
         error("back reference "..tag.." not found")
     end
 end
 
-evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref = lookback(capture.parent, capture.tag, capture.parent_i)
-    val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
-    return val_i
-end
-
-evaluators["Ctag"] = function (capture, subject, acc, subj_i, val_i)
-    return val_i
+ function eval.Cb (caps, sj, vals, ci, vi)
+    local Cb_caps, Cb_ci = lookback(caps, caps.aux[ci], ci)
+    Cb_ci, vi = eval.Cg(Cb_caps, sj, vals, Cb_ci, vi)
+    return ci + 1, vi
 end
 
 
-evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
+function LL.evaluate (caps, sj)
+    -- [[DBG]] print("*** Eval", caps, sj)
+    -- [[DBG]] cprint(caps)
+    local vals, ci, vi = {}, 1, 1
+    ci, vi = insert(caps, sj, vals, ci, vi)
+    return vals, 1, vi
+end
+
+---
+
+eval["Cf"] = function (capture, subject, acc, vi)
     if capture.n == 0 then
         error"No First Value"
     end
 
-    local func, fold_acc, first_val_i = capture.aux, {}
-    first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
+    local func, fold_acc, first_vi = capture.aux, {}
+    first_vi = eval[capture[1].kind](capture[1], subject, fold_acc, 1)
 
-    if first_val_i == 1 then
+    if first_vi == 1 then
         error"No first value"
     end
-    subj_i = capture[1].finish
 
     local result = fold_acc[1]
 
     for i = 2, capture.n - 1 do
         local fold_acc2 = {}
-        local val_i = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
-        subj_i = capture[i].finish
-        result = func(result, t_unpack(fold_acc2, 1, val_i - 1))
+        local vi = eval[capture[i].kind](capture[i], subject, fold_acc2, 1)
+        result = func(result, t_unpack(fold_acc2, 1, vi - 1))
     end
-    acc[val_i] = result
-    return val_i + 1
+    acc[vi] = result
+    return vi + 1
 end
 
 
-evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
+eval["Cg"] = function (capture, subject, acc, vi)
     local start, finish = capture.start, capture.finish
     local group_acc = {}
-    local group_val_i = insert(capture, subject, group_acc, start, 1)
+    local group_vi = insert(capture, subject, group_acc, start, 1)
 
-    if group_val_i == 1 then
-        acc[val_i] = s_sub(subject, start, finish - 1)
-        return val_i + 1
+    if group_vi == 1 then
+        acc[vi] = s_sub(subject, start, finish - 1)
+        return vi + 1
     else
-        for i = 1, group_val_i - 1 do
-            val_i, acc[val_i] = val_i + 1, group_acc[i]
+        for i = 1, group_vi - 1 do
+            vi, acc[val_i] = val_i + 1, group_acc[i]
         end
         return val_i
     end
 end
 
 
-evaluators["C"] = function (capture, subject, acc, subj_i, val_i)
-    val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
-    local _
-    val_i = insert(capture, subject, acc, capture.start, val_i)
-    return val_i
-end
 
-
-evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
+eval["Cs"] = function (capture, subject, acc, val_i)
     local start, finish, n = capture.start, capture.finish, capture.n
     if n == 1 then
         acc[val_i] = s_sub(subject, start, finish - 1)
     else
-        local subst_acc, cap_i, subst_i = {}, 1, 1
+        local subst_acc, ci, subst_i = {}, 1, 1
         repeat
-            local cap, tmp_acc = capture[cap_i], {}
+            local cap, tmp_acc = capture[ci], {}
 
             subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
             subst_i = subst_i + 1
 
-            local tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
+            local tmp_i = eval[cap.kind](cap, subject, tmp_acc, 1)
 
             if tmp_i > 1 then
                 subst_acc[subst_i] = tmp_acc[1]
@@ -163,8 +223,8 @@ evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
                 start = cap.start
             end
 
-            cap_i = cap_i + 1
-        until cap_i == n
+            ci = ci + 1
+        until ci == n
         subst_acc[subst_i] = s_sub(subject, start, finish - 1)
 
         acc[val_i] = t_concat(subst_acc)
@@ -174,42 +234,10 @@ evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
 end
 
 
-evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
-    local tbl_acc, new_val_i, _ = {}, 1
-    for i = 1, capture.n - 1 do
-        local cap = capture[i]
-
-        if cap.type == "Ctag" then
-            local tmp_acc = {}
-
-            insert(cap, subject, tmp_acc, cap.start, 1)
-            local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
-            tbl_acc[cap.aux] = val
-        else
-            new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
-        end
-    end
-    acc[val_i] = tbl_acc
-    return val_i + 1
-end
 
 
-evaluators["value"] = function (capture, subject, acc, subj_i, val_i)
-    acc[val_i] = capture.value
-    return val_i + 1
-end
 
-
-evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
-local these_values = capture.values
-    for i = 1, these_values.n do
-        val_i, acc[val_i] = val_i + 1, these_values[i]
-    end
-    return val_i
-end
-
-
-evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
+eval["/string"] = function (capture, subject, acc, val_i)
     -- print("/string", capture.start, capture.finish)
     local n, cached = capture.n, {}
     acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
@@ -223,7 +251,7 @@ evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
                 cached[d] = s_sub(subject, capture.start, capture.finish - 1)
             else
                 local tmp_acc = {}
-                local val_i = evaluators[capture[d].type](capture[d], subject, tmp_acc, capture.start, 1)
+                local val_i = eval[capture[d].kind](capture[d], subject, tmp_acc, capture.start, 1)
                 if val_i == 1 then error("no values in capture at index"..d.." in /string capture.") end
                 cached[d] = tmp_acc[1]
             end
@@ -234,7 +262,7 @@ evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
 end
 
 
-evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
+eval["/number"] = function (capture, subject, acc, val_i)
     local new_acc = {}
     local new_val_i = insert(capture, subject, new_acc, capture.start, 1)
     if capture.aux >= new_val_i then error("no capture '"..capture.aux.."' in /number capture.") end
@@ -243,7 +271,7 @@ evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
 end
 
 
-evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
+eval["/table"] = function (capture, subject, acc, val_i)
     local key
     if capture.n > 1 then
         local new_acc = {}
@@ -270,7 +298,7 @@ function insert_divfunc_results(acc, val_i, ...)
     end
     return val_i
 end
-evaluators["/function"] = function (capture, subject, acc, subj_i, val_i)
+eval["/function"] = function (capture, subject, acc, val_i)
     local func, params, new_val_i = capture.aux
     if capture.n > 1 then
         params = {}

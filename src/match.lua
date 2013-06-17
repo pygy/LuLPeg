@@ -37,7 +37,7 @@ function LL.match(pt, subject, index, ...)
     index = computeidex(index, #subject)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
-        , {type = "insert"}   -- capture accumulator
+        , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
@@ -54,26 +54,28 @@ end
 
 -- With some debug info.
 function LL.dmatch(pt, subject, index, ...)
-    print("@!!! Match !!!@")
+    print("@!!! Match !!!@", pt)
     pt = LL_P(pt)
+    print(pt)
     assert(type(subject) == "string", "string expected for the match subject")
     index = computeidex(index, #subject)
     print(("-"):rep(30))
-    print(pt.ptype)
+    print(pt.pkind)
     LL.pprint(pt)
     local matcher, cap_acc, state, success, cap_i, nindex
         = LL_compile(pt, {})
-        , {type = "insert"}   -- capture accumulator
+        , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
         , 0 -- matcher state
     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    print("!!! Done Matching !!!")
+    print("!!! Done Matching !!!", success, nindex, cap_i)
     if success then
         cap_acc.n = cap_i
         print("cap_i = ",cap_i)
         print("= $$$ captures $$$ =", cap_acc)
         LL.cprint(cap_acc)
         local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
+        print("#values", cap_i)
         if cap_i == 1
         then return nindex
         else return t_unpack(cap_values, 1, cap_i - 1) end

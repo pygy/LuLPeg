@@ -40,7 +40,7 @@ end
 -- patterns where `C(x) + C(y) => C(x + y)` apply.
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Ctag", "Cmt", "/string", "/number",
+    "Clb", "Cmt", "/string", "/number",
     "/table", "/function", "at least", "at most"
 }
 
@@ -75,7 +75,7 @@ function flatten(typ, ary)
     for _, p in ipairs(ary) do
         -- [[DBG]] print("flatten")
         -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"LL.pprint(p) end
-        if p.ptype == typ then
+        if p.pkind == typ then
             for _, q in ipairs(p.aux) do
                 acc[#acc+1] = q
             end
@@ -107,7 +107,7 @@ local type2cons = {
     ["/function"] = "__div",
     ["at least"] = "__exp",
     ["at most"] = "__exp",
-    ["Ctag"] = "Cg",
+    ["Clb"] = "Cg",
 }
 --[[DBG]] local level = 0
 local
@@ -129,7 +129,7 @@ function choice (a,b, ...)
         src, dest, changed = dest, {dest[1]}, false
         for i = 2,#src do
             local p1, p2 = dest[#dest], src[i]
-            local type1, type2 = p1.ptype, p2.ptype
+            local type1, type2 = p1.pkind, p2.pkind
             if type1 == "set" and type2 == "set" then
                 -- Merge character sets. S"abc" + S"ABC" => S"abcABC"
                 dest[#dest] = constructors.aux(
@@ -227,7 +227,7 @@ function sequence(a, b, ...)
     seq2[1] = seq1[1]
     for i = 2,#seq1 do
         local p1, p2 = seq2[#seq2], seq1[i]
-        seq_optimize[p1.ptype][p2.ptype](seq2, p1, p2)
+        seq_optimize[p1.pkind][p2.pkind](seq2, p1, p2)
     end
     return seq2
 end
@@ -237,8 +237,8 @@ function unm (pt)
     -- [[DP]] print("Factorize Unm")
     if     pt == truept            then return falsept
     elseif pt == falsept           then return truept
-    elseif pt.ptype == "unm"       then return #pt.pattern
-    elseif pt.ptype == "lookahead" then return -pt.pattern
+    elseif pt.pkind == "unm"       then return #pt.pattern
+    elseif pt.pkind == "lookahead" then return -pt.pattern
     end
 end
 

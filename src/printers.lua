@@ -24,9 +24,9 @@ local printers = {}
 local
 function LL_pprint (pt, offset, prefix)
     -- [[DP]] print("PRINT -", pt)
-    -- [[DP]] print("PRINT +", pt.ptype)
+    -- [[DP]] print("PRINT +", pt.pkind)
     -- [[DP]] expose(LL.proxycache[pt])
-    return printers[pt.ptype](pt, offset, prefix)
+    return printers[pt.pkind](pt, offset, prefix)
 end
 
 function LL.pprint (pt0)
@@ -99,7 +99,7 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, ptype = ...
+        local map, LL_pprint, pkind = ...
         return function (pt, offset, prefix)
             XXXX
         end
@@ -125,7 +125,7 @@ for _, cap in pairs{"C", "Cs", "Ct"} do
     end
 end
 
-for _, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
+for _, cap in pairs{"Cg", "Clb", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
         LL_pprint(pt.pattern, offset.."  ", "")
@@ -204,7 +204,7 @@ for _, capname in ipairs{
         local message = offset..prefix..capname
             ..": start = "..capture.start
             ..", finish = "..capture.finish
-            ..(capture.Ctag and " tag = "..capture.Ctag or "")
+            ..(capture.Clb and " tag = "..capture.Clb or "")
         if capture.aux then
             message = message .. ", aux = ".. tostring(capture.aux)
         end
