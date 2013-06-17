@@ -73,13 +73,14 @@ function LL.dmatch(pt, subject, index, ...)
         cap_acc.n = cap_i
         print("cap_i = ",cap_i)
         print("= $$$ captures $$$ =", cap_acc)
-        LL.cprint(cap_acc)
-        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
+        -- LL.cprint(cap_acc)
+        local cap_values, _, cap_i = LL_evaluate(cap_acc, subject, 1, 1)
         print("#values", cap_i)
         if cap_i == 1
         then return nindex
         else return t_unpack(cap_values, 1, cap_i - 1) end
     else
+        print("Failed")
         return nil
     end
 end

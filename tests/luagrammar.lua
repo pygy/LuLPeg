@@ -212,10 +212,10 @@ end)) -- }---------------------------------------------------------------------
 src = "\nfunction foo()\n"..src.."\nend\n"
 local len = #src
 
-local END
-assert(pcall(function() 
-  END = lua:match(src)
-end))
+-- local END
+-- assert(pcall(function() 
+  END = lua:dmatch(src)
+-- end))
 
 assert(END == len+1, "premature end of parse. END:"..END.." len:"..len)
 print("Success", END)

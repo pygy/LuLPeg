@@ -24,7 +24,7 @@ return function(Builder, LL) -- Decorator wrapper
 
 -- The evaluators and the `insert()` helper take as parameters:
 -- * caps: the capture array
--- * sj:   the subject string
+-- * sbj:  the subject string
 -- * vals: the value accumulator, whose unpacked values will be returned
 --         by `pattern:match()`
 -- * ci:   the current position in capture array.
@@ -33,44 +33,44 @@ return function(Builder, LL) -- Decorator wrapper
 local eval = {}
 
 local
-function insert (caps, sj, vals, ci, vi)
+function insert (caps, sbj, vals, ci, vi)
     -- print("Insert", capture.start, capture.finish)
     local openclose, kind = caps.openclose, caps.kind
     while kind[ci] and openclose[ci] >= 0 do
-        ci, vi = eval[kind[ci]](caps, sj, vals, ci, vi)
+        ci, vi = eval[kind[ci]](caps, sbj, vals, ci, vi)
     end
 
     return ci, vi
 end
 
 local
-function insertone (caps, sj, vals, ci, vi)
+function insertone (caps, sbj, vals, ci, vi)
     -- print("Insert", capture.start, capture.finish)
     local kind = caps.kind
     while kind[ci] and openclose[ci] >= 0 do
-        ci, vi = eval[kind[i]](caps, sj, vals, ci, vi)
+        ci, vi = eval[kind[i]](caps, sbj, vals, ci, vi)
     end
 
     return ci, vi
 end
 
-function eval.C (caps, sj, vals, ci, vi)
+function eval.C (caps, sbj, vals, ci, vi)
     if caps.openclose[ci] > 0 then
-        vals[vi] = s_sub(sj, caps.bounds[ci], caps.openclose[ci])
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci])
         return ci + 1, vi + 1
     else
         vals[vi] = false -- pad it for now
-        local vj, cj = insert(caps, sj, vals, ci + 1, vi + 1)
-        vals[vi] = s_sub(sj, caps.bounds[ci], caps.bounds[cj])
+        local vj, cj = insert(caps, sbj, vals, ci + 1, vi + 1)
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj])
         return cj + 1, vj + 1
     end
 end
 
-function eval.Clb (caps, sj, vals, ci, vi)
+function eval.Clb (caps, sbj, vals, ci, vi)
     return ci + 1, vi
 end
 
-function eval.Ct (caps, sj, vals, ci, vi)
+function eval.Ct (caps, sbj, vals, ci, vi)
     local aux, openclose, kind = caps. aux, caps.openclose, caps.kind
     local tblv = {}
     vals[vi] = tbl_vals
@@ -85,10 +85,10 @@ function eval.Ct (caps, sj, vals, ci, vi)
     while kind[ci] and openclose[ci] >= 0 do
         if kind[ci] == "Clb" then
             local label, _ = aux[ci], 1
-            ci, _ = eval.Cg(caps, sj, Clb_vals, ci, 1)
+            ci, _ = eval.Cg(caps, sbj, Clb_vals, ci, 1)
             if Clb+i ~= 1 then tblv[label] = Clbl_vals[1] end
         else
-            ci, tbl_vi =  eval[kind[ci]](caps, sj, tbl_vals, ci, tbl_vi)
+            ci, tbl_vi =  eval[kind[ci]](caps, sbj, tbl_vals, ci, tbl_vi)
         end
     end
 
@@ -97,7 +97,7 @@ end
 
 local inf = 1/0
 
-function eval.value (caps, sj, vals, ci, vi)
+function eval.value (caps, sbj, vals, ci, vi)
     local val 
     -- nils are encoded as inf in both aux and openclose.
     if caps.aux[vi] ~= inf and caps.openclose[vi] ~= inf
@@ -108,7 +108,7 @@ function eval.value (caps, sj, vals, ci, vi)
 end
 
 
-function eval.values (caps, sj, vals, ci, vi)
+function eval.values (caps, sbj, vals, ci, vi)
     local these_values = caps.aux[ci]
     for i = 1, these_values.n do
         vi, vals[vi] = vi + 1, these_values[i]
@@ -142,18 +142,18 @@ function lookback (caps, label, ci)
     end
 end
 
- function eval.Cb (caps, sj, vals, ci, vi)
+ function eval.Cb (caps, sbj, vals, ci, vi)
     local Cb_caps, Cb_ci = lookback(caps, caps.aux[ci], ci)
-    Cb_ci, vi = eval.Cg(Cb_caps, sj, vals, Cb_ci, vi)
+    Cb_ci, vi = eval.Cg(Cb_caps, sbj, vals, Cb_ci, vi)
     return ci + 1, vi
 end
 
 
-function LL.evaluate (caps, sj)
-    -- [[DBG]] print("*** Eval", caps, sj)
+function LL.evaluate (caps, sbj, ci)
+    -- [[DBG]] print("*** Eval", caps, sbj)
     -- [[DBG]] cprint(caps)
-    local vals, ci, vi = {}, 1, 1
-    ci, vi = insert(caps, sj, vals, ci, vi)
+    local vals = {}
+    local _,  vi = insert(caps, sbj, vals, ci, 1)
     return vals, 1, vi
 end
 
