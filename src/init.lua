@@ -37,11 +37,11 @@ local   copy,   map,   nop, t_unpack
 -- The module decorators.
 local API, charsets, compiler, constructors
     , datastructures, evaluator, factorizer
-    , locale, match, printers, re
+    , locale, printers, re
     = t_unpack(map(require,
     { "API", "charsets", "compiler", "constructors"
     , "datastructures", "evaluator", "factorizer"
-    , "locale", "match", "printers", "re" }))
+    , "locale", "printers", "re" }))
 
 local _, package = pcall(require, "package")
 
@@ -94,7 +94,6 @@ function LuLPeg(options)
     API(Builder, LL)
     evaluator(Builder, LL)
     ;(options.compiler or compiler)(Builder, LL)
-    match(Builder, LL)
     locale(Builder, LL)
     LL.re = re(Builder, LL)
 

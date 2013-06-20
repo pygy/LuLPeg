@@ -1,7 +1,7 @@
-local pairs, error, tostring, type
-    = pairs, error, tostring, type
+local assert, error, pairs, rawset, select, setmetatable, tostring, type
+    = assert, error, pairs, rawset, select, setmetatable, tostring, type
 
---[[DBG]] local print = print
+--[[DBG]] local debug, print = debug, print
 
 local s, t, u = require"string", require"table", require"util"
 
@@ -17,7 +17,7 @@ local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
 local   load,   map,   map_all, t_pack
     = u.load, u.map, u.map_all, u.pack
 
---[[DBG]] local expose = u.expose
+local expose = u.expose
 
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
@@ -56,8 +56,121 @@ LL.compile = compile
 
 
 local
-function clear_captures(aux, si)
-    for i = si, #aux do aux[i] = nil end
+function clear_captures(ary, ci)
+    -- [[DBG]] print("clear caps, ci = ", ci)
+    -- [[DBG]] print("TRACE: ", debug.traceback(1))
+    -- [[DBG]] expose(ary)
+    for i = ci, #ary do ary[i] = nil end
+    -- [[DBG]] expose(ary)
+    -- [[DBG]] print("/clear caps --------------------------------")
+end
+
+
+local LL_compile, LL_evaluate, LL_P
+    = LL.compile, LL.evaluate, LL.P
+
+local function computeidex(i, len)
+    if i == 0 or i == 1 or i == nil then return 1
+    elseif type(i) ~= "number" then error"number or nil expected for the stating index"
+    elseif i > 0 then return i > len and len + 1 or i
+    else return len + i < 0 and 1 or len + i + 1
+    end
+end
+
+
+------------------------------------------------------------------------------
+--- Match
+
+--[[DBG]] local dbgcapsmt = {__newindex = function(self, k,v) 
+--[[DBG]]     if k ~= #self + 1 then 
+--[[DBG]]         print("Bad new cap", k, v)
+--[[DBG]]         expose(self)
+--[[DBG]]         error""
+--[[DBG]]     else
+--[[DBG]]         rawset(self,k,v)
+--[[DBG]]     end
+--[[DBG]] end}
+
+--[[DBG]] local
+--[[DBG]] function dbgcaps(t) return setmetatable(t, dbgcapsmt) end
+local function newcaps()
+    return {
+        kind = {}, 
+        bounds = {},
+        openclose = {},
+        aux = --[[DBG]] dbgcaps
+            {}
+    }
+end
+
+local
+function _match(dbg, pt, sbj, si, ...)
+        if dbg then -------------
+            print("@!!! Match !!!@", pt)
+        end ---------------------
+
+    pt = LL_P(pt)
+
+    assert(type(sbj) == "string", "string expected for the match subject")
+    si = computeidex(si, #sbj)
+
+        if dbg then -------------
+            print(("-"):rep(30))
+            print(pt.pkind)
+            LL.pprint(pt)
+        end ---------------------
+
+    local matcher = compile(pt, {})
+    -- capture accumulator
+    local caps = newcaps()
+    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}} 
+
+    local  success, final_si, ci = matcher(sbj, si, caps, 1, matcher_state)
+
+        if dbg then -------------
+            print("!!! Done Matching !!! success: ", success, 
+                "final position", final_si, "final cap index", ci,
+                "#caps", #caps.openclose)
+        end----------------------
+
+    if success then
+            -- if dbg then -------------
+                -- print"Pre-clear-caps"
+                -- expose(caps)
+            -- end ---------------------
+
+        clear_captures(caps.kind, ci)
+        clear_captures(caps.aux, ci)
+
+            if dbg then -------------
+            print("trimmed cap index = ", #caps + 1)
+            -- expose(caps)
+            LL.cprint(caps, 1, sbj)
+            end ---------------------
+
+        local values, _, vi = LL_evaluate(caps, sbj, 1, 1)
+
+            if dbg then -------------
+                print("#values", vi - 1)
+                expose(values)
+            end ---------------------
+
+        if vi == 1
+        then return final_si
+        else return t_unpack(values, 1, vi - 1) end
+    else
+        if dbg then print("Failed") end
+        return nil
+    end
+end
+
+function LL.match(...)
+    return _match(false, ...) 
+end
+
+-- With some debug info.
+function LL.dmatch(...)
+    return _match(true, ...) 
 end
 
 ------------------------------------------------------------------------------
@@ -71,17 +184,19 @@ end
 
 for _, v in pairs{ 
     "C", "Cf", "Cg", "Cs", "Ct", "Clb",
-    "/string", "/table", "/number", "/function"
+    "div_string", "div_table", "div_number", "div_function"
 } do
     compilers[v] = load(([=[
-    local compile = ...
+    local compile, expose, type = ...
     return function (pt, ccache)
         -- [[DBG]] print("Compiling", "XXXX")
         -- [[DBG]] expose(LL.get_direct(pt))
         -- [[DBG]] LL.pprint(pt)
-        local matcher, aux = compile(pt.pattern, ccache), pt.aux
+        local matcher, this_aux = compile(pt.pattern, ccache), pt.aux
         return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("XXXX    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("XXXX: ci = ", ci, "             ", "", ", si = ", si, ", type(this_aux) = ", type(this_aux), this_aux)
+            -- [[DBG]] expose(caps)
+
             local ref_ci = ci
 
             local kind, bounds, openclose, aux 
@@ -91,14 +206,19 @@ for _, v in pairs{
             bounds    [ci] = si
             -- openclose = 0 ==> bound is lower bound of the capture.
             openclose [ci] = 0
-            aux       [ci] = aux or false
+            caps.aux       [ci] = (this_aux or false)
+            -- [[DBG]] print("XXXX aux", aux, this_aux or false)
+            -- [[DBG]] expose(caps)
 
             local success
 
             success, si, ci
                 = matcher(sbj, si, caps, ci + 1, state)
             if success then
+                -- [[DBG]] print("/XXXX: ci = ", ci, ", ref_ci = ", ref_ci, ", si = ", si)
                 if ci == ref_ci + 1 then
+                    -- [[DBG]] print("full", si)
+                    -- [[DBG]] expose(caps)
                     -- a full capture, ==> openclose > 0 == the closing bound.
                     caps.openclose[ref_ci] = si
                 else
@@ -106,13 +226,19 @@ for _, v in pairs{
                     bounds    [ci] = si
                     -- a closing bound. openclose < 0 
                     -- (offset in the capture stack between open and close)
-                    openclose [ci] = ci - ref_ci
-                    aux       [ci] = aux or false
+                    openclose [ci] = ref_ci - ci
+                    aux       [ci] = this_aux or false
+                    ci = ci + 1
                 end
+                -- [[DBG]] expose(caps)
+            else
+                ci = ci - 1
+                -- [[DBG]] print("///XXXX: ci = ", ci, ", ref_ci = ", ref_ci, ", si = ", si)
+                -- [[DBG]] expose(caps)
             end
             return success, si, ci
         end
-    end]=]):gsub("XXXX", v), v.." compiler")(compile)
+    end]=]):gsub("XXXX", v), v.." compiler")(compile, expose, type)
 end
 
 
@@ -140,26 +266,28 @@ for _, v in pairs{
     "Cb", "Cc", "Cp"
 } do
     compilers[v] = load(([=[
+    -- [[DBG]]local expose = ...
     return function (pt, ccache)
-        local aux = pt.aux
+        local this_aux = pt.aux
         return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("XXXX    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("XXXX: ci = ", ci, ", aux = ", this_aux, ", si = ", si)
 
-            caps.kind      [ci] = XXXX
+            caps.kind      [ci] = "XXXX"
             caps.bounds    [ci] = si
             caps.openclose [ci] = si
-            caps.aux       [ci] = aux or false
+            caps.aux       [ci] = this_aux or false
 
+            -- [[DBG]] expose(caps)
             return true, si, ci + 1
         end
-    end]=]):gsub("XXXX", v), v.." compiler")(compile)
+    end]=]):gsub("XXXX", v), v.." compiler")(expose)
 end
 
 
 compilers["/zero"] = function (pt, ccache)
     local matcher = compile(pt.pattern, ccache)
     return function (sbj, si, caps, ci, state)
-        local success, nsi = matcher(sbj, si, caps, si, state)
+        local success, nsi = matcher(sbj, si, caps, ci, state)
 
         clear_captures(caps.aux, ci)
 
@@ -173,23 +301,39 @@ local function pack_Cmt_caps(i,...) return i, t_pack(...) end
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (sbj, si, caps, ci, state)
+        -- [[DBG]] print("\nCmt start, si = ", si, ", ci = ", ci)
+        -- [[DBG]] expose(caps)
+
         local success, Cmt_si, Cmt_ci = matcher(sbj, si, caps, ci, state)
+
+        if not success then 
+            -- [[DBG]] print("/Cmt No match\n")
+            clear_captures(caps.aux, ci)
+            -- [[DBG]] expose(caps)
+
+            return false, si, ci
+        end
 
         local final_si, values 
 
         if Cmt_ci == ci then
-            --[[]]print("Cmt: simple capture: ", si, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
+            -- [[DBG]]print("Cmt: simple capture: ", si, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
             final_si, values = pack_Cmt_caps(
                 func(sbj, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
             )
         else
             final_si, values = pack_Cmt_caps(
-                func(sbj, Cmt_si, t_unpack(evaluate(caps, sbj, ci)))
+                func(sbj, Cmt_si, t_unpack(evaluate(caps, sbj, Cmt_ci)))
             )
         end
-        --[[DBG]] print("Final_si", final_si, Cmt_si, "Cmt_si")
-        -- [[DBG]] print(sbj:sub(Cmt_si-200, Cmt_si))
-        if not final_si then return false, si, ci end
+        -- [[DBG]] print("Cmt, final_si = ", final_si, ", Cmt_si = ", Cmt_si)
+        -- [[DBG]] print("SOURCE\n",sbj:sub(Cmt_si-20, Cmt_si+20),"\n/SOURCE")
+        if not final_si then 
+            -- [[DBG]] print("/Cmt No return\n")
+            clear_captures(caps.aux, ci)
+            -- [[DBG]] expose(caps)
+            return false, si, ci
+        end
 
         if final_si == true then final_si = Cmt_si end
 
@@ -197,7 +341,7 @@ compilers["Cmt"] = function (pt, ccache)
         and si <= final_si 
         and final_si <= #sbj + 1 
         then
-            --[[DBG]] print("Cmt Success", values, values and values.n)
+            -- [[DBG]] print("Cmt Success", values, values and values.n)
             local kind, bounds, openclose, aux 
                 = caps.kind, caps.bounds, caps.openclose, caps.aux
             for i = 1, values.n do
@@ -215,6 +359,8 @@ compilers["Cmt"] = function (pt, ccache)
             error("Match time capture must return a number, a boolean or nil"
                 .." as first argument, or nothing at all.")
         end
+            -- [[DBG]] print("/Cmt success\n")
+            -- [[DBG]] expose(caps)
         return true, final_si, ci
     end
 end
@@ -250,7 +396,7 @@ compilers["char"] = function (pt, ccache)
     return load(([=[
         local s_byte, s_char = ...
         return function(sbj, si, caps, ci, state)
-             --[[DBG]] print("Char "..s_char(__C0__).." ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+             -- [[DBG]] print("Char "..s_char(__C0__).." ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
             local c, nsi = s_byte(sbj, si), si + 1
             if c ~= __C0__ then
                 return false, si, ci
@@ -463,12 +609,12 @@ end
 
 
 local sequence_tpl = [=[
-             -- [[DBG]] print("XXXX", nsi, caps, new_i, state)
-            success, nsi, new_i = XXXX(sbj, nsi, caps, new_i, state)
+            -- [[DBG]] print("Seq XXXX , si = ",si, ", ci = ", ci)
+            success, si, ci = XXXX(sbj, si, caps, ci, state)
+            -- [[DBG]] print("/Seq XXXX , si = ",si, ", ci = ", ci)
             if not success then
-                 -- [[DBG]] print("%FSequence",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-                clear_captures(caps.aux, ci)
-                return false, si, ci
+                clear_captures(caps.aux, ref_ci)
+                return false, ref_si, ref_ci
             end]=]
 compilers["sequence"] = function (pt, ccache)
     local sequence, n = map(pt.aux, compile, ccache), #pt.aux
@@ -485,13 +631,11 @@ compilers["sequence"] = function (pt, ccache)
     local compiled = t_concat{
         "local ", t_concat(names, ", "), [=[ = ...
         return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("Sequence",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-            local nsi, new_i, success = si, ci
+            local ref_si, ref_ci, success = si, ci
+            -- [[DBG]] print("Sequence , si = ",si, ", ci = ", ci)
             ]=],
             t_concat(chunks,"\n"),[=[
-             -- [[DBG]] print("%SSequence",caps, caps and caps.kind or "'nil'", new_i, si, state) --, sbj)
-             -- [[DBG]] print("NEW I:",new_i)
-            return true, nsi, new_i
+            return true, si, ci
         end]=]
     }
     -- print(compiled)
@@ -520,7 +664,7 @@ compilers["at least"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
     if n == 0 then
         return function (sbj, si, caps, ci, state)
-            --[[DBG]] print("At least 0 ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("At least 0 ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
             while true do
                 local success
                 -- [[DBG]] print("    rep "..N,caps, caps and caps.kind or "'nil'", ci, si, state)

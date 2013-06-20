@@ -40,8 +40,8 @@ end
 -- patterns where `C(x) + C(y) => C(x + y)` apply.
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Clb", "Cmt", "/string", "/number",
-    "/table", "/function", "at least", "at most"
+    "Clb", "Cmt", "div_string", "div_number",
+    "div_table", "div_function", "at least", "at most"
 }
 
 -- patterns where p1 + p2 == p1 U p2
@@ -101,10 +101,10 @@ local --Range, Set,
 
 local type2cons = {
     ["/zero"] = "__div",
-    ["/number"] = "__div",
-    ["/string"] = "__div",
-    ["/table"] = "__div",
-    ["/function"] = "__div",
+    ["div_number"] = "__div",
+    ["div_string"] = "__div",
+    ["div_table"] = "__div",
+    ["div_function"] = "__div",
     ["at least"] = "__exp",
     ["at most"] = "__exp",
     ["Clb"] = "Cg",

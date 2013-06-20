@@ -13,8 +13,8 @@ local _ENV = u.noglobals() ----------------------------------------------------
 
 
 
-local s_char, t_concat
-    = s.char, t.concat
+local s_char, s_sub, t_concat
+    = s.char, s.sub, t.concat
 
 local   expose,   load,   map
     = u.expose, u.load, u.map
@@ -125,14 +125,14 @@ for _, cap in pairs{"C", "Cs", "Ct"} do
     end
 end
 
-for _, cap in pairs{"Cg", "Clb", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
+for _, cap in pairs{"Cg", "Clb", "Cf", "Cmt", "div_number", "/zero", "div_function", "div_table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
         LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
 
-printers["/string"] = function (pt, offset, prefix)
+printers["div_string"] = function (pt, offset, prefix)
     print(offset..prefix..'/string "'..tostring(pt.aux or "")..'"')
     LL_pprint(pt.pattern, offset.."  ", "")
 end
@@ -158,14 +158,65 @@ end
 
 local cprinters = {}
 
-function LL.cprint (capture)
-    print"\nCapture Printer\n===============\n"
-    -- print(capture)
-    -- expose(capture)
-    -- expose(capture[1])
-    cprinters[capture.type](capture, "", "")
-    print"\n/Cprinter -------\n"
+local padding = "   "
+
+local function _cprint(caps, ci, indent, sbj)
+    local openclose, kind = caps.openclose, caps.kind
+    indent = indent or 0
+    while kind[ci] and openclose[ci] >= 0 do
+
+        if caps.openclose[ci] > 0 then 
+            print(t_concat({
+                            padding:rep(indent),
+                            caps.kind[ci],
+                            ": start = ", caps.bounds[ci],
+                            " finish = ", caps.openclose[ci],
+                            caps.aux[ci] and " aux = " or "",
+                            caps.aux[ci] and (
+                                type(caps.aux[ci]) == "string" 
+                                    and '"'..tostring(caps.aux[ci])..'"'
+                                or tostring(caps.aux[ci])
+                            ) or "",
+                            " \t", s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+                        }))
+            if type(caps.aux[ci]) == "table" then expose(caps.aux[ci]) end
+        else
+            local kind = caps.kind[ci]
+            local start = caps.bounds[ci]
+            print(t_concat({
+                            padding:rep(indent), kind,
+                            ": start = ", start,
+                            caps.aux[ci] and " aux = " or "",
+                            caps.aux[ci] and (
+                                type(caps.aux[ci]) == "string" 
+                                    and '"'..tostring(caps.aux[ci])..'"'
+                                or tostring(caps.aux[ci])
+                            ) or ""
+                        }))
+            ci = _cprint(caps, ci + 1, indent + 1, sbj)
+            print(t_concat({
+                            padding:rep(indent),
+                            "/", kind,
+                            " finish = ", caps.bounds[ci],
+                            " \t", s_sub(sbj, start, (caps.bounds[ci] or 1) - 1)
+                        }))
+        end
+        ci = ci + 1
+    end
+
+    return ci
 end
+
+function LL.cprint (caps, ci, sbj)
+    ci = ci or 1
+    print"\nCapture Printer:\n================"
+    -- print(capture)
+    --[[DBG]] expose(caps)
+    _cprint(caps, ci, 0, sbj)
+    print"================\n/Cprinter\n"
+end
+
+
 
 cprinters["backref"] = function (capture, offset, prefix)
     print(offset..prefix.."Back: start = "..capture.start)
@@ -198,7 +249,7 @@ end
 
 for _, capname in ipairs{
     "Cf", "Cg", "tag","C", "Cs",
-    "/string", "/number", "/table", "/function"
+    "div_string", "div_number", "div_table", "div_function"
 } do
     cprinters[capname] = function (capture, offset, prefix)
         local message = offset..prefix..capname

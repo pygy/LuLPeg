@@ -63,7 +63,7 @@ local patternwith = {
     -- both
     both = {
         "behind", "at least", "at most", "Clb", "Cmt",
-        "/string", "/number", "/table", "/function"
+        "div_string", "div_number", "div_table", "div_function"
     },
     none = "grammar", "Cc"
 }
@@ -240,7 +240,7 @@ constructors["subpt"] = function(typ, pt)
 end
 
 constructors["both"] = function(typ, pt, aux)
-     -- dprint("CONS: ", typ, pt, aux)
+    -- [[DBG]] print("CONS: ", typ, pt, aux)
     local cache = ptcache[typ][aux]
     if not cache then
         ptcache[typ][aux] = weakval{}

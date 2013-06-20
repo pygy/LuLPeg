@@ -160,7 +160,7 @@ do
         "Carg", "Cb", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero",
         "Clb", "Cmt", "Cc", "Cp",
-        "/string", "/number", "/table", "/function",
+        "div_string", "div_number", "div_table", "div_function",
         "at least", "at most", "behind"
     }
     local function fixedlen(pt, gram, cycle)
@@ -378,7 +378,7 @@ function LL_slash (pt, aux)
     if aux == 0 then
         name = "/zero"
     else
-        name = "/"..type(aux)
+        name = "div_"..type(aux)
     end
     return
         --[[DBG]] true and

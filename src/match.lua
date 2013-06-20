@@ -6,7 +6,7 @@ local assert, error, print, select, type = assert, error, print, select, type
 
 local u =require"util"
 
-
+--[[DBG]] 
 
 local _ENV = u.noglobals() ---------------------------------------------------
 
@@ -17,73 +17,72 @@ local t_unpack = u.unpack
 
 return function(Builder, LL) -------------------------------------------------
 
---[[DBG]] local LL_cprint, LL_pprint = LL.cprint, LL.pprint
 
-local LL_compile, LL_evaluate, LL_P
-    = LL.compile, LL.evaluate, LL.P
+-- local LL_compile, LL_evaluate, LL_P
+--     = LL.compile, LL.evaluate, LL.P
 
-local function computeidex(i, len)
-    if i == 0 or i == 1 or i == nil then return 1
-    elseif type(i) ~= "number" then error"number or nil expected for the stating index"
-    elseif i > 0 then return i > len and len + 1 or i
-    else return len + i < 0 and 1 or len + i + 1
-    end
-end
+-- local function computeidex(i, len)
+--     if i == 0 or i == 1 or i == nil then return 1
+--     elseif type(i) ~= "number" then error"number or nil expected for the stating index"
+--     elseif i > 0 then return i > len and len + 1 or i
+--     else return len + i < 0 and 1 or len + i + 1
+--     end
+-- end
 
+-- local LL_cprint, LL_pprint = LL.cprint, LL.pprint
+-- local expose = u.expose
+-- function LL.match(pt, subject, index, ...)
+--     pt = LL_P(pt)
+--     assert(type(subject) == "string", "string expected for the match subject")
+--     index = computeidex(index, #subject)
+--     local matcher, cap_acc, state, success, cap_i, nindex
+--         = LL_compile(pt, {})
+--         , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
+--         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
+--         , 0 -- matcher state
+--     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+--     if success then
+--         local cap_values, _, cap_i = LL_evaluate(cap_acc, subject, 1, 1)
+--         if cap_i == 1
+--         then return nindex
+--         else return t_unpack(cap_values, 1, cap_i - 1) end
+--     else
+--         return nil
+--     end
+-- end
 
-function LL.match(pt, subject, index, ...)
-    pt = LL_P(pt)
-    assert(type(subject) == "string", "string expected for the match subject")
-    index = computeidex(index, #subject)
-    local matcher, cap_acc, state, success, cap_i, nindex
-        = LL_compile(pt, {})
-        , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
-        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
-        , 0 -- matcher state
-    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    if success then
-        cap_acc.n = cap_i
-        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
-        if cap_i == 1
-        then return nindex
-        else return t_unpack(cap_values, 1, cap_i - 1) end
-    else
-        return nil
-    end
-end
-
--- With some debug info.
-function LL.dmatch(pt, subject, index, ...)
-    print("@!!! Match !!!@", pt)
-    pt = LL_P(pt)
-    print(pt)
-    assert(type(subject) == "string", "string expected for the match subject")
-    index = computeidex(index, #subject)
-    print(("-"):rep(30))
-    print(pt.pkind)
-    LL.pprint(pt)
-    local matcher, cap_acc, state, success, cap_i, nindex
-        = LL_compile(pt, {})
-        , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
-        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
-        , 0 -- matcher state
-    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    print("!!! Done Matching !!!", success, nindex, cap_i)
-    if success then
-        cap_acc.n = cap_i
-        print("cap_i = ",cap_i)
-        print("= $$$ captures $$$ =", cap_acc)
-        -- LL.cprint(cap_acc)
-        local cap_values, _, cap_i = LL_evaluate(cap_acc, subject, 1, 1)
-        print("#values", cap_i)
-        if cap_i == 1
-        then return nindex
-        else return t_unpack(cap_values, 1, cap_i - 1) end
-    else
-        print("Failed")
-        return nil
-    end
-end
+-- -- With some debug info.
+-- function LL.dmatch(pt, subject, index, ...)
+--     print("@!!! Match !!!@", pt)
+--     pt = LL_P(pt)
+--     print(pt)
+--     assert(type(subject) == "string", "string expected for the match subject")
+--     index = computeidex(index, #subject)
+--     print(("-"):rep(30))
+--     print(pt.pkind)
+--     LL.pprint(pt)
+--     local matcher, cap_acc, state, success, cap_i, nindex
+--         = LL_compile(pt, {})
+--         , {kind = {}, bounds = {}, openclose = {}, aux = {}}   -- capture accumulator
+--         , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
+--         , 0 -- matcher state
+--     success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
+--     print("!!! Done Matching !!!", success, nindex, cap_i)
+--     if success then
+--         print("cap_i = ",cap_i)
+--         print("= $$$ captures $$$ =", cap_acc)
+--         LL.cprint(cap_acc, 1, subject)
+--         local cap_values, _, cap_i = LL_evaluate(cap_acc, subject, 1, 1)
+--         print("#values", cap_i)
+--         expose(cap_values)
+--         if cap_i == 1
+--         then return nindex
+--         else return t_unpack(cap_values, 1, cap_i - 1) end
+--     else
+--         print("Failed")
+--         return nil
+--     end
+-- end
 
 end -- /wrapper --------------------------------------------------------------
 

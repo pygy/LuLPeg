@@ -1,8 +1,8 @@
 
 -- Capture eval
 
-local select, tonumber, tostring
-    = select, tonumber, tostring
+local select, tonumber, tostring, type
+    = select, tonumber, tostring, type
 
 local s, t, u = require"string", require"table", require"util"
 local s_sub, t_concat
@@ -11,7 +11,7 @@ local s_sub, t_concat
 local t_unpack
     = u.unpack
 
---[[DBG]] local print, expose = print, u.expose
+--[[DBG]] local error, print, expose = error, print, u.expose
 
 
 local _ENV = u.noglobals() ----------------------------------------------------
@@ -56,15 +56,27 @@ end
 
 function eval.C (caps, sbj, vals, ci, vi)
     if caps.openclose[ci] > 0 then
-        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci])
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
         return ci + 1, vi + 1
-    else
-        vals[vi] = false -- pad it for now
-        local vj, cj = insert(caps, sbj, vals, ci + 1, vi + 1)
-        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj])
-        return cj + 1, vj + 1
     end
+
+    vals[vi] = false -- pad it for now
+    local cj, vj = insert(caps, sbj, vals, ci + 1, vi + 1)
+    vals[vi] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
+    return cj + 1, vj
 end
+
+
+function eval.Cg (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+        return ci + 1, vi + 1
+    end
+
+    local cj, vj = insert(caps, sbj, vals, ci + 1, vi)
+    return cj + 1, vj
+end
+
 
 function eval.Clb (caps, sbj, vals, ci, vi)
     return ci + 1, vi
@@ -72,7 +84,7 @@ end
 
 function eval.Ct (caps, sbj, vals, ci, vi)
     local aux, openclose, kind = caps. aux, caps.openclose, caps.kind
-    local tblv = {}
+    local tbl_vals = {}
     vals[vi] = tbl_vals
 
     if openclose[ci] > 0 then
@@ -84,15 +96,14 @@ function eval.Ct (caps, sbj, vals, ci, vi)
 
     while kind[ci] and openclose[ci] >= 0 do
         if kind[ci] == "Clb" then
-            local label, _ = aux[ci], 1
-            ci, _ = eval.Cg(caps, sbj, Clb_vals, ci, 1)
-            if Clb+i ~= 1 then tblv[label] = Clbl_vals[1] end
+            local label, Clb_vi = aux[ci], 1
+            ci, Clb_vi = eval.Cg(caps, sbj, Clb_vals, ci, 1)
+            if Clb_vi ~= 1 then tbl_vals[label] = Clb_vals[1] end
         else
             ci, tbl_vi =  eval[kind[ci]](caps, sbj, tbl_vals, ci, tbl_vi)
         end
     end
-
-    return ci, vi + 1
+    return ci + 1, vi + 1
 end
 
 local inf = 1/0
@@ -108,8 +119,9 @@ function eval.value (caps, sbj, vals, ci, vi)
 end
 
 
-function eval.values (caps, sbj, vals, ci, vi)
+function eval.Cc (caps, sbj, vals, ci, vi)
     local these_values = caps.aux[ci]
+    -- [[DBG]] print"Eval Cc"; expose(these_values)
     for i = 1, these_values.n do
         vi, vals[vi] = vi + 1, these_values[i]
     end
@@ -117,8 +129,15 @@ function eval.values (caps, sbj, vals, ci, vi)
 end
 
 
+function eval.Cp (caps, sbj, vals, ci, vi)
+    vals[vi] = caps.bounds[ci]
+    return ci + 1, vi + 1
+end
+
+
 local
 function lookback (caps, label, ci)
+    --[[DBG]] print"lookback()"; expose(caps)
     local aux, openclose, kind, found, oc
     repeat
         aux, openclose, kind = caps.aux, caps.openclose, caps.kind
@@ -137,8 +156,8 @@ function lookback (caps, label, ci)
     if found then
         return caps, ci
     else
-        tag = tupe(tag) == "string" and "'"..tag.."'" or tostring(tag)
-        error("back reference "..tag.." not found")
+        label = type(label) == "string" and "'"..label.."'" or tostring(label)
+        error("back reference "..label.." not found")
     end
 end
 
@@ -148,9 +167,163 @@ end
     return ci + 1, vi
 end
 
+function eval.Cs (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+    else
+        local bounds, kind, openclose = caps.bounds, caps.kind, caps.openclose
+        local start, buffer, Cs_vals, bi, Cs_vi = bounds[ci], {}, {}, 1, 1
+        local last
+        ci = ci + 1
+        -- [[DBG]] print"eval.CS, openclose: "; expose(openclose)
+        -- [[DBG]] print("eval.CS, ci =", ci)
+        while openclose[ci] >= 0 do
+            last = bounds[ci]
+            buffer[bi] = s_sub(sbj, start, last - 1)
+            bi = bi + 1
+
+            ci, Cs_vi = eval[kind[ci]](caps, sbj, Cs_vals, ci, 1)
+
+            if Cs_vi > 1 then
+                buffer[bi] = Cs_vals[1]
+                bi = bi + 1
+                start = openclose[ci-1] > 0 and openclose[ci-1] or bounds[ci-1]
+            else
+                start = last
+            end
+
+        -- [[DBG]] print("eval.CS while, ci =", ci)
+        end
+        buffer[bi] = s_sub(sbj, start, bounds[ci])
+
+        vals[vi] = t_concat(buffer)
+    end
+
+    return ci + 1, vi + 1
+end
+
+
+local
+function insert_divfunc_results(acc, val_i, ...)
+    local n = select('#', ...)
+    for i = 1, n do
+        val_i, acc[val_i] = val_i + 1, select(i, ...)
+    end
+    return val_i
+end
+
+function eval.div_function (caps, sbj, vals, ci, vi)
+    local func = caps.aux[ci]
+    local params, divF_vi
+
+    if caps.openclose[ci] > 0 then
+        params, divF_vi = {s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)}, 2
+    else
+        divF_vals = {}
+        ci, divF_vi = insert(caps, sbj, params, ci + 1, 1)
+    end
+
+    ci = ci + 1 -- skip the closed or closing node.
+    vi = insert_divfunc_results(vals, vi, func(t_unpack(params, 1, divF_vi - 1)))
+    return ci, vi
+end
+
+
+function eval.div_number (caps, sbj, vals, ci, vi)
+    local this_aux = caps.aux[ci]
+    local divN_vals, divN_vi
+
+    if caps.openclose[ci] > 0 then
+        divN_vals, divN_vi = {s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)}, 2
+    else
+        divN_vals = {}
+        ci, divN_vi = insert(caps, sbj, divN_vals, ci + 1, 1)
+    end
+    ci = ci + 1 -- skip the closed or closing node.
+
+    if this_aux >= divN_vi then error("no capture '"..this_aux.."' in /number capture.") end
+    vals[vi] = divN_vals[this_aux]
+    return ci, vi + 1
+end
+
+
+local function div_str_cap_refs (caps, ci)
+    local openclose, refs, depth = caps.openclose, {open=caps.bounds[ci]}, 0
+    if openclose[ci] > 0 then 
+        refs.close = openclose[ci]
+        ci = ci + 1
+        return ci, refs
+    end
+    ci = ci + 1
+    while openclose[ci] < 0 or depth > 0 do
+        if openclose[ci] < 0 then
+            depth = depth - 1
+        else
+            refs[#refs+1] = ci
+            if openclose[ci] == 0 then
+                depth = depth + 1
+                ci = ci + 1
+            end
+        end
+        ci = ci + 1
+    end
+    refs.close = caps.bounds[ci]
+    return ci, refs
+end
+
+function eval.div_string (caps, sbj, vals, ci, vi)
+    -- print("div_string", capture.start, capture.finish)
+    local cached, n, refs
+    local the_string, divS_vals = caps.aux[ci], {}
+    ci, refs = div_str_cap_refs(caps, ci)
+    n = #refs
+    vals[vi] = the_string:gsub("%%([%d%%])", function (d)
+        if d == "%" then return "%" end
+        d = tonumber(d)
+        if not cached[d] then
+            if d > n then
+                error("no capture at index "..d.." in /string capture.")
+            end
+            if d == 0 then
+                cached[d] = s_sub(subject, refs.open, refs.close)
+            else
+                local _, vi = eval[kind[refs[d]]](caps, sbj, divS_vals, refs[d], 1)
+                if vi == 1 then error("no values in capture at index"..d.." in /string capture.") end
+                cached[d] = divS_vals[1]
+            end
+        end
+        return cached[d]
+    end)
+    return ci, vi + 1
+end
+
+
+function eval.div_table (caps, sbj, vals, ci, vi)
+    local this_aux = caps.aux[ci]
+    local key
+
+    if caps.openclose[ci] > 0 then
+        key =  s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+    else
+        local divT_vals, _ = {}
+        ci, _ = insert(caps, sbj, divT_vals, ci + 1, 1)
+        key = divT_vals[1]
+    end
+
+    ci = ci + 1
+    if this_aux[key] then
+        vals[vi] = this_aux[key]
+        return ci, vi + 1
+    else
+        return ci, vi
+    end
+end
+
+
 
 function LL.evaluate (caps, sbj, ci)
     -- [[DBG]] print("*** Eval", caps, sbj)
+    -- [[DBG]] expose(caps)
     -- [[DBG]] cprint(caps)
     local vals = {}
     local _,  vi = insert(caps, sbj, vals, ci, 1)
@@ -159,7 +332,9 @@ end
 
 ---
 
-eval["Cf"] = function (capture, subject, acc, vi)
+eval["Cf"] = function() error("NYI: Cf") end
+
+local _ = function (capture, subject, acc, vi)
     if capture.n == 0 then
         error"No First Value"
     end
@@ -183,133 +358,8 @@ eval["Cf"] = function (capture, subject, acc, vi)
 end
 
 
-eval["Cg"] = function (capture, subject, acc, vi)
-    local start, finish = capture.start, capture.finish
-    local group_acc = {}
-    local group_vi = insert(capture, subject, group_acc, start, 1)
-
-    if group_vi == 1 then
-        acc[vi] = s_sub(subject, start, finish - 1)
-        return vi + 1
-    else
-        for i = 1, group_vi - 1 do
-            vi, acc[val_i] = val_i + 1, group_acc[i]
-        end
-        return val_i
-    end
-end
 
 
-
-eval["Cs"] = function (capture, subject, acc, val_i)
-    local start, finish, n = capture.start, capture.finish, capture.n
-    if n == 1 then
-        acc[val_i] = s_sub(subject, start, finish - 1)
-    else
-        local subst_acc, ci, subst_i = {}, 1, 1
-        repeat
-            local cap, tmp_acc = capture[ci], {}
-
-            subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
-            subst_i = subst_i + 1
-
-            local tmp_i = eval[cap.kind](cap, subject, tmp_acc, 1)
-
-            if tmp_i > 1 then
-                subst_acc[subst_i] = tmp_acc[1]
-                subst_i = subst_i + 1
-                start = cap.finish
-            else
-                start = cap.start
-            end
-
-            ci = ci + 1
-        until ci == n
-        subst_acc[subst_i] = s_sub(subject, start, finish - 1)
-
-        acc[val_i] = t_concat(subst_acc)
-    end
-
-    return val_i + 1
-end
-
-
-
-
-
-eval["/string"] = function (capture, subject, acc, val_i)
-    -- print("/string", capture.start, capture.finish)
-    local n, cached = capture.n, {}
-    acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
-        if d == "%" then return "%" end
-        d = tonumber(d)
-        if not cached[d] then
-            if d >= n then
-                error("no capture at index "..d.." in /string capture.")
-            end
-            if d == 0 then
-                cached[d] = s_sub(subject, capture.start, capture.finish - 1)
-            else
-                local tmp_acc = {}
-                local val_i = eval[capture[d].kind](capture[d], subject, tmp_acc, capture.start, 1)
-                if val_i == 1 then error("no values in capture at index"..d.." in /string capture.") end
-                cached[d] = tmp_acc[1]
-            end
-        end
-        return cached[d]
-    end)
-    return val_i + 1
-end
-
-
-eval["/number"] = function (capture, subject, acc, val_i)
-    local new_acc = {}
-    local new_val_i = insert(capture, subject, new_acc, capture.start, 1)
-    if capture.aux >= new_val_i then error("no capture '"..capture.aux.."' in /number capture.") end
-    acc[val_i] = new_acc[capture.aux]
-    return val_i + 1
-end
-
-
-eval["/table"] = function (capture, subject, acc, val_i)
-    local key
-    if capture.n > 1 then
-        local new_acc = {}
-        insert(capture, subject, new_acc, capture.start, 1)
-        key = new_acc[1]
-    else
-        key = s_sub(subject, capture.start, capture.finish - 1)
-    end
-
-    if capture.aux[key] then
-        acc[val_i] = capture.aux[key]
-        return val_i + 1
-    else
-        return val_i
-    end
-end
-
-
-local
-function insert_divfunc_results(acc, val_i, ...)
-    local n = select('#', ...)
-    for i = 1, n do
-        val_i, acc[val_i] = val_i + 1, select(i, ...)
-    end
-    return val_i
-end
-eval["/function"] = function (capture, subject, acc, val_i)
-    local func, params, new_val_i = capture.aux
-    if capture.n > 1 then
-        params = {}
-        new_val_i = insert(capture, subject, params, capture.start, 1)
-    else
-        new_val_i = 2
-        params = {s_sub(subject, capture.start, capture.finish - 1)}
-    end
-    val_i = insert_divfunc_results(acc, val_i, func(t_unpack(params, 1, new_val_i - 1)))
-    return val_i
-end
 
 end  -- Decorator wrapper
 
