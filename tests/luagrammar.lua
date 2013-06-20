@@ -214,7 +214,7 @@ local len = #src
 
 -- local END
 -- assert(pcall(function() 
-  END = lua:dmatch(src)
+  END = lua:match(src)
 -- end))
 
 assert(END == len+1, "premature end of parse. END:"..END.." len:"..len)
