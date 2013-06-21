@@ -7,6 +7,8 @@ local u = require"util"
 local   id,   setify,   arrayify
     = u.id, u.setify, u.arrayify
 
+--[[DBG]] local expose = u.expose
+
 local V_hasCmt = u.nop
 
 
@@ -71,11 +73,10 @@ end
 
 local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
 function flatten(typ, ary)
+    --[[DBG]] print("flatten")
+    --[[DBG]] if LL.ispattern(ary) then expose(LL.getdirect(ary)) end
     local acc = {}
-    --[[DBG]] if type(ary) == "userdata" then LL.pprint(ary) error"" end
     for _, p in ipairs(ary) do
-        -- [[DBG]] print("flatten")
-        -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"LL.pprint(p) end
         if p.pkind == typ then
             for _, q in ipairs(p.aux) do
                 acc[#acc+1] = q
@@ -211,9 +212,9 @@ setmetatable(seq_optimize, {
 
 local
 function sequence(a, b, ...)
-    --[[DBG]] print("Factorize Sequence", a, b, ...)
-    --[[DBG]] if LL.ispattern(a) then print("Factorize Seq a"); LL.pprint(a) end
-    --[[DBG]] if LL.ispattern(b) then print("Factorize Seq b"); LL.pprint(b) end
+    -- [[DBG]] print("Factorize Sequence", a, b, ...)
+    -- [[DBG]] if LL.ispattern(a) then print("Factorize Seq a"); LL.pprint(a) end
+    -- [[DBG]] if LL.ispattern(b) then print("Factorize Seq b"); LL.pprint(b) end
     print(debug.traceback(1))
     -- A few optimizations:
     -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d

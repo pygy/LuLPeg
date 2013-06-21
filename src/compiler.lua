@@ -190,7 +190,7 @@ for _, v in pairs{
     local compile, expose, type = ...
     return function (pt, ccache)
         -- [[DBG]] print("Compiling", "XXXX")
-        -- [[DBG]] expose(LL.get_direct(pt))
+        -- [[DBG]] expose(LL.getdirect(pt))
         -- [[DBG]] LL.pprint(pt)
         local matcher, this_aux = compile(pt.pattern, ccache), pt.aux
         return function (sbj, si, caps, ci, state)

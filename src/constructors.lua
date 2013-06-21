@@ -103,7 +103,7 @@ if compat.proxies and not compat.lua52_len then
         proxycache[self][k] = v
     end
 
-    function LL.get_direct(p) return proxycache[p] end
+    function LL.getdirect(p) return proxycache[p] end
 
     function newpattern(cons)
         local pt = newproxy(baseproxy)
@@ -119,7 +119,7 @@ else
             .."use `LL.L(pattern)` for lookaheads.")
     end
     pattmt = ll
-    function LL.get_direct (p) return p end
+    function LL.getdirect (p) return p end
 
     function newpattern(pt)
         return setmetatable(pt,LL)
