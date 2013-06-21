@@ -80,7 +80,7 @@ function LL_P (v)
         if v == "" then return truept end
         return 
             --[[DBG]] true and 
-            LL.__mul(map(makechar, split_int(v)))
+            Builder.sequence(map(makechar, split_int(v)))
     elseif type(v) == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
@@ -206,7 +206,7 @@ end
 
 -- pt*pt
 local
-function LL_choice (a, b, ...)
+function choice (a, b, ...)
     -- [[DBG]] print("Choice =====", a, "b", b, "...", ...)
     if b ~= nil then
         a, b = LL_P(a), LL_P(b)
@@ -224,15 +224,16 @@ function LL_choice (a, b, ...)
             constructors.aux("choice", ch)
     end
 end
-LL.__add = LL_choice
+function LL.__add (a,b)
+    return 
+        --[[DBG]] true and
+        choice(LL_P(a), LL_P(b))
+end
 
 
  -- pt+pt,
 local
 function sequence (a, b, ...)
-    if b ~= nil then
-        a, b = LL_P(a), LL_P(b)
-    end
     local seq = factorize_sequence(a, b, ...)
 
     if #seq == 0 then
@@ -245,7 +246,13 @@ function sequence (a, b, ...)
         --[[DBG]] true and
         constructors.aux("sequence", seq)
 end
-LL.__mul = sequence
+Builder.sequence = sequence
+
+function LL.__mul (a, b)
+    return 
+        --[[DBG]] true and
+        sequence(LL_P(a), LL_P(b))
+end
 
 
 local
