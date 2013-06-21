@@ -65,14 +65,17 @@ function makechar(c)
 end
 
 local
-function LL_P (v)
+function LL_P (...)
+    local v, n = (...), select('#', ...)
+    if n == 0 then error"bad argument #1 to 'P' (value expected)" end
+    local typ = type(v)
     if LL_ispattern(v) then
         return v
-    elseif type(v) == "function" then
+    elseif typ == "function" then
         return 
             --[[DBG]] true and 
             LL.Cmt("", v)
-    elseif type(v) == "string" then
+    elseif typ == "string" then
         local success, index = validate(v)
         if not success then
             charset_error(index, cs.name)
@@ -81,7 +84,7 @@ function LL_P (v)
         return 
             --[[DBG]] true and 
             Builder.sequence(map(makechar, split_int(v)))
-    elseif type(v) == "table" then
+    elseif typ == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
@@ -89,9 +92,9 @@ function LL_P (v)
         return
             --[[DBG]] true and
             constructors.none("grammar", g)
-    elseif type(v) == "boolean" then
+    elseif typ == "boolean" then
         return v and truept or falsept
-    elseif type(v) == "number" then
+    elseif typ == "number" then
         if v == 0 then
             return truept
         elseif v > 0 then
@@ -103,6 +106,8 @@ function LL_P (v)
                 --[[DBG]] true and
                 - constructors.aux("any", -v)
         end
+    else
+        error("bad argument #1 to 'P' (lpeg-pattern expected, got "..typ..")")
     end
 end
 LL.P = LL_P
