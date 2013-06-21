@@ -207,8 +207,6 @@ for _, v in pairs{
             -- openclose = 0 ==> bound is lower bound of the capture.
             openclose [ci] = 0
             caps.aux       [ci] = (this_aux or false)
-            -- [[DBG]] print("XXXX aux", aux, this_aux or false)
-            -- [[DBG]] expose(caps)
 
             local success
 
@@ -250,14 +248,17 @@ compilers["Carg"] = function (pt, ccache)
         if state.args.n < n then error("reference to absent argument #"..n) end
         caps.kind      [ci] = "value"
         caps.bounds    [ci] = si
-        caps.openclose [ci] = si
-        caps.aux       [ci] = state.args[n]
         -- trick to keep the aux a proper sequence, so that #aux behaves.
         -- if the value is nil, we set both openclose and aux to
         -- +infinity, and handle it appropriately when it is eventually evaluated.
         -- openclose holds a positive value ==> full capture.
-        caps.openclose [ci] = state.args[n] ~= nil and si or 1/0
-        caps.aux       [ci] = state.args[n] ~= nil and state.args[n] or 1/0
+        if state.args[n] == nil then
+            caps.openclose [ci] = 1/0
+            caps.aux       [ci] = 1/0
+        else
+            caps.openclose [ci] = si
+            caps.aux       [ci] = state.args[n]
+        end
         return true, si, ci + 1
     end
 end
@@ -305,7 +306,6 @@ compilers["Cmt"] = function (pt, ccache)
         -- [[DBG]] expose(caps)
 
         local success, Cmt_si, Cmt_ci = matcher(sbj, si, caps, ci, state)
-
         if not success then 
             -- [[DBG]] print("/Cmt No match\n")
             clear_captures(caps.aux, ci)
@@ -313,19 +313,28 @@ compilers["Cmt"] = function (pt, ccache)
 
             return false, si, ci
         end
+        -- [[DBG]] print("Cmt match!")
+        -- [[DBG]] expose(caps)
 
         local final_si, values 
 
         if Cmt_ci == ci then
-            -- [[DBG]]print("Cmt: simple capture: ", si, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
+            -- [[DBG]] print("Cmt: simple capture: ", si, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
             final_si, values = pack_Cmt_caps(
                 func(sbj, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
             )
         else
-            final_si, values = pack_Cmt_caps(
-                func(sbj, Cmt_si, t_unpack(evaluate(caps, sbj, Cmt_ci)))
+            -- [[DBG]] print("Cmt: EVAL: ", ci, Cmt_ci)
+
+            local cps, _, nn = evaluate(caps, sbj, ci)
+            -- [[DBG]] print("POST EVAL")
+            -- [[DBG]] expose(cps)
+            -- [[DBG]] print("----------------------------------------------------------------")
+                        final_si, values = pack_Cmt_caps(
+                func(sbj, Cmt_si, t_unpack(cps, 1, nn))
             )
         end
+        -- [[DBG]] print("Cmt values ..."); expose(values)
         -- [[DBG]] print("Cmt, final_si = ", final_si, ", Cmt_si = ", Cmt_si)
         -- [[DBG]] print("SOURCE\n",sbj:sub(Cmt_si-20, Cmt_si+20),"\n/SOURCE")
         if not final_si then 
@@ -396,7 +405,7 @@ compilers["char"] = function (pt, ccache)
     return load(([=[
         local s_byte, s_char = ...
         return function(sbj, si, caps, ci, state)
-             -- [[DBG]] print("Char "..s_char(__C0__).." ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("Char "..s_char(__C0__).." ", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
             local c, nsi = s_byte(sbj, si), si + 1
             if c ~= __C0__ then
                 return false, si, ci
@@ -438,10 +447,10 @@ end
 
 local
 function onecompiled (sbj, si, caps, ci, state)
-     -- [[DBG]] print("One     ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-    local char, nsi = s_byte(sbj, si), si + 1
+    -- [[DBG]] print("One", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
+    local char, _ = s_byte(sbj, si), si + 1
     if char
-    then return true, nsi, ci
+    then return true, si + 1, ci
     else return false, si, ci end
 end
 
@@ -454,31 +463,16 @@ compilers["any"] = function (pt)
     local N = pt.aux
     if N == 1 then
         return onecompiled
-    elseif not charset.binary then
-        return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("Any UTF-8",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-            local n, c, nsi = N
-            while n > 0 do
-                c, nsi = s_byte(sbj, si), si + 1
-                if not c then
-                     -- [[DBG]] print("%FAny    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-                    return false, si, ci
-                end
-                n = n -1
-            end
-             -- [[DBG]] print("%SAny    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
-            return true, nsi, ci
-        end
-    else -- version optimized for byte-width encodings.
+    else
         N = pt.aux - 1
         return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("Any byte",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("Any", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
             local n = si + N
             if n <= #sbj then
-                -- [[DBG]] print("%SAny    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+                -- [[DBG]] print("/Any success", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
                 return true, n + 1, ci
             else
-                 -- [[DBG]] print("%FAny    ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+                -- [[DBG]] print("/Any fail", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
                 return false, si, ci
             end
         end
@@ -574,9 +568,10 @@ end
 
 -- Unroll the loop using a template:
 local choice_tpl = [=[
+             -- [[DBG]] print("Choice XXXX, si = ", si, ", ci = ", ci)
             success, si, ci = XXXX(sbj, si, caps, ci, state)
+             -- [[DBG]] print("/Choice XXXX, si = ", si, ", ci = ", ci, ", success = ", success)
             if success then
-                 -- [[DBG]] print("%SChoice   ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
                 return true, si, ci
             else
                 clear_captures(aux, ci)
@@ -594,11 +589,11 @@ compilers["choice"] = function (pt, ccache)
     local compiled = t_concat{
         "local ", t_concat(names, ", "), [=[ = ...
         return function (sbj, si, caps, ci, state)
-             -- [[DBG]] print("Choice   ",caps, caps and caps.kind[ci] or "'nil'", ci, si, state) --, sbj)
+             -- [[DBG]] print("Choice   ", caps and caps.kind[ci-1] or "'nil'", ci, si) --, sbj)
             local aux, success = caps.aux, false
             ]=],
-            t_concat(chunks,"\n"),[=[
-             -- [[DBG]] print("%FChoice   ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            t_concat(chunks,"\n"),[=[--
+             -- [[DBG]] print("/Choice ", ", si = "..si, ", ci = "..ci, sbj:sub(1, si-1)) --, sbj)
             return false, si, ci
         end]=]
     }
@@ -611,7 +606,7 @@ end
 local sequence_tpl = [=[
             -- [[DBG]] print("Seq XXXX , si = ",si, ", ci = ", ci)
             success, si, ci = XXXX(sbj, si, caps, ci, state)
-            -- [[DBG]] print("/Seq XXXX , si = ",si, ", ci = ", ci)
+            -- [[DBG]] print("/Seq XXXX , si = ",si, ", ci = ", ci, ", success = ", success)
             if not success then
                 clear_captures(caps.aux, ref_ci)
                 return false, ref_si, ref_ci
@@ -632,7 +627,7 @@ compilers["sequence"] = function (pt, ccache)
         "local ", t_concat(names, ", "), [=[ = ...
         return function (sbj, si, caps, ci, state)
             local ref_si, ref_ci, success = si, ci
-            -- [[DBG]] print("Sequence , si = ",si, ", ci = ", ci)
+             -- [[DBG]] print("Sequence ", caps and caps.kind[ci-1] or "'nil'", ci, si) --, sbj)
             ]=],
             t_concat(chunks,"\n"),[=[
             return true, si, ci
@@ -664,40 +659,53 @@ compilers["at least"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
     if n == 0 then
         return function (sbj, si, caps, ci, state)
-            -- [[DBG]] print("At least 0 ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("Rep  0", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
+            local last_si, last_ci
             while true do
                 local success
-                -- [[DBG]] print("    rep "..N,caps, caps and caps.kind or "'nil'", ci, si, state)
+                -- [[DBG]] print(" rep  0", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
                 -- [[DBG]] N=N+1
+                last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
                 if not success then                     
+                    si, ci = last_si, last_ci
                     break
                 end
             end
+            -- [[DBG]] print("/rep  0", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
             clear_captures(caps.aux, ci)
             return true, si, ci
         end
     elseif n == 1 then
         return function (sbj, si, caps, ci, state)
             -- [[DBG]] print("At least 1 ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            local last_si, last_ci
             local success = true
+            -- [[DBG]] print("Rep  1", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci)
             success, si, ci = matcher(sbj, si, caps, ci, state)
             if not success then
                 clear_captures(caps.aux, ci)
                 return false, si, ci
             end
-            -- [[DBG]] local N = 1
-            while success do
-                -- [[DBG]] ("    rep "..N,caps, caps and caps.kind or "'nil'", ci, si, state)
+            while true do
+                local success
+                -- [[DBG]] print(" rep  1", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
                 -- [[DBG]] N=N+1
+                last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then                     
+                    si, ci = last_si, last_ci
+                    break
+                end
             end
+            -- [[DBG]] print("/rep  1", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
             clear_captures(caps.aux, ci)
             return true, si, ci
         end
     else
         return function (sbj, si, caps, ci, state)
-            -- [[DBG]] print("At least "..n.." ",caps, caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            -- [[DBG]] print("At least "..n.." ", caps and caps.kind or "'nil'", ci, si, state) --, sbj)
+            local last_si, last_ci
             local success = true
             for _ = 1, n do
                 success, si, ci = matcher(sbj, si, caps, ci, state)
@@ -706,12 +714,17 @@ compilers["at least"] = function (pt, ccache)
                     return false, si, ci
                 end
             end
-            -- [[DBG]] local N = 1
-            while success do
-                -- [[DBG]] print("    rep "..N,caps, caps and caps.kind or "'nil'", ci, si, state)
-                -- [[DBG]] N=N+1
+            while true do
+                local success
+                -- [[DBG]] print(" rep  "..n, caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
+                last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then                     
+                    si, ci = last_si, last_ci
+                    break
+                end
             end
+            -- [[DBG]] print("/rep  "..n, caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
             clear_captures(caps.aux, ci)
             return true, si, ci
         end
@@ -727,7 +740,7 @@ compilers["unm"] = function (pt, ccache)
     return function (sbj, si, caps, ci, state)
          -- [[DBG]] print("Unm     ", caps, caps and caps.kind or "'nil'", ci, si, state)
         -- Throw captures away
-        local success, _, _ = matcher(sbj, si, caps, 1, state)
+        local success, _, _ = matcher(sbj, si, caps, ci, state)
         clear_captures(caps.aux, ci)
         return not success, si, ci
     end
@@ -736,10 +749,10 @@ end
 compilers["lookahead"] = function (pt, ccache)
     local matcher = compile(pt.pattern, ccache)
     return function (sbj, si, caps, ci, state)
-         -- [[DBG]] print("Lookahead", caps, caps and caps.kind or "'nil'", si, ci, state)
+        -- [[DBG]] print("Look ", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
         -- Throw captures away
-        local success, _, _ = matcher(sbj, si, caps, 1, state)
-         -- [[DBG]] print("%Lookahead", caps, caps and caps.kind or "'nil'", si, ci, state)
+        local success, _, _ = matcher(sbj, si, caps, ci, state)
+         -- [[DBG]] print("Look, success = ", success, sbj:sub(1, si - 1))
          clear_captures(caps.aux, ci)
         return success, si, ci
     end

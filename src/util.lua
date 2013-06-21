@@ -200,7 +200,7 @@ function val_to_str_ ( v, acc, indent, str_indent )
             cdata_to_str( v, acc, indent )
     elseif "table" == type(v) then
         if t_cache[v] then
-            acc[#acc+1] = t_cache[t]
+            acc[#acc+1] = t_cache[v]
         else
             t_cache[v] = tostring( v )
             table_tostring( v, acc, indent )

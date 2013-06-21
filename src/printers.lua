@@ -159,14 +159,19 @@ end
 local cprinters = {}
 
 local padding = "   "
+local function padnum(n)
+    n = tostring(n)
+    n = n .."."..((" "):rep(4 - #n))
+    return n
+end
 
-local function _cprint(caps, ci, indent, sbj)
+local function _cprint(caps, ci, indent, sbj, n)
     local openclose, kind = caps.openclose, caps.kind
     indent = indent or 0
     while kind[ci] and openclose[ci] >= 0 do
-
         if caps.openclose[ci] > 0 then 
             print(t_concat({
+                            padnum(n),
                             padding:rep(indent),
                             caps.kind[ci],
                             ": start = ", caps.bounds[ci],
@@ -184,6 +189,7 @@ local function _cprint(caps, ci, indent, sbj)
             local kind = caps.kind[ci]
             local start = caps.bounds[ci]
             print(t_concat({
+                            padnum(n),
                             padding:rep(indent), kind,
                             ": start = ", start,
                             caps.aux[ci] and " aux = " or "",
@@ -193,103 +199,33 @@ local function _cprint(caps, ci, indent, sbj)
                                 or tostring(caps.aux[ci])
                             ) or ""
                         }))
-            ci = _cprint(caps, ci + 1, indent + 1, sbj)
+            ci, n = _cprint(caps, ci + 1, indent + 1, sbj, n + 1)
             print(t_concat({
+                            padnum(n),
                             padding:rep(indent),
                             "/", kind,
                             " finish = ", caps.bounds[ci],
                             " \t", s_sub(sbj, start, (caps.bounds[ci] or 1) - 1)
                         }))
         end
+        n = n + 1
         ci = ci + 1
     end
 
-    return ci
+    return ci, n
 end
 
 function LL.cprint (caps, ci, sbj)
     ci = ci or 1
     print"\nCapture Printer:\n================"
     -- print(capture)
-    --[[DBG]] expose(caps)
-    _cprint(caps, ci, 0, sbj)
+    -- [[DBG]] expose(caps)
+    _cprint(caps, ci, 0, sbj, 1)
     print"================\n/Cprinter\n"
 end
 
 
 
-cprinters["backref"] = function (capture, offset, prefix)
-    print(offset..prefix.."Back: start = "..capture.start)
-    cprinters[capture.ref.type](capture.ref, offset.."   ")
-end
-
--- cprinters["string"] = function (capture, offset, prefix)
---     print(offset..prefix.."String: start = "..capture.start..", finish = "..capture.finish)
--- end
-cprinters["value"] = function (capture, offset, prefix)
-    print(offset..prefix.."Value: start = "..capture.start..", value = "..tostring(capture.value))
-end
-
-cprinters["values"] = function (capture, offset, prefix)
-    -- expose(capture)
-    print(offset..prefix.."Values: start = "..capture.start..", values = ")
-    for _, c in pairs(capture.values) do
-        print(offset.."   "..tostring(c))
-    end
-end
-
-cprinters["insert"] = function (capture, offset, prefix)
-    print(offset..prefix.."insert n="..capture.n)
-    for i, subcap in ipairs(capture) do
-        -- dprint("insertPrinter", subcap.type)
-        cprinters[subcap.type](subcap, offset.."|  ", i..". ")
-    end
-
-end
-
-for _, capname in ipairs{
-    "Cf", "Cg", "tag","C", "Cs",
-    "div_string", "div_number", "div_table", "div_function"
-} do
-    cprinters[capname] = function (capture, offset, prefix)
-        local message = offset..prefix..capname
-            ..": start = "..capture.start
-            ..", finish = "..capture.finish
-            ..(capture.Clb and " tag = "..capture.Clb or "")
-        if capture.aux then
-            message = message .. ", aux = ".. tostring(capture.aux)
-        end
-        print(message)
-        for i, subcap in ipairs(capture) do
-            cprinters[subcap.type](subcap, offset.."   ", i..". ")
-        end
-
-    end
-end
-
-
-cprinters["Ct"] = function (capture, offset, prefix)
-    local message = offset..prefix.."Ct: start = "..capture.start ..", finish = "..capture.finish
-    if capture.aux then
-        message = message .. ", aux = ".. tostring(capture.aux)
-    end
-    print(message)
-    for i, subcap in ipairs(capture) do
-        -- print ("Subcap type",subcap.type)
-        cprinters[subcap.type](subcap, offset.."   ", i..". ")
-    end
-    for k,v in pairs(capture.hash or {}) do
-        print(offset.."   "..k, "=", v)
-        expose(v)
-    end
-
-end
-
-cprinters["Cb"] = function (capture, offset, prefix)
-    print(offset..prefix.."Cb: tag = "
-        ..(type(capture.tag)~="string" and tostring(capture.tag) or "\""..capture.tag.."\"")
-        )
-end
 
 return { pprint = LL.pprint,cprint = LL.cprint }
 

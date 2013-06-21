@@ -11,7 +11,8 @@ local s_sub, t_concat
 local t_unpack
     = u.unpack
 
---[[DBG]] local error, print, expose = error, print, u.expose
+--[[DBG]] local debug, rawset, setmetatable, error, print, expose 
+--[[DBG]]     = debug, rawset, setmetatable, error, print, u.expose
 
 
 local _ENV = u.noglobals() ----------------------------------------------------
@@ -34,21 +35,12 @@ local eval = {}
 
 local
 function insert (caps, sbj, vals, ci, vi)
-    -- print("Insert", capture.start, capture.finish)
     local openclose, kind = caps.openclose, caps.kind
+    -- [[DBG]] print("Insert - kind = ", kind[ci])
     while kind[ci] and openclose[ci] >= 0 do
+        -- [[DBG]] print("Eval, Pre Insert, kind:", kind[ci], ci)
         ci, vi = eval[kind[ci]](caps, sbj, vals, ci, vi)
-    end
-
-    return ci, vi
-end
-
-local
-function insertone (caps, sbj, vals, ci, vi)
-    -- print("Insert", capture.start, capture.finish)
-    local kind = caps.kind
-    while kind[ci] and openclose[ci] >= 0 do
-        ci, vi = eval[kind[i]](caps, sbj, vals, ci, vi)
+        -- [[DBG]] print("Eval, Post Insert, kind:", kind[ci], ci)
     end
 
     return ci, vi
@@ -67,20 +59,128 @@ function eval.C (caps, sbj, vals, ci, vi)
 end
 
 
-function eval.Cg (caps, sbj, vals, ci, vi)
+local
+function lookback (caps, label, ci)
+    -- [[DBG]] print"lookback()"; expose(caps)
+    local aux, openclose, kind, found, oc
+    repeat
+        aux, openclose, kind = caps.aux, caps.openclose, caps.kind
+        repeat 
+            ci = ci - 1
+            -- [[DBG]] print("Lookback kind: ", kind[ci], ci, openclose[ci] < 0)
+            oc = openclose[ci]
+            if oc < 0 then
+                if kind[ci] == "Clb" and label == aux[ci] then
+                    ci = ci + oc
+                    found = true
+                    break
+                end
+                ci = ci + oc
+            end
+        until ci == 1
+
+        if found then break end
+
+    until not caps
+
+    if found then
+        return ci
+    else
+        label = type(label) == "string" and "'"..label.."'" or tostring(label)
+        error("back reference "..label.." not found")
+    end
+end
+
+function eval.Cb (caps, sbj, vals, ci, vi)
+    -- [[DBG]] print("Eval Cb, ci = "..ci)
+    local Cb_ci = lookback(caps, caps.aux[ci], ci)
+    -- [[DBG]] print(" Eval Cb, Cb_ci = "..Cb_ci)
+    Cb_ci, vi = eval.Cg(caps, sbj, vals, Cb_ci, vi)
+    -- [[DBG]] print("/Eval Cb next kind, ", caps.kind[ci + 1], "Values = ..."); expose(vals)
+
+    return ci + 1, vi
+end
+
+
+function eval.Cc (caps, sbj, vals, ci, vi)
+    local these_values = caps.aux[ci]
+    -- [[DBG]] print"Eval Cc"; expose(these_values)
+    for i = 1, these_values.n do
+        vi, vals[vi] = vi + 1, these_values[i]
+    end
+    return ci + 1, vi
+end
+
+
+
+eval["Cf"] = function() error("NYI: Cf") end
+
+function eval.Cf (caps, sbj, vals, ci, vi)
     if caps.openclose[ci] > 0 then
+        error"No First Value"
+    end
+
+    local func, Cf_vals, Cf_vi = caps.aux[ci], {}
+    ci = ci + 1
+    ci, Cf_vi = eval[caps.kind[ci]](caps, sbj, Cf_vals, ci, 1)
+
+    if Cf_vi == 1 then
+        error"No first value"
+    end
+
+    local result = Cf_vals[1]
+
+    while caps.kind[ci] and caps.openclose[ci] >= 0 do
+        ci, Cf_vi = eval[caps.kind[ci]](caps, sbj, Cf_vals, ci, 1)
+        result = func(result, t_unpack(Cf_vals, 1, Cf_vi - 1))
+    end
+    vals[vi] = result
+    return ci +1, vi + 1
+end
+
+
+
+function eval.Cg (caps, sbj, vals, ci, vi)
+    -- [[DBG]] print("Gc - caps", ci, caps.openclose[ci]) expose(caps)
+    if caps.openclose[ci] > 0 then
+        -- [[DBG]] print("Cg - closed")
         vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
         return ci + 1, vi + 1
     end
+        -- [[DBG]] print("Cg - open ci = ", ci)
 
     local cj, vj = insert(caps, sbj, vals, ci + 1, vi)
+    if vj == vi then 
+        -- [[DBG]] print("Cg - no inner values")        
+        vals[vj] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
+        vj = vj + 1
+    end
     return cj + 1, vj
 end
 
 
 function eval.Clb (caps, sbj, vals, ci, vi)
-    return ci + 1, vi
+    local oc = caps.openclose
+    if oc[ci] > 0 then
+        return ci + 1, vi 
+    end
+
+    local depth = 0
+    repeat
+        if oc[ci] == 0 then depth = depth + 1
+        elseif oc[ci] < 0 then depth = depth - 1
+        end
+        ci = ci + 1
+    until depth == 0
+    return ci, vi
 end
+
+
+function eval.Cp (caps, sbj, vals, ci, vi)
+    vals[vi] = caps.bounds[ci]
+    return ci + 1, vi + 1
+end
+
 
 function eval.Ct (caps, sbj, vals, ci, vi)
     local aux, openclose, kind = caps. aux, caps.openclose, caps.kind
@@ -112,60 +212,13 @@ function eval.value (caps, sbj, vals, ci, vi)
     local val 
     -- nils are encoded as inf in both aux and openclose.
     if caps.aux[vi] ~= inf and caps.openclose[vi] ~= inf
-        then val = caps.aux[vi]
+        then val = caps.aux[ci]
+        -- [[DBG]] print("Eval value = ", val)
     end
     vals[vi] = val
     return ci + 1, vi + 1
 end
 
-
-function eval.Cc (caps, sbj, vals, ci, vi)
-    local these_values = caps.aux[ci]
-    -- [[DBG]] print"Eval Cc"; expose(these_values)
-    for i = 1, these_values.n do
-        vi, vals[vi] = vi + 1, these_values[i]
-    end
-    return ci + 1, vi
-end
-
-
-function eval.Cp (caps, sbj, vals, ci, vi)
-    vals[vi] = caps.bounds[ci]
-    return ci + 1, vi + 1
-end
-
-
-local
-function lookback (caps, label, ci)
-    --[[DBG]] print"lookback()"; expose(caps)
-    local aux, openclose, kind, found, oc
-    repeat
-        aux, openclose, kind = caps.aux, caps.openclose, caps.kind
-        repeat 
-            ci = ci - 1
-            oc = openclose[ci]
-            if oc < 0 then ci = ci + oc end -- a closing 
-            if kind[ci] == "Clabel" and label == aux[ci] then found = true; break end
-        until ci == 1
-
-        if found then break end
-        caps, ci = caps.parent, caps.parent_i
-
-    until not caps
-
-    if found then
-        return caps, ci
-    else
-        label = type(label) == "string" and "'"..label.."'" or tostring(label)
-        error("back reference "..label.." not found")
-    end
-end
-
- function eval.Cb (caps, sbj, vals, ci, vi)
-    local Cb_caps, Cb_ci = lookback(caps, caps.aux[ci], ci)
-    Cb_ci, vi = eval.Cg(Cb_caps, sbj, vals, Cb_ci, vi)
-    return ci + 1, vi
-end
 
 function eval.Cs (caps, sbj, vals, ci, vi)
     if caps.openclose[ci] > 0 then
@@ -219,7 +272,7 @@ function eval.div_function (caps, sbj, vals, ci, vi)
     if caps.openclose[ci] > 0 then
         params, divF_vi = {s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)}, 2
     else
-        divF_vals = {}
+        params = {}
         ci, divF_vi = insert(caps, sbj, params, ci + 1, 1)
     end
 
@@ -248,35 +301,43 @@ end
 
 
 local function div_str_cap_refs (caps, ci)
-    local openclose, refs, depth = caps.openclose, {open=caps.bounds[ci]}, 0
-    if openclose[ci] > 0 then 
-        refs.close = openclose[ci]
-        ci = ci + 1
-        return ci, refs
+    local oc = caps.openclose
+    local refs = {open=caps.bounds[ci]}
+
+    if oc[ci] > 0 then
+        refs.close = oc[ci]
+        return ci, refs, 0
     end
+
+    local first_ci = ci
+    local depth = 1
     ci = ci + 1
-    while openclose[ci] < 0 or depth > 0 do
-        if openclose[ci] < 0 then
-            depth = depth - 1
-        else
+    repeat
+        local n = oc[ci]
+        if n == 0 then 
+            depth = depth + 1
             refs[#refs+1] = ci
-            if openclose[ci] == 0 then
-                depth = depth + 1
-                ci = ci + 1
-            end
+        elseif n > 0 then 
+            refs[#refs+1] = ci
+        else
+            depth = depth - 1
         end
         ci = ci + 1
-    end
+    until depth == 0
+
     refs.close = caps.bounds[ci]
-    return ci, refs
+    return ci, refs, ci - first_ci
 end
 
 function eval.div_string (caps, sbj, vals, ci, vi)
     -- print("div_string", capture.start, capture.finish)
-    local cached, n, refs
-    local the_string, divS_vals = caps.aux[ci], {}
-    ci, refs = div_str_cap_refs(caps, ci)
-    n = #refs
+    local n, refs
+    local cached
+    local cached, divS_vals = {}, {}
+    local the_string = caps.aux[ci]
+
+    ci, refs, n = div_str_cap_refs(caps, ci)
+
     vals[vi] = the_string:gsub("%%([%d%%])", function (d)
         if d == "%" then return "%" end
         d = tonumber(d)
@@ -285,16 +346,16 @@ function eval.div_string (caps, sbj, vals, ci, vi)
                 error("no capture at index "..d.." in /string capture.")
             end
             if d == 0 then
-                cached[d] = s_sub(subject, refs.open, refs.close)
+                cached[d] = s_sub(sbj, refs.open, refs.close)
             else
-                local _, vi = eval[kind[refs[d]]](caps, sbj, divS_vals, refs[d], 1)
+                local _, vi = eval[caps.kind[refs[d]]](caps, sbj, divS_vals, refs[d], 1)
                 if vi == 1 then error("no values in capture at index"..d.." in /string capture.") end
                 cached[d] = divS_vals[1]
             end
         end
         return cached[d]
     end)
-    return ci, vi + 1
+    return ci + 1, vi + 1
 end
 
 
@@ -322,43 +383,16 @@ end
 
 
 function LL.evaluate (caps, sbj, ci)
-    -- [[DBG]] print("*** Eval", caps, sbj)
+    -- [[DBG]] print("*** Eval", caps, sbj, ci)
     -- [[DBG]] expose(caps)
-    -- [[DBG]] cprint(caps)
+    -- [[DBG]] cprint(caps, 1, sbj)
     local vals = {}
+    -- [[DBG]] vals = setmetatable({}, {__newindex = function(self, k,v) 
+    -- [[DBG]]     print("set Val, ", k, v, debug.traceback(1)) rawset(self, k, v) 
+    -- [[DBG]] end})
     local _,  vi = insert(caps, sbj, vals, ci, 1)
     return vals, 1, vi
 end
-
----
-
-eval["Cf"] = function() error("NYI: Cf") end
-
-local _ = function (capture, subject, acc, vi)
-    if capture.n == 0 then
-        error"No First Value"
-    end
-
-    local func, fold_acc, first_vi = capture.aux, {}
-    first_vi = eval[capture[1].kind](capture[1], subject, fold_acc, 1)
-
-    if first_vi == 1 then
-        error"No first value"
-    end
-
-    local result = fold_acc[1]
-
-    for i = 2, capture.n - 1 do
-        local fold_acc2 = {}
-        local vi = eval[capture[i].kind](capture[i], subject, fold_acc2, 1)
-        result = func(result, t_unpack(fold_acc2, 1, vi - 1))
-    end
-    acc[vi] = result
-    return vi + 1
-end
-
-
-
 
 
 end  -- Decorator wrapper

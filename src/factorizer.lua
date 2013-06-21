@@ -1,7 +1,7 @@
 local ipairs, pairs, print, setmetatable
     = ipairs, pairs, print, setmetatable
 
---[[DBG]] local debug = require "debug"
+--[[DBG]] local debug, error, type = require "debug", error, type
 local u = require"util"
 
 local   id,   setify,   arrayify
@@ -72,6 +72,7 @@ end
 local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
 function flatten(typ, ary)
     local acc = {}
+    --[[DBG]] if type(ary) == "userdata" then LL.pprint(ary) error"" end
     for _, p in ipairs(ary) do
         -- [[DBG]] print("flatten")
         -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"LL.pprint(p) end
@@ -210,7 +211,10 @@ setmetatable(seq_optimize, {
 
 local
 function sequence(a, b, ...)
-    -- [[DP]] print("Factorize Sequence")
+    --[[DBG]] print("Factorize Sequence", a, b, ...)
+    --[[DBG]] if LL.ispattern(a) then print("Factorize Seq a"); LL.pprint(a) end
+    --[[DBG]] if LL.ispattern(b) then print("Factorize Seq b"); LL.pprint(b) end
+    print(debug.traceback(1))
     -- A few optimizations:
     -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
     local seq1
