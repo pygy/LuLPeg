@@ -174,8 +174,8 @@ local function _cprint(caps, ci, indent, sbj, n)
                             padnum(n),
                             padding:rep(indent),
                             caps.kind[ci],
-                            ": start = ", caps.bounds[ci],
-                            " finish = ", caps.openclose[ci],
+                            ": start = ", tostring(caps.bounds[ci]),
+                            " finish = ", tostring(caps.openclose[ci]),
                             caps.aux[ci] and " aux = " or "",
                             caps.aux[ci] and (
                                 type(caps.aux[ci]) == "string" 
@@ -204,7 +204,7 @@ local function _cprint(caps, ci, indent, sbj, n)
                             padnum(n),
                             padding:rep(indent),
                             "/", kind,
-                            " finish = ", caps.bounds[ci],
+                            " finish = ", tostring(caps.bounds[ci]),
                             " \t", s_sub(sbj, start, (caps.bounds[ci] or 1) - 1)
                         }))
         end

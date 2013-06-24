@@ -61,34 +61,24 @@ end
 
 local
 function lookback (caps, label, ci)
-    -- [[DBG]] print"lookback()"; expose(caps)
-    local aux, openclose, kind, found, oc
+    -- [[DBG]] print("lookback( "..tostring(label).." ), ci = "..ci) --.." ..."); --expose(caps)
+    -- [[DBG]] if ci == 9 then error() end
+    local aux, openclose, kind= caps.aux, caps.openclose, caps.kind
+
     repeat
-        aux, openclose, kind = caps.aux, caps.openclose, caps.kind
-        repeat 
-            ci = ci - 1
-            -- [[DBG]] print("Lookback kind: ", kind[ci], ci, openclose[ci] < 0)
-            oc = openclose[ci]
-            if oc < 0 then
-                if kind[ci] == "Clb" and label == aux[ci] then
-                    ci = ci + oc
-                    found = true
-                    break
-                end
-                ci = ci + oc
-            end
-        until ci == 1
+        -- [[DBG]] print("Lookback kind: ", kind[ci], ", ci = "..ci, "oc[ci] = ", openclose[ci], "aux[ci] = ", aux[ci])
+        ci = ci - 1
+        local auxv, oc = aux[ci], openclose[ci]
+        if oc < 0 then ci = ci + oc end
+        if oc ~= 0 and kind[ci] == "Clb" and label == auxv then
+            -- found.
+            return ci
+        end
+    until ci == 1
 
-        if found then break end
-
-    until not caps
-
-    if found then
-        return ci
-    else
-        label = type(label) == "string" and "'"..label.."'" or tostring(label)
-        error("back reference "..label.." not found")
-    end
+    -- not found.
+    label = type(label) == "string" and "'"..label.."'" or tostring(label)
+    error("back reference "..label.." not found")
 end
 
 function eval.Cb (caps, sbj, vals, ci, vi)
@@ -211,16 +201,18 @@ local inf = 1/0
 function eval.value (caps, sbj, vals, ci, vi)
     local val 
     -- nils are encoded as inf in both aux and openclose.
-    if caps.aux[vi] ~= inf and caps.openclose[vi] ~= inf
+    if caps.aux[ci] ~= inf or caps.openclose[ci] ~= inf
         then val = caps.aux[ci]
         -- [[DBG]] print("Eval value = ", val)
     end
+
     vals[vi] = val
     return ci + 1, vi + 1
 end
 
 
 function eval.Cs (caps, sbj, vals, ci, vi)
+    -- [[DBG]] print("Eval Cs - ci = "..ci..", vi = "..vi)
     if caps.openclose[ci] > 0 then
         vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
     else
@@ -231,12 +223,16 @@ function eval.Cs (caps, sbj, vals, ci, vi)
         -- [[DBG]] print"eval.CS, openclose: "; expose(openclose)
         -- [[DBG]] print("eval.CS, ci =", ci)
         while openclose[ci] >= 0 do
+            -- [[DBG]] print(" eval Cs - ci = "..ci..", bi = "..bi.." - LOOP - Buffer = ...")
+            -- [[DBG]] u.expose(buffer)
+            -- [[DBG]] print(" eval - Cs kind = "..kind[ci])
+
             last = bounds[ci]
             buffer[bi] = s_sub(sbj, start, last - 1)
             bi = bi + 1
 
             ci, Cs_vi = eval[kind[ci]](caps, sbj, Cs_vals, ci, 1)
-
+            -- [[DBG]] print("  Cs post eval ci = "..ci..", Cs_vi = "..Cs_vi)
             if Cs_vi > 1 then
                 buffer[bi] = Cs_vals[1]
                 bi = bi + 1
@@ -247,10 +243,11 @@ function eval.Cs (caps, sbj, vals, ci, vi)
 
         -- [[DBG]] print("eval.CS while, ci =", ci)
         end
-        buffer[bi] = s_sub(sbj, start, bounds[ci])
+        buffer[bi] = s_sub(sbj, start, bounds[ci] - 1)
 
         vals[vi] = t_concat(buffer)
     end
+    -- [[DBG]] print("/Eval Cs - ci = "..ci..", vi = "..vi)
 
     return ci + 1, vi + 1
 end
@@ -306,7 +303,7 @@ local function div_str_cap_refs (caps, ci)
 
     if oc[ci] > 0 then
         refs.close = oc[ci]
-        return ci, refs, 0
+        return ci + 1, refs, 0
     end
 
     local first_ci = ci
@@ -324,19 +321,23 @@ local function div_str_cap_refs (caps, ci)
         end
         ci = ci + 1
     until depth == 0
-
-    refs.close = caps.bounds[ci]
-    return ci, refs, ci - first_ci
+    -- [[DBG]] print("/''refs", ci, ci - first_ci)
+    -- [[DBG]] expose(refs)
+    -- [[DBG]] print"caps"
+    -- [[DBG]] expose(caps)
+    refs.close = caps.bounds[ci - 1]
+    return ci, refs, #refs
 end
 
 function eval.div_string (caps, sbj, vals, ci, vi)
-    -- print("div_string", capture.start, capture.finish)
+    -- [[DBG]] print("div_string ci = "..ci..", vi = "..vi )
     local n, refs
     local cached
     local cached, divS_vals = {}, {}
     local the_string = caps.aux[ci]
 
     ci, refs, n = div_str_cap_refs(caps, ci)
+    -- [[DBG]] print("  REFS div_string ci = "..ci..", n = ", n)
 
     vals[vi] = the_string:gsub("%%([%d%%])", function (d)
         if d == "%" then return "%" end
@@ -346,7 +347,7 @@ function eval.div_string (caps, sbj, vals, ci, vi)
                 error("no capture at index "..d.." in /string capture.")
             end
             if d == 0 then
-                cached[d] = s_sub(sbj, refs.open, refs.close)
+                cached[d] = s_sub(sbj, refs.open, refs.close - 1)
             else
                 local _, vi = eval[caps.kind[refs[d]]](caps, sbj, divS_vals, refs[d], 1)
                 if vi == 1 then error("no values in capture at index"..d.." in /string capture.") end
@@ -355,11 +356,14 @@ function eval.div_string (caps, sbj, vals, ci, vi)
         end
         return cached[d]
     end)
-    return ci + 1, vi + 1
+    -- [[DBG]] u.expose(vals)
+    -- [[DBG]] print("/div_string ci = "..ci..", vi = "..vi )
+    return ci, vi + 1
 end
 
 
 function eval.div_table (caps, sbj, vals, ci, vi)
+    -- [[DBG]] print("Div_table ci = "..ci..", vi = "..vi )
     local this_aux = caps.aux[ci]
     local key
 
@@ -372,7 +376,11 @@ function eval.div_table (caps, sbj, vals, ci, vi)
     end
 
     ci = ci + 1
+    -- [[DBG]] print("/div_table ci = "..ci..", vi = "..vi )
+    -- [[DBG]] print(type(key), key, "...")
+    -- [[DBG]] expose(this_aux)
     if this_aux[key] then
+        -- [[DBG]] print("/{} success")
         vals[vi] = this_aux[key]
         return ci, vi + 1
     else
@@ -391,7 +399,7 @@ function LL.evaluate (caps, sbj, ci)
     -- [[DBG]]     print("set Val, ", k, v, debug.traceback(1)) rawset(self, k, v) 
     -- [[DBG]] end})
     local _,  vi = insert(caps, sbj, vals, ci, 1)
-    return vals, 1, vi
+    return vals, 1, vi - 1
 end
 
 
