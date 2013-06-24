@@ -98,7 +98,7 @@ local function newcaps()
         kind = {}, 
         bounds = {},
         openclose = {},
-        aux = --[[DBG]] dbgcaps
+        aux = -- [[DBG]] dbgcaps
             {}
     }
 end
@@ -145,7 +145,7 @@ function _match(dbg, pt, sbj, si, ...)
             if dbg then -------------
             print("trimmed cap index = ", #caps + 1)
             -- expose(caps)
-            LL.cprint(caps, 1, sbj)
+            LL.cprint(caps, sbj, 1)
             end ---------------------
 
         local values, _, vi = LL_evaluate(caps, sbj, 1, 1)
@@ -346,7 +346,7 @@ compilers["Cmt"] = function (pt, ccache)
         if not final_si then 
             -- [[DBG]] print("/Cmt No return", ".....",  (" +"..mt.."- "..n):rep(12))
             -- [[DBG]] n = n - 1
-            clear_captures(caps.aux, ci)
+            -- clear_captures(caps.aux, ci)
             -- [[DBG]] expose(caps)
             return false, si, ci
         end
@@ -593,7 +593,7 @@ local choice_tpl = [=[
             if success then
                 return true, si, ci
             else
-                clear_captures(aux, ci)
+                --clear_captures(aux, ci)
             end]=]
 compilers["choice"] = function (pt, ccache)
     local choices, n = map(pt.aux, compile, ccache), #pt.aux
@@ -627,7 +627,7 @@ local sequence_tpl = [=[
             success, si, ci = XXXX(sbj, si, caps, ci, state)
             -- [[DBG]] print(" /Seq XXXX , si = ",si, ", ci = ", ci, ", success = ", success)
             if not success then
-                clear_captures(caps.aux, ref_ci)
+                -- clear_captures(caps.aux, ref_ci)
                 return false, ref_si, ref_ci
             end]=]
 compilers["sequence"] = function (pt, ccache)
@@ -667,7 +667,7 @@ compilers["at most"] = function (pt, ccache)
         for i = 1, n do
             success, si, ci = matcher(sbj, si, caps, ci, state)
             if not success then 
-                clear_captures(caps.aux, ci)
+                -- clear_captures(caps.aux, ci)
                 break
             end
         end
@@ -693,7 +693,7 @@ compilers["at least"] = function (pt, ccache)
                 end
             end
             -- [[DBG]] print("/rep  0", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
-            clear_captures(caps.aux, ci)
+            -- clear_captures(caps.aux, ci)
             return true, si, ci
         end
     elseif n == 1 then
@@ -705,7 +705,7 @@ compilers["at least"] = function (pt, ccache)
             success, si, ci = matcher(sbj, si, caps, ci, state)
             if not success then
             -- [[DBG]] print("/Rep  1 Fail")
-                clear_captures(caps.aux, ci)
+                -- clear_captures(caps.aux, ci)
                 return false, si, ci
             end
             while true do
@@ -720,7 +720,7 @@ compilers["at least"] = function (pt, ccache)
                 end
             end
             -- [[DBG]] print("/rep  1", caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
-            clear_captures(caps.aux, ci)
+             -- clear_captures(caps.aux, ci)
             return true, si, ci
         end
     else
@@ -731,7 +731,7 @@ compilers["at least"] = function (pt, ccache)
             for _ = 1, n do
                 success, si, ci = matcher(sbj, si, caps, ci, state)
                 if not success then
-                    clear_captures(caps.aux, ci)
+                    -- clear_captures(caps.aux, ci)
                     return false, si, ci
                 end
             end
@@ -746,7 +746,7 @@ compilers["at least"] = function (pt, ccache)
                 end
             end
             -- [[DBG]] print("/rep  "..n, caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
-            clear_captures(caps.aux, ci)
+            -- clear_captures(caps.aux, ci)
             return true, si, ci
         end
     end
@@ -762,7 +762,7 @@ compilers["unm"] = function (pt, ccache)
          -- [[DBG]] print("Unm     ", caps, caps and caps.kind or "'nil'", ci, si, state)
         -- Throw captures away
         local success, _, _ = matcher(sbj, si, caps, ci, state)
-        clear_captures(caps.aux, ci)
+        -- clear_captures(caps.aux, ci)
         return not success, si, ci
     end
 end
@@ -774,7 +774,7 @@ compilers["lookahead"] = function (pt, ccache)
         -- Throw captures away
         local success, _, _ = matcher(sbj, si, caps, ci, state)
          -- [[DBG]] print("Look, success = ", success, sbj:sub(1, si - 1))
-         clear_captures(caps.aux, ci)
+         -- clear_captures(caps.aux, ci)
         return success, si, ci
     end
 end

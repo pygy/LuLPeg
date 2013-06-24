@@ -298,11 +298,11 @@ end
 
 
 local function div_str_cap_refs (caps, ci)
-    local oc = caps.openclose
+    local opcl = caps.openclose
     local refs = {open=caps.bounds[ci]}
 
-    if oc[ci] > 0 then
-        refs.close = oc[ci]
+    if opcl[ci] > 0 then
+        refs.close = opcl[ci]
         return ci + 1, refs, 0
     end
 
@@ -310,18 +310,17 @@ local function div_str_cap_refs (caps, ci)
     local depth = 1
     ci = ci + 1
     repeat
-        local n = oc[ci]
-        if n == 0 then 
+        local oc = opcl[ci]
+        -- [[DBG]] print("/''refs", caps.kind[ci], ci, oc, depth)
+        if depth == 1  and oc >= 0 then refs[#refs+1] = ci end
+        if oc == 0 then 
             depth = depth + 1
-            refs[#refs+1] = ci
-        elseif n > 0 then 
-            refs[#refs+1] = ci
-        else
+        elseif oc < 0 then
             depth = depth - 1
         end
         ci = ci + 1
     until depth == 0
-    -- [[DBG]] print("/''refs", ci, ci - first_ci)
+    -- [[DBG]] print("//''refs", ci, ci - first_ci)
     -- [[DBG]] expose(refs)
     -- [[DBG]] print"caps"
     -- [[DBG]] expose(caps)
@@ -337,8 +336,8 @@ function eval.div_string (caps, sbj, vals, ci, vi)
     local the_string = caps.aux[ci]
 
     ci, refs, n = div_str_cap_refs(caps, ci)
-    -- [[DBG]] print("  REFS div_string ci = "..ci..", n = ", n)
-
+    -- [[DBG]] print("  REFS div_string ci = "..ci..", n = ", n, ", refs = ...")
+    -- [[DBG]] expose(refs)
     vals[vi] = the_string:gsub("%%([%d%%])", function (d)
         if d == "%" then return "%" end
         d = tonumber(d)
@@ -393,7 +392,7 @@ end
 function LL.evaluate (caps, sbj, ci)
     -- [[DBG]] print("*** Eval", caps, sbj, ci)
     -- [[DBG]] expose(caps)
-    -- [[DBG]] cprint(caps, 1, sbj)
+    -- [[DBG]] cprint(caps, sbj, ci)
     local vals = {}
     -- [[DBG]] vals = setmetatable({}, {__newindex = function(self, k,v) 
     -- [[DBG]]     print("set Val, ", k, v, debug.traceback(1)) rawset(self, k, v) 
