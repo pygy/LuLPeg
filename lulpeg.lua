@@ -46,14 +46,15 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['compiler'] = function (...)
-local pairs, error, tostring, type
-    = pairs, error, tostring, type
+local assert, error, pairs, rawset, select, setmetatable, tostring, type
+    = assert, error, pairs, rawset, select, setmetatable, tostring, type
 local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ----------------------------------------------------
 local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
     = s.byte, s.sub, t.concat, t.insert, t.remove, u.unpack
 local   load,   map,   map_all, t_pack
     = u.load, u.map, u.map_all, u.pack
+local expose = u.expose
 return function(Builder, LL)
 local evaluate, LL_ispattern =  LL.evaluate, LL.ispattern
 local charset = Builder.charset
@@ -63,7 +64,7 @@ function compile(pt, ccache)
     if not LL_ispattern(pt) then
         error("pattern expected")
     end
-    local typ = pt.ptype
+    local typ = pt.pkind
     if typ == "grammar" then
         ccache = {}
     elseif typ == "ref" or typ == "choice" or typ == "sequence" then
@@ -73,201 +74,262 @@ function compile(pt, ccache)
         return ccache[pt]
     end
     if not pt.compiled then
-        pt.compiled = compilers[pt.ptype](pt, ccache)
+        pt.compiled = compilers[pt.pkind](pt, ccache)
     end
     return pt.compiled
 end
 LL.compile = compile
-for k, v in pairs{
-    ["C"] = "C",
-    ["Cf"] = "Cf",
-    ["Cg"] = "Cg",
-    ["Cs"] = "Cs",
-    ["Ct"] = "Ct",
-    ["/string"] = "/string",
-    ["/table"] = "/table",
-    ["/number"] = "/number",
-    ["/function"] = "/function",
-    ["Ctag"] = "Ctag"
+local
+function clear_captures(ary, ci)
+    for i = ci, #ary do ary[i] = nil end
+end
+local LL_compile, LL_evaluate, LL_P
+    = LL.compile, LL.evaluate, LL.P
+local function computeidex(i, len)
+    if i == 0 or i == 1 or i == nil then return 1
+    elseif type(i) ~= "number" then error"number or nil expected for the stating index"
+    elseif i > 0 then return i > len and len + 1 or i
+    else return len + i < 0 and 1 or len + i + 1
+    end
+end
+local function newcaps()
+    return {
+        kind = {}, 
+        bounds = {},
+        openclose = {},
+        aux = -- [[DBG]] dbgcaps
+            {}
+    }
+end
+local
+function _match(dbg, pt, sbj, si, ...)
+        if dbg then -------------
+            print("@!!! Match !!!@", pt)
+        end ---------------------
+    pt = LL_P(pt)
+    assert(type(sbj) == "string", "string expected for the match subject")
+    si = computeidex(si, #sbj)
+        if dbg then -------------
+            print(("-"):rep(30))
+            print(pt.pkind)
+            LL.pprint(pt)
+        end ---------------------
+    local matcher = compile(pt, {})
+    local caps = newcaps()
+    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}} 
+    local  success, final_si, ci = matcher(sbj, si, caps, 1, matcher_state)
+        if dbg then -------------
+            print("!!! Done Matching !!! success: ", success, 
+                "final position", final_si, "final cap index", ci,
+                "#caps", #caps.openclose)
+        end----------------------
+    if success then
+        clear_captures(caps.kind, ci)
+        clear_captures(caps.aux, ci)
+            if dbg then -------------
+            print("trimmed cap index = ", #caps + 1)
+            LL.cprint(caps, sbj, 1)
+            end ---------------------
+        local values, _, vi = LL_evaluate(caps, sbj, 1, 1)
+            if dbg then -------------
+                print("#values", vi)
+                expose(values)
+            end ---------------------
+        if vi == 0
+        then return final_si
+        else return t_unpack(values, 1, vi) end
+    else
+        if dbg then print("Failed") end
+        return nil
+    end
+end
+function LL.match(...)
+    return _match(false, ...) 
+end
+function LL.dmatch(...)
+    return _match(true, ...) 
+end
+for _, v in pairs{ 
+    "C", "Cf", "Cg", "Cs", "Ct", "Clb",
+    "div_string", "div_table", "div_number", "div_function"
 } do
-    compilers[k] = load(([=[
-    local compile = ...
+    compilers[v] = load(([=[
+    local compile, expose, type, LL = ...
     return function (pt, ccache)
-        local matcher, aux = compile(pt.pattern, ccache), pt.aux
-        return function (subject, index, cap_acc, cap_i, state)
-            local new_acc, nindex, success = {
-                type = "XXXX",
-                start = index,
-                aux = aux,
-                parent = cap_acc,
-                parent_i = cap_i
-            }
-            success, index, new_acc.n
-                = matcher(subject, index, new_acc, 1, state)
+        local matcher, this_aux = compile(pt.pattern, ccache), pt.aux
+        return function (sbj, si, caps, ci, state)
+            local ref_ci = ci
+            local kind, bounds, openclose, aux 
+                = caps.kind, caps.bounds, caps.openclose, caps.aux
+            kind      [ci] = "XXXX"
+            bounds    [ci] = si
+            openclose [ci] = 0
+            caps.aux       [ci] = (this_aux or false)
+            local success
+            success, si, ci
+                = matcher(sbj, si, caps, ci + 1, state)
             if success then
-                new_acc.finish = index
-                cap_acc[cap_i] = new_acc
-                cap_i = cap_i + 1
+                if ci == ref_ci + 1 then
+                    caps.openclose[ref_ci] = si
+                else
+                    kind      [ci] = "XXXX"
+                    bounds    [ci] = si
+                    openclose [ci] = ref_ci - ci
+                    aux       [ci] = this_aux or false
+                    ci = ci + 1
+                end
+            else
+                ci = ci - 1
             end
-            return success, index, cap_i
+            return success, si, ci
         end
-    end]=]):gsub("XXXX", v), k.." compiler")(compile)
+    end]=]):gsub("XXXX", v), v.." compiler")(compile, expose, type, LL)
 end
 compilers["Carg"] = function (pt, ccache)
     local n = pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
+    return function (sbj, si, caps, ci, state)
         if state.args.n < n then error("reference to absent argument #"..n) end
-        cap_acc[cap_i] = {
-            type = "value",
-            value = state.args[n],
-            start = index,
-            finish = index
-        }
-        return true, index, cap_i + 1
+        caps.kind      [ci] = "value"
+        caps.bounds    [ci] = si
+        if state.args[n] == nil then
+            caps.openclose [ci] = 1/0
+            caps.aux       [ci] = 1/0
+        else
+            caps.openclose [ci] = si
+            caps.aux       [ci] = state.args[n]
+        end
+        return true, si, ci + 1
     end
 end
-compilers["Cb"] = function (pt, ccache)
-    local tag = pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        cap_acc[cap_i] = {
-            type = "Cb",
-            start = index,
-            finish = index,
-            parent = cap_acc,
-            parent_i = cap_i,
-            tag = tag
-        }
-        return true, index, cap_i + 1
-    end
-end
-compilers["Cc"] = function (pt, ccache)
-    local values = pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        cap_acc[cap_i] = {
-            type = "values",
-            values = values,
-            start = index,
-            finish = index
-        }
-        return true, index, cap_i + 1
-    end
-end
-compilers["Cp"] = function (pt, ccache)
-    return function (subject, index, cap_acc, cap_i, state)
-        cap_acc[cap_i] = {
-            type = "value",
-            value = index,
-            start = index,
-            finish = index
-        }
-        return true, index, cap_i + 1
-    end
+for _, v in pairs{ 
+    "Cb", "Cc", "Cp"
+} do
+    compilers[v] = load(([=[
+    return function (pt, ccache)
+        local this_aux = pt.aux
+        return function (sbj, si, caps, ci, state)
+            caps.kind      [ci] = "XXXX"
+            caps.bounds    [ci] = si
+            caps.openclose [ci] = si
+            caps.aux       [ci] = this_aux or false
+            return true, si, ci + 1
+        end
+    end]=]):gsub("XXXX", v), v.." compiler")(expose)
 end
 compilers["/zero"] = function (pt, ccache)
     local matcher = compile(pt.pattern, ccache)
-    return function (subject, index, cap_acc, cap_i, state)
-        local success, nindex = matcher(subject, index, {type = "discard"}, 1, state)
-        return success, nindex, cap_i
+    return function (sbj, si, caps, ci, state)
+        local success, nsi = matcher(sbj, si, caps, ci, state)
+        clear_captures(caps.aux, ci)
+        return success, nsi, ci
     end
 end
 local function pack_Cmt_caps(i,...) return i, t_pack(...) end
 compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local tmp_acc = {
-            type = "insert",
-            parent = cap_acc,
-            parent_i = cap_i
-        }
-        local success, nindex, tmp_i = matcher(subject, index, tmp_acc, 1, state)
-        if not success then return false, index, cap_i end
-        local captures, mt_cap_i
-        if tmp_i == 1 then
-            captures, mt_cap_i = {s_sub(subject, index, nindex - 1)}, 2
-        else
-            tmp_acc.n = tmp_i
-            captures, mt_cap_i = evaluate(tmp_acc, subject, nindex)
+    return function (sbj, si, caps, ci, state)
+        local success, Cmt_si, Cmt_ci = matcher(sbj, si, caps, ci, state)
+        if not success then 
+            clear_captures(caps.aux, ci)
+            return false, si, ci
         end
-        local nnindex, values = pack_Cmt_caps(
-            func(subject, nindex, t_unpack(captures, 1, mt_cap_i - 1))
-        )
-        if not nnindex then return false, index, cap_i end
-        if nnindex == true then nnindex = nindex end
-        if type(nnindex) == "number"
-        and index <= nnindex and nnindex <= #subject + 1
+        local final_si, values 
+        if Cmt_ci == ci then
+            final_si, values = pack_Cmt_caps(
+                func(sbj, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
+            )
+        else
+            clear_captures(caps.aux, Cmt_ci)
+            clear_captures(caps.kind, Cmt_ci)
+            local cps, _, nn = evaluate(caps, sbj, ci)
+                        final_si, values = pack_Cmt_caps(
+                func(sbj, Cmt_si, t_unpack(cps, 1, nn))
+            )
+        end
+        if not final_si then 
+            return false, si, ci
+        end
+        if final_si == true then final_si = Cmt_si end
+        if type(final_si) == "number"
+        and si <= final_si 
+        and final_si <= #sbj + 1 
         then
-            if #values > 0 then
-                cap_acc[cap_i] = {
-                    type = "values",
-                    values = values,
-                    start = index,
-                    finish = nnindex,
-                    n = values.n
-                }
-                cap_i = cap_i + 1
+            local kind, bounds, openclose, aux 
+                = caps.kind, caps.bounds, caps.openclose, caps.aux
+            for i = 1, values.n do
+                kind      [ci] = "value"
+                bounds    [ci] = si
+                if values[i] == nil then
+                    caps.openclose [ci] = 1/0
+                    caps.aux       [ci] = 1/0
+                else
+                    caps.openclose [ci] = final_si
+                    caps.aux       [ci] = values[i]
+                end
+                ci = ci + 1
             end
-        elseif type(nnindex) == "number" then
+        elseif type(final_si) == "number" then
             error"Index out of bounds returned by match-time capture."
         else
             error("Match time capture must return a number, a boolean or nil"
                 .." as first argument, or nothing at all.")
         end
-        return true, nnindex, cap_i
+        return true, final_si, ci
     end
 end
 compilers["string"] = function (pt, ccache)
     local S = pt.aux
     local N = #S
-    return function(subject, index, cap_acc, cap_i, state)
-        local in_1 = index - 1
+    return function(sbj, si, caps, ci, state)
+        local in_1 = si - 1
         for i = 1, N do
             local c
-            c = s_byte(subject,in_1 + i)
+            c = s_byte(sbj,in_1 + i)
             if c ~= S[i] then
-                return false, index, cap_i
+                return false, si, ci
             end
         end
-        return true, index + N, cap_i
+        return true, si + N, ci
     end
 end
 compilers["char"] = function (pt, ccache)
     return load(([=[
-        local s_byte = ...
-        return function(subject, index, cap_acc, cap_i, state)
-            local c, nindex = s_byte(subject, index), index + 1
+        local s_byte, s_char = ...
+        return function(sbj, si, caps, ci, state)
+            local c, nsi = s_byte(sbj, si), si + 1
             if c ~= __C0__ then
-                return false, index, cap_i
+                return false, si, ci
             end
-            return true, nindex, cap_i
-        end]=]):gsub("__C0__", tostring(pt.aux)))(s_byte)
+            return true, nsi, ci
+        end]=]):gsub("__C0__", tostring(pt.aux)))(s_byte, ("").char)
 end
 local
-function truecompiled (subject, index, cap_acc, cap_i, state)
-    return true, index, cap_i
+function truecompiled (sbj, si, caps, ci, state)
+    return true, si, ci
 end
 compilers["true"] = function (pt)
     return truecompiled
 end
 local
-function falsecompiled (subject, index, cap_acc, cap_i, state)
-    return false, index, cap_i
+function falsecompiled (sbj, si, caps, ci, state)
+    return false, si, ci
 end
 compilers["false"] = function (pt)
     return falsecompiled
 end
 local
-function eoscompiled (subject, index, cap_acc, cap_i, state)
-    return index > #subject, index, cap_i
+function eoscompiled (sbj, si, caps, ci, state)
+    return si > #sbj, si, ci
 end
 compilers["eos"] = function (pt)
     return eoscompiled
 end
 local
-function onecompiled (subject, index, cap_acc, cap_i, state)
-    local char, nindex = s_byte(subject, index), index + 1
+function onecompiled (sbj, si, caps, ci, state)
+    local char, _ = s_byte(sbj, si), si + 1
     if char
-    then return true, nindex, cap_i
-    else return false, index, cap_i end
+    then return true, si + 1, ci
+    else return false, si, ci end
 end
 compilers["one"] = function (pt)
     return onecompiled
@@ -276,26 +338,14 @@ compilers["any"] = function (pt)
     local N = pt.aux
     if N == 1 then
         return onecompiled
-    elseif not charset.binary then
-        return function(subject, index, cap_acc, cap_i, state)
-            local n, c, nindex = N
-            while n > 0 do
-                c, nindex = s_byte(subject, index), index + 1
-                if not c then
-                    return false, index, cap_i
-                end
-                n = n -1
-            end
-            return true, nindex, cap_i
-        end
-    else -- version optimized for byte-width encodings.
+    else
         N = pt.aux - 1
-        return function(subject, index, cap_acc, cap_i, state)
-            local n = index + N
-            if n <= #subject then
-                return true, n + 1, cap_i
+        return function (sbj, si, caps, ci, state)
+            local n = si + N
+            if n <= #sbj then
+                return true, n + 1, ci
             else
-                return false, index, cap_i
+                return false, si, ci
             end
         end
     end
@@ -312,48 +362,50 @@ do
         checkpatterns(pt)
         local gram = map_all(pt.aux, compile, ccache)
         local start = gram[1]
-        return function (subject, index, cap_acc, cap_i, state)
+        return function (sbj, si, caps, ci, state)
             t_insert(state.grammars, gram)
-            local success, nindex, cap_i = start(subject, index, cap_acc, cap_i, state)
+            local success, nsi, ci = start(sbj, si, caps, ci, state)
             t_remove(state.grammars)
-            return success, nindex, cap_i
+            return success, nsi, ci
         end
     end
 end
+local dummy_acc = {kind={}, bounds={}, openclose={}, aux={}}
 compilers["behind"] = function (pt, ccache)
     local matcher, N = compile(pt.pattern, ccache), pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        if index <= N then return false, index, cap_i end
-        local success = matcher(subject, index - N, {type = "discard"}, cap_i, state)
-        return success, index, cap_i
+    return function (sbj, si, caps, ci, state)
+        if si <= N then return false, si, ci end
+        local success = matcher(sbj, si - N, dummy_acc, ci, state)
+        dummy_acc.aux = {}
+        return success, si, ci
     end
 end
 compilers["range"] = function (pt)
     local ranges = pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local char, nindex = s_byte(subject, index), index + 1
+    return function (sbj, si, caps, ci, state)
+        local char, nsi = s_byte(sbj, si), si + 1
         for i = 1, #ranges do
             local r = ranges[i]
             if char and r[char]
-            then return true, nindex, cap_i end
+            then return true, nsi, ci end
         end
-        return false, index, cap_i
+        return false, si, ci
     end
 end
 compilers["set"] = function (pt)
     local s = pt.aux
-    return function (subject, index, cap_acc, cap_i, state)
-        local char, nindex = s_byte(subject, index), index + 1
+    return function (sbj, si, caps, ci, state)
+        local char, nsi = s_byte(sbj, si), si + 1
         if s[char]
-        then return true, nindex, cap_i
-        else return false, index, cap_i end
+        then return true, nsi, ci
+        else return false, si, ci end
     end
 end
 compilers["range"] = compilers.set
 compilers["ref"] = function (pt, ccache)
     local name = pt.aux
     local ref
-    return function (subject, index, cap_acc, cap_i, state)
+    return function (sbj, si, caps, ci, state)
         if not ref then
             if #state.grammars == 0 then
                 error(("rule 'XXXX' used outside a grammar"):gsub("XXXX", tostring(name)))
@@ -362,13 +414,15 @@ compilers["ref"] = function (pt, ccache)
             end
             ref = state.grammars[#state.grammars][name]
         end
-        return ref(subject, index, cap_acc, cap_i, state)
+            local success, nsi, nci = ref(sbj, si, caps, ci, state)
+        return success, nsi, nci
     end
 end
 local choice_tpl = [=[
-            success, index, cap_i = XXXX(subject, index, cap_acc, cap_i, state)
+            success, si, ci = XXXX(sbj, si, caps, ci, state)
             if success then
-                return true, index, cap_i
+                return true, si, ci
+            else
             end]=]
 compilers["choice"] = function (pt, ccache)
     local choices, n = map(pt.aux, compile, ccache), #pt.aux
@@ -378,21 +432,23 @@ compilers["choice"] = function (pt, ccache)
         names[#names + 1] = m
         chunks[ #names  ] = choice_tpl:gsub("XXXX", m)
     end
+    names[#names + 1] = "clear_captures"
+    choices[ #names ] = clear_captures
     local compiled = t_concat{
         "local ", t_concat(names, ", "), [=[ = ...
-        return function (subject, index, cap_acc, cap_i, state)
-            local success
+        return function (sbj, si, caps, ci, state)
+            local aux, success = caps.aux, false
             ]=],
-            t_concat(chunks,"\n"),[=[
-            return false, index, cap_i
+            t_concat(chunks,"\n"),[=[--
+            return false, si, ci
         end]=]
     }
     return load(compiled, "Choice")(t_unpack(choices))
 end
 local sequence_tpl = [=[
-            success, nindex, new_i = XXXX(subject, nindex, cap_acc, new_i, state)
+            success, si, ci = XXXX(sbj, si, caps, ci, state)
             if not success then
-                return false, index, cap_i
+                return false, ref_si, ref_ci
             end]=]
 compilers["sequence"] = function (pt, ccache)
     local sequence, n = map(pt.aux, compile, ccache), #pt.aux
@@ -402,13 +458,15 @@ compilers["sequence"] = function (pt, ccache)
         names[#names + 1] = m
         chunks[ #names  ] = sequence_tpl:gsub("XXXX", m)
     end
+    names[#names + 1] = "clear_captures"
+    sequence[ #names ] = clear_captures
     local compiled = t_concat{
         "local ", t_concat(names, ", "), [=[ = ...
-        return function (subject, index, cap_acc, cap_i, state)
-            local nindex, new_i, success = index, cap_i
+        return function (sbj, si, caps, ci, state)
+            local ref_si, ref_ci, success = si, ci
             ]=],
             t_concat(chunks,"\n"),[=[
-            return true, nindex, new_i
+            return true, si, ci
         end]=]
     }
    return load(compiled, "Sequence")(t_unpack(sequence))
@@ -416,63 +474,90 @@ end
 compilers["at most"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
     n = -n
-    return function (subject, index, cap_acc, cap_i, state)
+    return function (sbj, si, caps, ci, state)
         local success = true
         for i = 1, n do
-            success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            success, si, ci = matcher(sbj, si, caps, ci, state)
+            if not success then 
+                break
+            end
         end
-        return true, index, cap_i
+        return true, si, ci
     end
 end
 compilers["at least"] = function (pt, ccache)
     local matcher, n = compile(pt.pattern, ccache), pt.aux
     if n == 0 then
-        return function (subject, index, cap_acc, cap_i, state)
-            local success = true
-            while success do
-                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+        return function (sbj, si, caps, ci, state)
+            local last_si, last_ci
+            while true do
+                local success
+                last_si, last_ci = si, ci
+                success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then                     
+                    si, ci = last_si, last_ci
+                    break
+                end
             end
-            return true, index, cap_i
+            return true, si, ci
         end
     elseif n == 1 then
-        return function (subject, index, cap_acc, cap_i, state)
+        return function (sbj, si, caps, ci, state)
+            local last_si, last_ci
             local success = true
-            success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
-            if not success then return false, index, cap_i end
-            while success do
-                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            success, si, ci = matcher(sbj, si, caps, ci, state)
+            if not success then
+                return false, si, ci
             end
-            return true, index, cap_i
+            while true do
+                local success
+                last_si, last_ci = si, ci
+                success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then                     
+                    si, ci = last_si, last_ci
+                    break
+                end
+            end
+            return true, si, ci
         end
     else
-        return function (subject, index, cap_acc, cap_i, state)
+        return function (sbj, si, caps, ci, state)
+            local last_si, last_ci
             local success = true
             for _ = 1, n do
-                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
-                if not success then return false, index, cap_i end
+                success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then
+                    return false, si, ci
+                end
             end
-            while success do
-                success, index, cap_i = matcher(subject, index, cap_acc, cap_i, state)
+            while true do
+                local success
+                last_si, last_ci = si, ci
+                success, si, ci = matcher(sbj, si, caps, ci, state)
+                if not success then                     
+                    si, ci = last_si, last_ci
+                    break
+                end
             end
-            return true, index, cap_i
+            return true, si, ci
         end
     end
 end
 compilers["unm"] = function (pt, ccache)
-    if pt.ptype == "any" and pt.aux == 1 then
+    if pt.pkind == "any" and pt.aux == 1 then
         return eoscompiled
     end
     local matcher = compile(pt.pattern, ccache)
-    return function (subject, index, cap_acc, cap_i, state)
-        local success, _, _ = matcher(subject, index, {type = "discard", parent = cap_acc, parent_i = cap_i}, 1, state)
-        return not success, index, cap_i
+    return function (sbj, si, caps, ci, state)
+        local success, _, _ = matcher(sbj, si, caps, ci, state)
+        return not success, si, ci
     end
 end
 compilers["lookahead"] = function (pt, ccache)
     local matcher = compile(pt.pattern, ccache)
-    return function (subject, index, cap_acc, cap_i, state)
-        local success, _, _ = matcher(subject, index, {type = "discard", parent = cap_acc, parent_i = cap_i}, 1, state)
-        return success, index, cap_i
+    return function (sbj, si, caps, ci, state)
+        local success, _, _ = matcher(sbj, si, caps, ci, state)
+        return success, si, ci
     end
 end
 end
@@ -824,7 +909,7 @@ function utf8_char(c)
         return                                                                               s_char(c)
     elseif c < 2048 then
         return                                                          s_char(192 + c/64, 128 + c%64)
-    elseif c < 65536 then
+    elseif c < 55296 or 57343 < c and c < 65536 then
         return                                         s_char(224 + c/4096, 128 + c/64%64, 128 + c%64)
     elseif c < 2097152 then
         return                      s_char(240 + c/262144, 128 + c/4096%64, 128 + c/64%64, 128 + c%64)
@@ -1117,8 +1202,8 @@ end
 do local _ENV = _ENV
 packages['evaluator'] = function (...)
 
-local select, tonumber, tostring
-    = select, tonumber, tostring
+local select, tonumber, tostring, type
+    = select, tonumber, tostring, type
 local s, t, u = require"string", require"table", require"util"
 local s_sub, t_concat
     = s.sub, t.concat
@@ -1126,185 +1211,154 @@ local t_unpack
     = u.unpack
 local _ENV = u.noglobals() ----------------------------------------------------
 return function(Builder, LL) -- Decorator wrapper
-local evaluators, insert = {}
+local eval = {}
 local
-function evaluate (capture, subject, subj_i)
-    local acc, val_i, _ = {}
-    val_i = insert(capture, subject, acc, subj_i, 1)
-    return acc, val_i
-end
-LL.evaluate = evaluate
-function insert (capture, subject, acc, subj_i, val_i)
-    for i = 1, capture.n - 1 do
-            val_i =
-                evaluators[capture[i].type](capture[i], subject, acc, subj_i, val_i)
-            subj_i = capture[i].finish
+function insert (caps, sbj, vals, ci, vi)
+    local openclose, kind = caps.openclose, caps.kind
+    while kind[ci] and openclose[ci] >= 0 do
+        ci, vi = eval[kind[ci]](caps, sbj, vals, ci, vi)
     end
-    return val_i
+    return ci, vi
+end
+function eval.C (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+        return ci + 1, vi + 1
+    end
+    vals[vi] = false -- pad it for now
+    local cj, vj = insert(caps, sbj, vals, ci + 1, vi + 1)
+    vals[vi] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
+    return cj + 1, vj
 end
 local
-function lookback(capture, tag, subj_i)
-    local found
+function lookback (caps, label, ci)
+    local aux, openclose, kind= caps.aux, caps.openclose, caps.kind
     repeat
-        for i = subj_i - 1, 1, -1 do
-            if  capture[i].type == "Ctag" and capture[i].aux == tag then
-                found = capture[i]
-                break
-            end
+        ci = ci - 1
+        local auxv, oc = aux[ci], openclose[ci]
+        if oc < 0 then ci = ci + oc end
+        if oc ~= 0 and kind[ci] == "Clb" and label == auxv then
+            return ci
         end
-        capture, subj_i = capture.parent, capture.parent_i
-    until found or not capture
-    if found then
-        return found
-    else
-        tag = type(tag) == "string" and "'"..tag.."'" or tostring(tag)
-        error("back reference "..tag.." not found")
+    until ci == 1
+    label = type(label) == "string" and "'"..label.."'" or tostring(label)
+    error("back reference "..label.." not found")
+end
+function eval.Cb (caps, sbj, vals, ci, vi)
+    local Cb_ci = lookback(caps, caps.aux[ci], ci)
+    Cb_ci, vi = eval.Cg(caps, sbj, vals, Cb_ci, vi)
+    return ci + 1, vi
+end
+function eval.Cc (caps, sbj, vals, ci, vi)
+    local these_values = caps.aux[ci]
+    for i = 1, these_values.n do
+        vi, vals[vi] = vi + 1, these_values[i]
     end
+    return ci + 1, vi
 end
-evaluators["Cb"] = function (capture, subject, acc, subj_i, val_i)
-    local ref = lookback(capture.parent, capture.tag, capture.parent_i)
-    val_i = evaluators.Cg(ref, subject, acc, ref.start, val_i)
-    return val_i
-end
-evaluators["Ctag"] = function (capture, subject, acc, subj_i, val_i)
-    return val_i
-end
-evaluators["Cf"] = function (capture, subject, acc, subj_i, val_i)
-    if capture.n == 0 then
+eval["Cf"] = function() error("NYI: Cf") end
+function eval.Cf (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
         error"No First Value"
     end
-    local func, fold_acc, first_val_i = capture.aux, {}
-    first_val_i = evaluators[capture[1].type](capture[1], subject, fold_acc, subj_i, 1)
-    if first_val_i == 1 then
+    local func, Cf_vals, Cf_vi = caps.aux[ci], {}
+    ci = ci + 1
+    ci, Cf_vi = eval[caps.kind[ci]](caps, sbj, Cf_vals, ci, 1)
+    if Cf_vi == 1 then
         error"No first value"
     end
-    subj_i = capture[1].finish
-    local result = fold_acc[1]
-    for i = 2, capture.n - 1 do
-        local fold_acc2 = {}
-        local val_i = evaluators[capture[i].type](capture[i], subject, fold_acc2, subj_i, 1)
-        subj_i = capture[i].finish
-        result = func(result, t_unpack(fold_acc2, 1, val_i - 1))
+    local result = Cf_vals[1]
+    while caps.kind[ci] and caps.openclose[ci] >= 0 do
+        ci, Cf_vi = eval[caps.kind[ci]](caps, sbj, Cf_vals, ci, 1)
+        result = func(result, t_unpack(Cf_vals, 1, Cf_vi - 1))
     end
-    acc[val_i] = result
-    return val_i + 1
+    vals[vi] = result
+    return ci +1, vi + 1
 end
-evaluators["Cg"] = function (capture, subject, acc, subj_i, val_i)
-    local start, finish = capture.start, capture.finish
-    local group_acc = {}
-    local group_val_i = insert(capture, subject, group_acc, start, 1)
-    if group_val_i == 1 then
-        acc[val_i] = s_sub(subject, start, finish - 1)
-        return val_i + 1
-    else
-        for i = 1, group_val_i - 1 do
-            val_i, acc[val_i] = val_i + 1, group_acc[i]
+function eval.Cg (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+        return ci + 1, vi + 1
+    end
+    local cj, vj = insert(caps, sbj, vals, ci + 1, vi)
+    if vj == vi then 
+        vals[vj] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
+        vj = vj + 1
+    end
+    return cj + 1, vj
+end
+function eval.Clb (caps, sbj, vals, ci, vi)
+    local oc = caps.openclose
+    if oc[ci] > 0 then
+        return ci + 1, vi 
+    end
+    local depth = 0
+    repeat
+        if oc[ci] == 0 then depth = depth + 1
+        elseif oc[ci] < 0 then depth = depth - 1
         end
-        return val_i
+        ci = ci + 1
+    until depth == 0
+    return ci, vi
+end
+function eval.Cp (caps, sbj, vals, ci, vi)
+    vals[vi] = caps.bounds[ci]
+    return ci + 1, vi + 1
+end
+function eval.Ct (caps, sbj, vals, ci, vi)
+    local aux, openclose, kind = caps. aux, caps.openclose, caps.kind
+    local tbl_vals = {}
+    vals[vi] = tbl_vals
+    if openclose[ci] > 0 then
+        return ci + 1, vi + 1
     end
-end
-evaluators["C"] = function (capture, subject, acc, subj_i, val_i)
-    val_i, acc[val_i] = val_i + 1, s_sub(subject,capture.start, capture.finish - 1)
-    local _
-    val_i = insert(capture, subject, acc, capture.start, val_i)
-    return val_i
-end
-evaluators["Cs"] = function (capture, subject, acc, subj_i, val_i)
-    local start, finish, n = capture.start, capture.finish, capture.n
-    if n == 1 then
-        acc[val_i] = s_sub(subject, start, finish - 1)
-    else
-        local subst_acc, cap_i, subst_i = {}, 1, 1
-        repeat
-            local cap, tmp_acc = capture[cap_i], {}
-            subst_acc[subst_i] = s_sub(subject, start, cap.start - 1)
-            subst_i = subst_i + 1
-            local tmp_i = evaluators[cap.type](cap, subject, tmp_acc, subj_i, 1)
-            if tmp_i > 1 then
-                subst_acc[subst_i] = tmp_acc[1]
-                subst_i = subst_i + 1
-                start = cap.finish
-            else
-                start = cap.start
-            end
-            cap_i = cap_i + 1
-        until cap_i == n
-        subst_acc[subst_i] = s_sub(subject, start, finish - 1)
-        acc[val_i] = t_concat(subst_acc)
-    end
-    return val_i + 1
-end
-evaluators["Ct"] = function (capture, subject, acc, subj_i, val_i)
-    local tbl_acc, new_val_i, _ = {}, 1
-    for i = 1, capture.n - 1 do
-        local cap = capture[i]
-        if cap.type == "Ctag" then
-            local tmp_acc = {}
-            insert(cap, subject, tmp_acc, cap.start, 1)
-            local val = (#tmp_acc == 0 and s_sub(subject, cap.start, cap.finish - 1) or tmp_acc[1])
-            tbl_acc[cap.aux] = val
+    local tbl_vi, Clb_vals = 1, {}
+    ci = ci + 1
+    while kind[ci] and openclose[ci] >= 0 do
+        if kind[ci] == "Clb" then
+            local label, Clb_vi = aux[ci], 1
+            ci, Clb_vi = eval.Cg(caps, sbj, Clb_vals, ci, 1)
+            if Clb_vi ~= 1 then tbl_vals[label] = Clb_vals[1] end
         else
-            new_val_i = evaluators[cap.type](cap, subject, tbl_acc, cap.start, new_val_i)
+            ci, tbl_vi =  eval[kind[ci]](caps, sbj, tbl_vals, ci, tbl_vi)
         end
     end
-    acc[val_i] = tbl_acc
-    return val_i + 1
+    return ci + 1, vi + 1
 end
-evaluators["value"] = function (capture, subject, acc, subj_i, val_i)
-    acc[val_i] = capture.value
-    return val_i + 1
-end
-evaluators["values"] = function (capture, subject, acc, subj_i, val_i)
-local these_values = capture.values
-    for i = 1, these_values.n do
-        val_i, acc[val_i] = val_i + 1, these_values[i]
+local inf = 1/0
+function eval.value (caps, sbj, vals, ci, vi)
+    local val 
+    if caps.aux[ci] ~= inf or caps.openclose[ci] ~= inf
+        then val = caps.aux[ci]
     end
-    return val_i
+    vals[vi] = val
+    return ci + 1, vi + 1
 end
-evaluators["/string"] = function (capture, subject, acc, subj_i, val_i)
-    local n, cached = capture.n, {}
-    acc[val_i] = capture.aux:gsub("%%([%d%%])", function (d)
-        if d == "%" then return "%" end
-        d = tonumber(d)
-        if not cached[d] then
-            if d >= n then
-                error("no capture at index "..d.." in /string capture.")
-            end
-            if d == 0 then
-                cached[d] = s_sub(subject, capture.start, capture.finish - 1)
+function eval.Cs (caps, sbj, vals, ci, vi)
+    if caps.openclose[ci] > 0 then
+        vals[vi] = s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+    else
+        local bounds, kind, openclose = caps.bounds, caps.kind, caps.openclose
+        local start, buffer, Cs_vals, bi, Cs_vi = bounds[ci], {}, {}, 1, 1
+        local last
+        ci = ci + 1
+        while openclose[ci] >= 0 do
+            last = bounds[ci]
+            buffer[bi] = s_sub(sbj, start, last - 1)
+            bi = bi + 1
+            ci, Cs_vi = eval[kind[ci]](caps, sbj, Cs_vals, ci, 1)
+            if Cs_vi > 1 then
+                buffer[bi] = Cs_vals[1]
+                bi = bi + 1
+                start = openclose[ci-1] > 0 and openclose[ci-1] or bounds[ci-1]
             else
-                local tmp_acc = {}
-                local val_i = evaluators[capture[d].type](capture[d], subject, tmp_acc, capture.start, 1)
-                if val_i == 1 then error("no values in capture at index"..d.." in /string capture.") end
-                cached[d] = tmp_acc[1]
+                start = last
             end
         end
-        return cached[d]
-    end)
-    return val_i + 1
-end
-evaluators["/number"] = function (capture, subject, acc, subj_i, val_i)
-    local new_acc = {}
-    local new_val_i = insert(capture, subject, new_acc, capture.start, 1)
-    if capture.aux >= new_val_i then error("no capture '"..capture.aux.."' in /number capture.") end
-    acc[val_i] = new_acc[capture.aux]
-    return val_i + 1
-end
-evaluators["/table"] = function (capture, subject, acc, subj_i, val_i)
-    local key
-    if capture.n > 1 then
-        local new_acc = {}
-        insert(capture, subject, new_acc, capture.start, 1)
-        key = new_acc[1]
-    else
-        key = s_sub(subject, capture.start, capture.finish - 1)
+        buffer[bi] = s_sub(sbj, start, bounds[ci] - 1)
+        vals[vi] = t_concat(buffer)
     end
-    if capture.aux[key] then
-        acc[val_i] = capture.aux[key]
-        return val_i + 1
-    else
-        return val_i
-    end
+    return ci + 1, vi + 1
 end
 local
 function insert_divfunc_results(acc, val_i, ...)
@@ -1314,17 +1368,103 @@ function insert_divfunc_results(acc, val_i, ...)
     end
     return val_i
 end
-evaluators["/function"] = function (capture, subject, acc, subj_i, val_i)
-    local func, params, new_val_i = capture.aux
-    if capture.n > 1 then
-        params = {}
-        new_val_i = insert(capture, subject, params, capture.start, 1)
+function eval.div_function (caps, sbj, vals, ci, vi)
+    local func = caps.aux[ci]
+    local params, divF_vi
+    if caps.openclose[ci] > 0 then
+        params, divF_vi = {s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)}, 2
     else
-        new_val_i = 2
-        params = {s_sub(subject, capture.start, capture.finish - 1)}
+        params = {}
+        ci, divF_vi = insert(caps, sbj, params, ci + 1, 1)
     end
-    val_i = insert_divfunc_results(acc, val_i, func(t_unpack(params, 1, new_val_i - 1)))
-    return val_i
+    ci = ci + 1 -- skip the closed or closing node.
+    vi = insert_divfunc_results(vals, vi, func(t_unpack(params, 1, divF_vi - 1)))
+    return ci, vi
+end
+function eval.div_number (caps, sbj, vals, ci, vi)
+    local this_aux = caps.aux[ci]
+    local divN_vals, divN_vi
+    if caps.openclose[ci] > 0 then
+        divN_vals, divN_vi = {s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)}, 2
+    else
+        divN_vals = {}
+        ci, divN_vi = insert(caps, sbj, divN_vals, ci + 1, 1)
+    end
+    ci = ci + 1 -- skip the closed or closing node.
+    if this_aux >= divN_vi then error("no capture '"..this_aux.."' in /number capture.") end
+    vals[vi] = divN_vals[this_aux]
+    return ci, vi + 1
+end
+local function div_str_cap_refs (caps, ci)
+    local opcl = caps.openclose
+    local refs = {open=caps.bounds[ci]}
+    if opcl[ci] > 0 then
+        refs.close = opcl[ci]
+        return ci + 1, refs, 0
+    end
+    local first_ci = ci
+    local depth = 1
+    ci = ci + 1
+    repeat
+        local oc = opcl[ci]
+        if depth == 1  and oc >= 0 then refs[#refs+1] = ci end
+        if oc == 0 then 
+            depth = depth + 1
+        elseif oc < 0 then
+            depth = depth - 1
+        end
+        ci = ci + 1
+    until depth == 0
+    refs.close = caps.bounds[ci - 1]
+    return ci, refs, #refs
+end
+function eval.div_string (caps, sbj, vals, ci, vi)
+    local n, refs
+    local cached
+    local cached, divS_vals = {}, {}
+    local the_string = caps.aux[ci]
+    ci, refs, n = div_str_cap_refs(caps, ci)
+    vals[vi] = the_string:gsub("%%([%d%%])", function (d)
+        if d == "%" then return "%" end
+        d = tonumber(d)
+        if not cached[d] then
+            if d > n then
+                error("no capture at index "..d.." in /string capture.")
+            end
+            if d == 0 then
+                cached[d] = s_sub(sbj, refs.open, refs.close - 1)
+            else
+                local _, vi = eval[caps.kind[refs[d]]](caps, sbj, divS_vals, refs[d], 1)
+                if vi == 1 then error("no values in capture at index"..d.." in /string capture.") end
+                cached[d] = divS_vals[1]
+            end
+        end
+        return cached[d]
+    end)
+    return ci, vi + 1
+end
+function eval.div_table (caps, sbj, vals, ci, vi)
+    local this_aux = caps.aux[ci]
+    local key
+    if caps.openclose[ci] > 0 then
+        key =  s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+    else
+        local divT_vals, _ = {}
+        ci, _ = insert(caps, sbj, divT_vals, ci + 1, 1)
+        key = divT_vals[1]
+    end
+    ci = ci + 1
+    if this_aux[key] then
+        vals[vi] = this_aux[key]
+        return ci, vi + 1
+    else
+        return ci, vi
+    end
+end
+function LL.evaluate (caps, sbj, ci)
+    local vals = {}
+    local _,  vi = insert(caps, sbj, vals, ci, 1)
+    return vals, 1, vi - 1
 end
 end  -- Decorator wrapper
 
@@ -1338,14 +1478,14 @@ local ipairs, pairs, print, tostring, type
     = ipairs, pairs, print, tostring, type
 local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ----------------------------------------------------
-local s_char, t_concat
-    = s.char, t.concat
+local s_char, s_sub, t_concat
+    = s.char, s.sub, t.concat
 local   expose,   load,   map
     = u.expose, u.load, u.map
 local printers = {}
 local
 function LL_pprint (pt, offset, prefix)
-    return printers[pt.ptype](pt, offset, prefix)
+    return printers[pt.pkind](pt, offset, prefix)
 end
 function LL.pprint (pt0)
     local pt = LL.P(pt0)
@@ -1411,7 +1551,7 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, ptype = ...
+        local map, LL_pprint, pkind = ...
         return function (pt, offset, prefix)
             XXXX
         end
@@ -1423,13 +1563,13 @@ for _, cap in pairs{"C", "Cs", "Ct"} do
         LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
-for _, cap in pairs{"Cg", "Ctag", "Cf", "Cmt", "/number", "/zero", "/function", "/table"} do
+for _, cap in pairs{"Cg", "Clb", "Cf", "Cmt", "div_number", "/zero", "div_function", "div_table"} do
     printers[cap] = function (pt, offset, prefix)
         print(offset..prefix..cap.." "..tostring(pt.aux or ""))
         LL_pprint(pt.pattern, offset.."  ", "")
     end
 end
-printers["/string"] = function (pt, offset, prefix)
+printers["div_string"] = function (pt, offset, prefix)
     print(offset..prefix..'/string "'..tostring(pt.aux or "")..'"')
     LL_pprint(pt.pattern, offset.."  ", "")
 end
@@ -1445,66 +1585,65 @@ printers["Cc"] = function (pt, offset, prefix)
     print(offset..prefix.."Cc(" ..t_concat(map(pt.aux, tostring),", ").." )")
 end
 local cprinters = {}
-function LL.cprint (capture)
-    print"\nCapture Printer\n===============\n"
-    cprinters[capture.type](capture, "", "")
-    print"\n/Cprinter -------\n"
+local padding = "   "
+local function padnum(n)
+    n = tostring(n)
+    n = n .."."..((" "):rep(4 - #n))
+    return n
 end
-cprinters["backref"] = function (capture, offset, prefix)
-    print(offset..prefix.."Back: start = "..capture.start)
-    cprinters[capture.ref.type](capture.ref, offset.."   ")
-end
-cprinters["value"] = function (capture, offset, prefix)
-    print(offset..prefix.."Value: start = "..capture.start..", value = "..tostring(capture.value))
-end
-cprinters["values"] = function (capture, offset, prefix)
-    print(offset..prefix.."Values: start = "..capture.start..", values = ")
-    for _, c in pairs(capture.values) do
-        print(offset.."   "..tostring(c))
-    end
-end
-cprinters["insert"] = function (capture, offset, prefix)
-    print(offset..prefix.."insert n="..capture.n)
-    for i, subcap in ipairs(capture) do
-        cprinters[subcap.type](subcap, offset.."|  ", i..". ")
-    end
-end
-for _, capname in ipairs{
-    "Cf", "Cg", "tag","C", "Cs",
-    "/string", "/number", "/table", "/function"
-} do
-    cprinters[capname] = function (capture, offset, prefix)
-        local message = offset..prefix..capname
-            ..": start = "..capture.start
-            ..", finish = "..capture.finish
-            ..(capture.Ctag and " tag = "..capture.Ctag or "")
-        if capture.aux then
-            message = message .. ", aux = ".. tostring(capture.aux)
+local function _cprint(caps, ci, indent, sbj, n)
+    local openclose, kind = caps.openclose, caps.kind
+    indent = indent or 0
+    while kind[ci] and openclose[ci] >= 0 do
+        if caps.openclose[ci] > 0 then 
+            print(t_concat({
+                            padnum(n),
+                            padding:rep(indent),
+                            caps.kind[ci],
+                            ": start = ", tostring(caps.bounds[ci]),
+                            " finish = ", tostring(caps.openclose[ci]),
+                            caps.aux[ci] and " aux = " or "",
+                            caps.aux[ci] and (
+                                type(caps.aux[ci]) == "string" 
+                                    and '"'..tostring(caps.aux[ci])..'"'
+                                or tostring(caps.aux[ci])
+                            ) or "",
+                            " \t", s_sub(sbj, caps.bounds[ci], caps.openclose[ci] - 1)
+                        }))
+            if type(caps.aux[ci]) == "table" then expose(caps.aux[ci]) end
+        else
+            local kind = caps.kind[ci]
+            local start = caps.bounds[ci]
+            print(t_concat({
+                            padnum(n),
+                            padding:rep(indent), kind,
+                            ": start = ", start,
+                            caps.aux[ci] and " aux = " or "",
+                            caps.aux[ci] and (
+                                type(caps.aux[ci]) == "string" 
+                                    and '"'..tostring(caps.aux[ci])..'"'
+                                or tostring(caps.aux[ci])
+                            ) or ""
+                        }))
+            ci, n = _cprint(caps, ci + 1, indent + 1, sbj, n + 1)
+            print(t_concat({
+                            padnum(n),
+                            padding:rep(indent),
+                            "/", kind,
+                            " finish = ", tostring(caps.bounds[ci]),
+                            " \t", s_sub(sbj, start, (caps.bounds[ci] or 1) - 1)
+                        }))
         end
-        print(message)
-        for i, subcap in ipairs(capture) do
-            cprinters[subcap.type](subcap, offset.."   ", i..". ")
-        end
+        n = n + 1
+        ci = ci + 1
     end
+    return ci, n
 end
-cprinters["Ct"] = function (capture, offset, prefix)
-    local message = offset..prefix.."Ct: start = "..capture.start ..", finish = "..capture.finish
-    if capture.aux then
-        message = message .. ", aux = ".. tostring(capture.aux)
-    end
-    print(message)
-    for i, subcap in ipairs(capture) do
-        cprinters[subcap.type](subcap, offset.."   ", i..". ")
-    end
-    for k,v in pairs(capture.hash or {}) do
-        print(offset.."   "..k, "=", v)
-        expose(v)
-    end
-end
-cprinters["Cb"] = function (capture, offset, prefix)
-    print(offset..prefix.."Cb: tag = "
-        ..(type(capture.tag)~="string" and tostring(capture.tag) or "\""..capture.tag.."\"")
-        )
+function LL.cprint (caps, ci, sbj)
+    ci = ci or 1
+    print"\nCapture Printer:\n================"
+    _cprint(caps, ci, 0, sbj, 1)
+    print"================\n/Cprinter\n"
 end
 return { pprint = LL.pprint,cprint = LL.cprint }
 end -- module wrapper ---------------------------------------------------------
@@ -1568,8 +1707,8 @@ function process_booleans(lst, opts)
 end
 local unary = setify{
     "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Ctag", "Cmt", "/string", "/number",
-    "/table", "/function", "at least", "at most"
+    "Clb", "Cmt", "div_string", "div_number",
+    "div_table", "div_function", "at least", "at most"
 }
 local unifiable = setify{"char", "set", "range"}
 local
@@ -1594,7 +1733,7 @@ local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
 function flatten(typ, ary)
     local acc = {}
     for _, p in ipairs(ary) do
-        if p.ptype == typ then
+        if p.pkind == typ then
             for _, q in ipairs(p.aux) do
                 acc[#acc+1] = q
             end
@@ -1614,13 +1753,13 @@ local --Range, Set,
     Builder.set.union
 local type2cons = {
     ["/zero"] = "__div",
-    ["/number"] = "__div",
-    ["/string"] = "__div",
-    ["/table"] = "__div",
-    ["/function"] = "__div",
+    ["div_number"] = "__div",
+    ["div_string"] = "__div",
+    ["div_table"] = "__div",
+    ["div_function"] = "__div",
     ["at least"] = "__exp",
     ["at most"] = "__exp",
-    ["Ctag"] = "Cg",
+    ["Clb"] = "Cg",
 }
 local
 function choice (a,b, ...)
@@ -1637,7 +1776,7 @@ function choice (a,b, ...)
         src, dest, changed = dest, {dest[1]}, false
         for i = 2,#src do
             local p1, p2 = dest[#dest], src[i]
-            local type1, type2 = p1.ptype, p2.ptype
+            local type1, type2 = p1.pkind, p2.pkind
             if type1 == "set" and type2 == "set" then
                 dest[#dest] = constructors.aux(
                     "set", S_union(p1.aux, p2.aux),
@@ -1702,7 +1841,7 @@ function sequence(a, b, ...)
     seq2[1] = seq1[1]
     for i = 2,#seq1 do
         local p1, p2 = seq2[#seq2], seq1[i]
-        seq_optimize[p1.ptype][p2.ptype](seq2, p1, p2)
+        seq_optimize[p1.pkind][p2.pkind](seq2, p1, p2)
     end
     return seq2
 end
@@ -1710,8 +1849,8 @@ local
 function unm (pt)
     if     pt == truept            then return falsept
     elseif pt == falsept           then return truept
-    elseif pt.ptype == "unm"       then return #pt.pattern
-    elseif pt.ptype == "lookahead" then return -pt.pattern
+    elseif pt.pkind == "unm"       then return #pt.pattern
+    elseif pt.pkind == "lookahead" then return -pt.pattern
     end
 end
 return {
@@ -1727,70 +1866,6 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['match'] = function (...)
-
-local assert, error, print, select, type = assert, error, print, select, type
-local u =require"util"
-local _ENV = u.noglobals() ---------------------------------------------------
-local t_unpack = u.unpack
-return function(Builder, LL) -------------------------------------------------
-local LL_compile, LL_evaluate, LL_P
-    = LL.compile, LL.evaluate, LL.P
-local function computeidex(i, len)
-    if i == 0 or i == 1 or i == nil then return 1
-    elseif type(i) ~= "number" then error"number or nil expected for the stating index"
-    elseif i > 0 then return i > len and len + 1 or i
-    else return len + i < 0 and 1 or len + i + 1
-    end
-end
-function LL.match(pt, subject, index, ...)
-    pt = LL_P(pt)
-    assert(type(subject) == "string", "string expected for the match subject")
-    index = computeidex(index, #subject)
-    local matcher, cap_acc, state, success, cap_i, nindex
-        = LL_compile(pt, {})
-        , {type = "insert"}   -- capture accumulator
-        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
-        , 0 -- matcher state
-    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    if success then
-        cap_acc.n = cap_i
-        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
-        if cap_i == 1
-        then return nindex
-        else return t_unpack(cap_values, 1, cap_i - 1) end
-    else
-        return nil
-    end
-end
-function LL.dmatch(pt, subject, index, ...)
-    print("@!!! Match !!!@")
-    pt = LL_P(pt)
-    assert(type(subject) == "string", "string expected for the match subject")
-    index = computeidex(index, #subject)
-    print(("-"):rep(30))
-    print(pt.ptype)
-    LL.pprint(pt)
-    local matcher, cap_acc, state, success, cap_i, nindex
-        = LL_compile(pt, {})
-        , {type = "insert"}   -- capture accumulator
-        , {grammars = {}, args = {n = select('#',...),...}, tags = {}}
-        , 0 -- matcher state
-    success, nindex, cap_i = matcher(subject, index, cap_acc, 1, state)
-    print("!!! Done Matching !!!")
-    if success then
-        cap_acc.n = cap_i
-        print("cap_i = ",cap_i)
-        print("= $$$ captures $$$ =", cap_acc)
-        LL.cprint(cap_acc)
-        local cap_values, cap_i = LL_evaluate(cap_acc, subject, index)
-        if cap_i == 1
-        then return nindex
-        else return t_unpack(cap_values, 1, cap_i - 1) end
-    else
-        return nil
-    end
-end
-end -- /wrapper --------------------------------------------------------------
 
 end
 end
@@ -1961,7 +2036,7 @@ function val_to_str_ ( v, acc, indent, str_indent )
             cdata_to_str( v, acc, indent )
     elseif "table" == type(v) then
         if t_cache[v] then
-            acc[#acc+1] = t_cache[t]
+            acc[#acc+1] = t_cache[v]
         else
             t_cache[v] = tostring( v )
             table_tostring( v, acc, indent )
@@ -2180,29 +2255,32 @@ function makechar(c)
     return constructors.aux("char", c)
 end
 local
-function LL_P (v)
+function LL_P (...)
+    local v, n = (...), select('#', ...)
+    if n == 0 then error"bad argument #1 to 'P' (value expected)" end
+    local typ = type(v)
     if LL_ispattern(v) then
         return v
-    elseif type(v) == "function" then
+    elseif typ == "function" then
         return 
             LL.Cmt("", v)
-    elseif type(v) == "string" then
+    elseif typ == "string" then
         local success, index = validate(v)
         if not success then
             charset_error(index, cs.name)
         end
         if v == "" then return truept end
         return 
-            LL.__mul(map(makechar, split_int(v)))
-    elseif type(v) == "table" then
+            Builder.sequence(map(makechar, split_int(v)))
+    elseif typ == "table" then
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
         if not LL_ispattern(g[1]) then g[1] = LL.V(g[1]) end
         return
             constructors.none("grammar", g)
-    elseif type(v) == "boolean" then
+    elseif typ == "boolean" then
         return v and truept or falsept
-    elseif type(v) == "number" then
+    elseif typ == "number" then
         if v == 0 then
             return truept
         elseif v > 0 then
@@ -2212,6 +2290,8 @@ function LL_P (v)
             return
                 - constructors.aux("any", -v)
         end
+    else
+        error("bad argument #1 to 'P' (lpeg-pattern expected, got "..typ..")")
     end
 end
 LL.P = LL_P
@@ -2255,12 +2335,12 @@ do
     local forbidden = setify{
         "Carg", "Cb", "C", "Cf",
         "Cg", "Cs", "Ct", "/zero",
-        "Ctag", "Cmt", "Cc", "Cp",
-        "/string", "/number", "/table", "/function",
+        "Clb", "Cmt", "Cc", "Cp",
+        "div_string", "div_number", "div_table", "div_function",
         "at least", "at most", "behind"
     }
     local function fixedlen(pt, gram, cycle)
-        local typ = pt.ptype
+        local typ = pt.pkind
         if forbidden[typ] then return false
         elseif one[typ]  then return 1
         elseif zero[typ] then return 0
@@ -2271,7 +2351,7 @@ do
         elseif typ == "sequence" then
             return fold(map(pt.aux, fixedlen), function(a,b) return a and b and a + b end)
         elseif typ == "grammar" then
-            if pt.aux[1].ptype == "ref" then
+            if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
             else
                 return fixedlen(pt.aux[1], pt.aux, {})
@@ -2294,7 +2374,7 @@ do
     end
 end
 local
-function LL_choice (a, b, ...)
+function choice (a, b, ...)
     if b ~= nil then
         a, b = LL_P(a), LL_P(b)
     end
@@ -2308,12 +2388,12 @@ function LL_choice (a, b, ...)
             constructors.aux("choice", ch)
     end
 end
-LL.__add = LL_choice
+function LL.__add (a,b)
+    return 
+        choice(LL_P(a), LL_P(b))
+end
 local
 function sequence (a, b, ...)
-    if b ~= nil then
-        a, b = LL_P(a), LL_P(b)
-    end
     local seq = factorize_sequence(a, b, ...)
     if #seq == 0 then
         return truept
@@ -2323,13 +2403,17 @@ function sequence (a, b, ...)
     return
         constructors.aux("sequence", seq)
 end
-LL.__mul = sequence
+Builder.sequence = sequence
+function LL.__mul (a, b)
+    return 
+        sequence(LL_P(a), LL_P(b))
+end
 local
 function LL_lookahead (pt)
     if pt == truept
     or pt == falsept
-    or pt.ptype == "unm"
-    or pt.ptype == "lookahead"
+    or pt.pkind == "unm"
+    or pt.pkind == "lookahead"
     then
         return pt
     end
@@ -2402,7 +2486,7 @@ function LL_Cg (pt, tag)
     pt = LL_P(pt)
     if tag ~= nil then
         return
-            constructors.both("Ctag", pt, tag)
+            constructors.both("Clb", pt, tag)
     else
         return
             constructors.subpt("Cg", pt)
@@ -2422,7 +2506,7 @@ function LL_slash (pt, aux)
     if aux == 0 then
         name = "/zero"
     else
-        name = "/"..type(aux)
+        name = "div_"..type(aux)
     end
     return
         constructors.both(name, pt, aux)
@@ -2474,8 +2558,8 @@ local patternwith = {
         "Cg", "Cs", "Ct", "/zero"
     },
     both = {
-        "behind", "at least", "at most", "Ctag", "Cmt",
-        "/string", "/number", "/table", "/function"
+        "behind", "at least", "at most", "Clb", "Cmt",
+        "div_string", "div_number", "div_table", "div_function"
     },
     none = "grammar", "Cc"
 }
@@ -2494,7 +2578,7 @@ if compat.proxies and not compat.lua52_len then
     function pattmt:__newindex(k, v)
         proxycache[self][k] = v
     end
-    function LL.get_direct(p) return proxycache[p] end
+    function LL.getdirect(p) return proxycache[p] end
     function newpattern(cons)
         local pt = newproxy(baseproxy)
         setmetatable(cons, __index_LL)
@@ -2507,7 +2591,7 @@ else
             .."use `LL.L(pattern)` for lookaheads.")
     end
     pattmt = ll
-    function LL.get_direct (p) return p end
+    function LL.getdirect (p) return p end
     function newpattern(pt)
         return setmetatable(pt,LL)
     end
@@ -2543,9 +2627,9 @@ resetcache()
 local constructors = {}
 Builder.constructors = constructors
 constructors["constant"] = {
-    truept  = newpattern{ ptype = "true" },
-    falsept = newpattern{ ptype = "false" },
-    Cppt    = newpattern{ ptype = "Cp" }
+    truept  = newpattern{ pkind = "true" },
+    falsept = newpattern{ pkind = "false" },
+    Cppt    = newpattern{ pkind = "Cp" }
 }
 local getauxkey = {
     string = function(aux, as_is) return as_is end,
@@ -2566,7 +2650,7 @@ constructors["aux"] = function(typ, aux, as_is)
     local key = (getauxkey[typ] or id)(aux, as_is)
     if not cache[key] then
         cache[key] = newpattern{
-            ptype = typ,
+            pkind = typ,
             aux = aux,
             as_is = as_is
         }
@@ -2575,7 +2659,7 @@ constructors["aux"] = function(typ, aux, as_is)
 end
 constructors["none"] = function(typ, aux)
     return newpattern{
-        ptype = typ,
+        pkind = typ,
         aux = aux
     }
 end
@@ -2583,7 +2667,7 @@ constructors["subpt"] = function(typ, pt)
     local cache = ptcache[typ]
     if not cache[pt] then
         cache[pt] = newpattern{
-            ptype = typ,
+            pkind = typ,
             pattern = pt
         }
     end
@@ -2597,7 +2681,7 @@ constructors["both"] = function(typ, pt, aux)
     end
     if not cache[pt] then
         cache[pt] = newpattern{
-            ptype = typ,
+            pkind = typ,
             pattern = pt,
             aux = aux,
             cache = cache -- needed to keep the cache as long as the pattern exists.
@@ -2620,11 +2704,11 @@ local   copy,   map,   nop, t_unpack
     = u.copy, u.map, u.nop, u.unpack
 local API, charsets, compiler, constructors
     , datastructures, evaluator, factorizer
-    , locale, match, printers, re
+    , locale, printers, re
     = t_unpack(map(require,
     { "API", "charsets", "compiler", "constructors"
     , "datastructures", "evaluator", "factorizer"
-    , "locale", "match", "printers", "re" }))
+    , "locale", "printers", "re" }))
 local _, package = pcall(require, "package")
 local _ENV = u.noglobals() ----------------------------------------------------
 local VERSION = "0.12"
@@ -2650,16 +2734,6 @@ function LuLPeg(options)
           , luversion = function () return LuVERSION end
           , setmaxstack = nop --Just a stub, for compatibility.
           }
-    local
-    function LL_ispattern(pt) return getmetatable(pt) == LL end
-    LL.ispattern = LL_ispattern
-    function LL.type(pt)
-        if LL_ispattern(pt) then
-            return "pattern"
-        else
-            return nil
-        end
-    end
     LL.util = u
     LL.global = global
     LL.register = register
@@ -2671,7 +2745,6 @@ function LuLPeg(options)
     API(Builder, LL)
     evaluator(Builder, LL)
     ;(options.compiler or compiler)(Builder, LL)
-    match(Builder, LL)
     locale(Builder, LL)
     LL.re = re(Builder, LL)
     return LL
