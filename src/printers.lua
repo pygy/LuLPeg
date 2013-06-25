@@ -23,9 +23,10 @@ local printers = {}
 
 local
 function LL_pprint (pt, offset, prefix)
-    -- [[DP]] print("PRINT -", pt)
-    -- [[DP]] print("PRINT +", pt.pkind)
-    -- [[DP]] expose(LL.proxycache[pt])
+    -- [[DBG]] print("PRINT -", pt)
+    -- [[DBG]] print("PRINT +", pt.pkind)
+    -- [[DBG]] expose(pt)
+    -- [[DBG]] expose(LL.proxycache[pt])
     return printers[pt.pkind](pt, offset, prefix)
 end
 
@@ -39,14 +40,14 @@ end
 
 for k, v in pairs{
     string       = [[ "P( \""..pt.as_is.."\" )"       ]],
-    char         = [[ "P( '"..to_char(pt.aux).."' )"         ]],
+    char         = [[ "P( \""..to_char(pt.aux).."\" )"]],
     ["true"]     = [[ "P( true )"                     ]],
     ["false"]    = [[ "P( false )"                    ]],
     eos          = [[ "~EOS~"                         ]],
     one          = [[ "P( one )"                      ]],
-    any          = [[ "P( "..pt.aux.." )"            ]],
+    any          = [[ "P( "..pt.aux.." )"             ]],
     set          = [[ "S( "..'"'..pt.as_is..'"'.." )" ]],
-    ["function"] = [[ "P( "..pt.aux.." )"            ]],
+    ["function"] = [[ "P( "..pt.aux.." )"             ]],
     ref = [[
         "V( ",
             (type(pt.aux) == "string" and "\""..pt.aux.."\"")
@@ -82,11 +83,41 @@ for k, v in pairs{
         -- dprint"Printer for choice"
         map(pt.aux, LL_pprint, offset.." :", "")
         ]],
-    sequence = [[
-        print(offset..prefix.."*")
-        -- dprint"Printer for Seq"
-        map(pt.aux, LL_pprint, offset.." |", "")
-        ]],
+    sequence = [=[
+        -- print("Seq printer", s, u)
+        -- u.expose(pt)
+        if u.all(pt.aux, function(p) return p.pkind == "char" end) then
+            local acc = {}
+            for i = 1, #(pt.aux) do
+                acc[i] = pt.aux[i].aux
+            end
+            print(offset..prefix..'"'..s.char(u.unpack(acc))..'"')
+        else
+            local xformed = u.fold(pt.aux, function(acc, p)
+                local n = #acc
+
+                if n == 0 then
+                    acc[1] = p
+                elseif p.pkind == "char" and acc[n].pkind == "char"
+                    then acc[n] = {buffer = true, acc[n].aux, p.aux}
+                elseif p.pkind == "char" and acc[n].buffer then
+                    acc[n][#acc[n]+1] = p.aux
+                elseif acc[n].buffer and p.pkind ~= "char" then
+                    acc[n].pkind = "string"
+                    acc[n].as_is = s.char(u.unpack(acc[n]))
+                else
+                    acc[n+1] = p
+                end
+                return acc
+            end, {})
+            if xformed[#xformed].buffer then
+                xformed[#xformed].pkind = "string"
+                xformed[#xformed].as_is = s.char(u.unpack(xformed[#xformed]))
+            end
+            print(offset..prefix.."*")
+            map(xformed, LL_pprint, offset.." |", "")
+        end
+        ]=],
     grammar   = [[
         print(offset..prefix.."Grammar")
         -- dprint"Printer for Grammar"
@@ -99,11 +130,11 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, pkind = ...
+        local map, LL_pprint, pkind, s, u = ...
         return function (pt, offset, prefix)
             XXXX
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type)
+    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u)
 end
 
 -------------------------------------------------------------------------------
