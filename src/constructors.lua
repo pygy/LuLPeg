@@ -118,7 +118,7 @@ else
         print("Warning: The `__len` metatethod won't work with patterns, "
             .."use `LL.L(pattern)` for lookaheads.")
     end
-    pattmt = ll
+    pattmt = LL
     function LL.getdirect (p) return p end
 
     function newpattern(pt)

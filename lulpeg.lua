@@ -1496,14 +1496,14 @@ function LL.pprint (pt0)
 end
 for k, v in pairs{
     string       = [[ "P( \""..pt.as_is.."\" )"       ]],
-    char         = [[ "P( '"..to_char(pt.aux).."' )"         ]],
+    char         = [[ "P( \""..to_char(pt.aux).."\" )"]],
     ["true"]     = [[ "P( true )"                     ]],
     ["false"]    = [[ "P( false )"                    ]],
     eos          = [[ "~EOS~"                         ]],
     one          = [[ "P( one )"                      ]],
-    any          = [[ "P( "..pt.aux.." )"            ]],
+    any          = [[ "P( "..pt.aux.." )"             ]],
     set          = [[ "S( "..'"'..pt.as_is..'"'.." )" ]],
-    ["function"] = [[ "P( "..pt.aux.." )"            ]],
+    ["function"] = [[ "P( "..pt.aux.." )"             ]],
     ref = [[
         "V( ",
             (type(pt.aux) == "string" and "\""..pt.aux.."\"")
@@ -1536,10 +1536,38 @@ for k, v in pairs{
         print(offset..prefix.."+")
         map(pt.aux, LL_pprint, offset.." :", "")
         ]],
-    sequence = [[
-        print(offset..prefix.."*")
-        map(pt.aux, LL_pprint, offset.." |", "")
-        ]],
+    sequence = [=[
+        if u.all(pt.aux, function(p) return p.pkind == "char" end) then
+            local acc = {}
+            for i = 1, #(pt.aux) do
+                acc[i] = pt.aux[i].aux
+            end
+            print(offset..prefix..'"'..s.char(u.unpack(acc))..'"')
+        else
+            local xformed = u.fold(pt.aux, function(acc, p)
+                local n = #acc
+                if n == 0 then
+                    acc[1] = p
+                elseif p.pkind == "char" and acc[n].pkind == "char"
+                    then acc[n] = {buffer = true, acc[n].aux, p.aux}
+                elseif p.pkind == "char" and acc[n].buffer then
+                    acc[n][#acc[n]+1] = p.aux
+                elseif acc[n].buffer and p.pkind ~= "char" then
+                    acc[n].pkind = "string"
+                    acc[n].as_is = s.char(u.unpack(acc[n]))
+                else
+                    acc[n+1] = p
+                end
+                return acc
+            end, {})
+            if xformed[#xformed].buffer then
+                xformed[#xformed].pkind = "string"
+                xformed[#xformed].as_is = s.char(u.unpack(xformed[#xformed]))
+            end
+            print(offset..prefix.."*")
+            map(xformed, LL_pprint, offset.." |", "")
+        end
+        ]=],
     grammar   = [[
         print(offset..prefix.."Grammar")
         for k, pt in pairs(pt.aux) do
@@ -1551,11 +1579,11 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, pkind = ...
+        local map, LL_pprint, pkind, s, u = ...
         return function (pt, offset, prefix)
             XXXX
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type)
+    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u)
 end
 for _, cap in pairs{"C", "Cs", "Ct"} do
     printers[cap] = function (pt, offset, prefix)
@@ -2590,7 +2618,7 @@ else
         print("Warning: The `__len` metatethod won't work with patterns, "
             .."use `LL.L(pattern)` for lookaheads.")
     end
-    pattmt = ll
+    pattmt = LL
     function LL.getdirect (p) return p end
     function newpattern(pt)
         return setmetatable(pt,LL)
