@@ -4,9 +4,11 @@
 --[[DGB]] local debug = require"debug"
 
 local getmetatable, setmetatable, load, loadstring, next
-    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    , pairs, pcall, print, rawget, rawset, select, tostring
+    , type, unpack
     = getmetatable, setmetatable, load, loadstring, next
-    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    , pairs, pcall, print, rawget, rawset, select, tostring
+    , type, unpack
 
 local m, s, t = require"math", require"string", require"table"
 
@@ -421,11 +423,28 @@ end
 
 function util.arrayify (...) return {...} end
 
---[[
-util.dprint =  print
---[=[]]
-util.dprint =  nop
---]=]
+
+local
+function _checkstrhelper(s)
+    return s..""
+end
+
+function util.checkstring(s, func)
+    local success, str = pcall(_checkstrhelper, s)
+    if not success then 
+        if func == nil then func = "?" end
+        error("bad argument to '"
+            ..tostring(func)
+            .."' (string expected, got "
+            ..type(s)
+            ..")",
+        2)
+    end
+    return str
+end
+
+
+
 return util
 
 --                   The Romantic WTF public license.

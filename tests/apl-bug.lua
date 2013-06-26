@@ -135,7 +135,7 @@ apl2lua = function(apl)
    if j then 
       return apl2lua(apl:sub(1,i-1))..'; '..apl2lua(apl:sub(j+1)) 
    end
-   local lua,pos = (apl_expr*_s^0*Cp()):match(apl)
+   local lua,pos = (apl_expr*_s^0*Cp()):dmatch(apl)
    pos = pos or 0
    if pos>#apl then return lua 
    else 

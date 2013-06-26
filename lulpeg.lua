@@ -1915,9 +1915,11 @@ do local _ENV = _ENV
 packages['util'] = function (...)
 
 local getmetatable, setmetatable, load, loadstring, next
-    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    , pairs, pcall, print, rawget, rawset, select, tostring
+    , type, unpack
     = getmetatable, setmetatable, load, loadstring, next
-    , pairs, print, rawget, rawset, select, tostring, type, unpack
+    , pairs, pcall, print, rawget, rawset, select, tostring
+    , type, unpack
 local m, s, t = require"math", require"string", require"table"
 local m_max, s_match, s_gsub, t_concat, t_insert
     = m.max, s.match, s.gsub, t.concat, t.insert
@@ -2252,8 +2254,23 @@ function util.setify (t)
     return set
 end
 function util.arrayify (...) return {...} end
-util.dprint =  print
-util.dprint =  nop
+local
+function _checkstrhelper(s)
+    return s..""
+end
+function util.checkstring(s, func)
+    local success, str = pcall(_checkstrhelper, s)
+    if not success then 
+        if func == nil then func = "?" end
+        error("bad argument to '"
+            ..tostring(func)
+            .."' (string expected, got "
+            ..type(s)
+            ..")",
+        2)
+    end
+    return str
+end
 return util
 
 end
@@ -2269,8 +2286,8 @@ local assert, error, ipairs, pairs, pcall, print
 local t, u = require"table", require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local t_concat = t.concat
-local   copy,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local   checkstring,   copy,   fold,   load,   map,   setify, t_pack, t_unpack
+    = u.checkstring, u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
 local
 function charset_error(index, charset)
     error("Character at position ".. index + 1
@@ -2342,6 +2359,8 @@ function LL_S (set)
         return
             falsept
     else
+        local success
+        set = checkstring(set, "S")
         return
             constructors.aux("set", Set(split_int(set)), set)
     end
@@ -2354,6 +2373,8 @@ function LL_R (...)
     else
         local range = Range(1,0)--Set("")
         for _, r in ipairs{...} do
+            r = checkstring(r, "R")
+            assert(#r == 2, "bad argument #1 to 'R' (range must have two characters)")
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         local representation = t_concat(map(tochar,

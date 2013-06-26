@@ -20,8 +20,8 @@ local _ENV = u.noglobals() ---------------------------------------------------
 
 local t_concat = t.concat
 
-local   copy,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local   checkstring,   copy,   fold,   load,   map,   setify, t_pack, t_unpack
+    = u.checkstring, u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
 
 --[[DBG]] local expose = u.expose
 
@@ -119,6 +119,8 @@ function LL_S (set)
             --[[DBG]] true and
             falsept
     else
+        local success
+        set = checkstring(set, "S")
         return
             --[[DBG]] true and
             constructors.aux("set", Set(split_int(set)), set)
@@ -134,6 +136,8 @@ function LL_R (...)
         local range = Range(1,0)--Set("")
         -- [[DBG]]expose(range)
         for _, r in ipairs{...} do
+            r = checkstring(r, "R")
+            assert(#r == 2, "bad argument #1 to 'R' (range must have two characters)")
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
         -- This is awful.
