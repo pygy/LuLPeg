@@ -1,4 +1,5 @@
 -- Taken from https://github.com/moteus/lua-pop3/
+-- Copyright (C) 2013 Alexey Melnichuk.
 -- See the license at the end of this file.
 
 local lpeg = require(arg[1]):register()
