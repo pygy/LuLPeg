@@ -1,6 +1,8 @@
 -- Demonstration of a bug in lulpeg.lua
 -- Replace the next line by lpeg=require"lpeg" and there is no bug
 
+-- Thanks to Dirk Laurie for the report and the test case.
+
 local s_byte, s_sub, t_insert = string.byte, string.sub, table.insert
 
 local
