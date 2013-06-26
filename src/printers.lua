@@ -19,6 +19,22 @@ local s_char, s_sub, t_concat
 local   expose,   load,   map
     = u.expose, u.load, u.map
 
+local escape_index = {
+    ["\f"] = "\\f",
+    ["\n"] = "\\n",
+    ["\r"] = "\\r",
+    ["\t"] = "\\t",
+    ["\v"] = "\\v",
+    ["\127"] = "\\ESC"
+}
+
+for i = 0, 8 do escape_index[s_char(i)] = "\\"..i end
+for i = 14, 31 do escape_index[s_char(i)] = "\\"..i end
+
+local function escape( str )
+    return str:gsub("%c", escape_index)
+end
+
 local printers = {}
 
 local
@@ -39,14 +55,14 @@ function LL.pprint (pt0)
 end
 
 for k, v in pairs{
-    string       = [[ "P( \""..pt.as_is.."\" )"       ]],
-    char         = [[ "P( \""..to_char(pt.aux).."\" )"]],
+    string       = [[ "P( \""..escape(pt.as_is).."\" )"       ]],
+    char         = [[ "P( \""..escape(to_char(pt.aux)).."\" )"]],
     ["true"]     = [[ "P( true )"                     ]],
     ["false"]    = [[ "P( false )"                    ]],
     eos          = [[ "~EOS~"                         ]],
     one          = [[ "P( one )"                      ]],
     any          = [[ "P( "..pt.aux.." )"             ]],
-    set          = [[ "S( "..'"'..pt.as_is..'"'.." )" ]],
+    set          = [[ "S( "..'"'..escape(pt.as_is)..'"'.." )" ]],
     ["function"] = [[ "P( "..pt.aux.." )"             ]],
     ref = [[
         "V( ",
@@ -56,19 +72,19 @@ for k, v in pairs{
         ]],
     range = [[
         "R( ",
-            t_concat(map(
+            escape(t_concat(map(
                 pt.as_is,
-                function(e) return '"'..e..'"' end), ", "
-            )
+                function(e) return '"'..e..'"' end)
+            , ", "))
         ," )"
         ]]
 } do
     printers[k] = load(([==[
-        local k, map, t_concat, to_char = ...
+        local k, map, t_concat, to_char, escape = ...
         return function (pt, offset, prefix)
             print(t_concat{offset,prefix,XXXX})
         end
-    ]==]):gsub("XXXX", v), k.." printer")(k, map, t_concat, s_char)
+    ]==]):gsub("XXXX", v), k.." printer")(k, map, t_concat, s_char, escape)
 end
 
 
