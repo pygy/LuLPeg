@@ -1477,6 +1477,7 @@ return function(Builder, LL)
 local ipairs, pairs, print, tostring, type
     = ipairs, pairs, print, tostring, type
 local s, t, u = require"string", require"table", require"util"
+local S_tostring = Builder.set.tostring
 local _ENV = u.noglobals() ----------------------------------------------------
 local s_char, s_sub, t_concat
     = s.char, s.sub, t.concat
@@ -1492,8 +1493,13 @@ local escape_index = {
 }
 for i = 0, 8 do escape_index[s_char(i)] = "\\"..i end
 for i = 14, 31 do escape_index[s_char(i)] = "\\"..i end
-local function escape( str )
+local
+function escape( str )
     return str:gsub("%c", escape_index)
+end
+local
+function set_repr (set) 
+    return s_char(load("return "..S_tostring(set))())
 end
 local printers = {}
 local
@@ -1515,7 +1521,7 @@ for k, v in pairs{
     eos          = [[ "~EOS~"                         ]],
     one          = [[ "P( one )"                      ]],
     any          = [[ "P( "..pt.aux.." )"             ]],
-    set          = [[ "S( "..'"'..escape(pt.as_is)..'"'.." )" ]],
+    set          = [[ "S( "..'"'..escape(set_repr(pt.aux))..'"'.." )" ]],
     ["function"] = [[ "P( "..pt.aux.." )"             ]],
     ref = [[
         "V( ",
@@ -1533,11 +1539,11 @@ for k, v in pairs{
         ]]
 } do
     printers[k] = load(([==[
-        local k, map, t_concat, to_char, escape = ...
+        local k, map, t_concat, to_char, escape, set_repr = ...
         return function (pt, offset, prefix)
             print(t_concat{offset,prefix,XXXX})
         end
-    ]==]):gsub("XXXX", v), k.." printer")(k, map, t_concat, s_char, escape)
+    ]==]):gsub("XXXX", v), k.." printer")(k, map, t_concat, s_char, escape, set_repr)
 end
 for k, v in pairs{
     ["behind"] = [[ LL_pprint(pt.pattern, offset, "B ") ]],
