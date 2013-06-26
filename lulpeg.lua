@@ -642,13 +642,35 @@ function byterange_new (low, high)
     end
     return set
 end
+local tmpa, tmpb ={}, {}
+local
+function set_if_not_yet (s, dest)
+    if type(s) == "number" then
+        dest[s] = true
+        return dest
+    else
+        return s
+    end
+end
+local
+function clean_ab (a,b)
+    tmpa[a] = nil
+    tmpb[b] = nil
+end
 local
 function byteset_union (a ,b)
-    local upper = m_max(#a, #b)
+    local upper = m_max(
+        type(a) == "number" and a or #a,
+        type(b) == "number" and b or #b
+    )
+    local A, B
+        = set_if_not_yet(a, tmpa)
+        , set_if_not_yet(b, tmpb)
     local res = byteset_new(upper)
     for i = 0, upper do
-        res[i] = a[i] or b[i] or false
+        res[i] = A[i] or B[i] or false
     end
+    clean_ab(a,b)
     return res
 end
 local
@@ -1798,6 +1820,7 @@ local --Range, Set,
     S_union
     = --Builder.Range, Builder.set.new,
     Builder.set.union
+local mergeable = setify{"char", "set"}
 local type2cons = {
     ["/zero"] = "__div",
     ["div_number"] = "__div",
@@ -1824,16 +1847,23 @@ function choice (a,b, ...)
         for i = 2,#src do
             local p1, p2 = dest[#dest], src[i]
             local type1, type2 = p1.pkind, p2.pkind
-            if type1 == "set" and type2 == "set" then
-                dest[#dest] = constructors.aux(
-                    "set", S_union(p1.aux, p2.aux),
-                    "Union( "..p1.as_is.." || "..p2.as_is.." )"
-                )
+            if mergeable[type1] and mergeable[type2] then
+                dest[#dest] = constructors.aux("set", S_union(p1.aux, p2.aux))
                 changed = true
-            elseif ( type1 == type2 ) and unary[type1] and ( p1.aux == p2.aux ) then
-                dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
+            elseif mergeable[type1] and type2 == "any" and p2.aux == 1
+            or     mergeable[type2] and type1 == "any" and p1.aux == 1 then
+                dest[#dest] = type1 == "any" and p1 or p2
                 changed = true
-            elseif p1 ~= p2 or V_hasCmt(p1) then
+            elseif type1 == type2 then
+                if unary[type1] and ( p1.aux == p2.aux ) then
+                    dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
+                    changed = true
+                elseif p1 == p2 then
+                    changed = true
+                else
+                    dest[#dest + 1] = p2
+                end
+            else
                 dest[#dest + 1] = p2
             end -- if identical and without Cmt, fold them into one.
         end
@@ -2308,8 +2338,8 @@ local truept, falsept, Cppt
     = constructors.constant.truept
     , constructors.constant.falsept
     , constructors.constant.Cppt
-local    split_int,    tochar,    validate
-    = cs.split_int, cs.tochar, cs.validate
+local    split_int,    validate
+    = cs.split_int, cs.validate
 local Range, Set, S_union, S_tostring
     = Builder.Range, Builder.set.new
     , Builder.set.union, Builder.set.tostring
@@ -2383,10 +2413,8 @@ function LL_R (...)
             assert(#r == 2, "bad argument #1 to 'R' (range must have two characters)")
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
-        local representation = t_concat(map(tochar,
-                {load("return "..S_tostring(range))()}))
         return
-            constructors.aux("set", range, representation)
+            constructors.aux("set", range)
     end
 end
 LL.R = LL_R

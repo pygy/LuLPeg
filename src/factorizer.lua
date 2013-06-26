@@ -96,7 +96,7 @@ local --Range, Set,
     = --Builder.Range, Builder.set.new,
     Builder.set.union
 
-
+local mergeable = setify{"char", "set"}
 
 
 local type2cons = {
@@ -121,7 +121,7 @@ function choice (a,b, ...)
     end
     -- 2. handle P(true) and P(false)
     dest = process_booleans(dest, { id = falsept, brk = truept })
-    -- ???? Concatenate `string` and `any` patterns.
+
     local changed
     local src
     repeat
@@ -130,27 +130,35 @@ function choice (a,b, ...)
         for i = 2,#src do
             local p1, p2 = dest[#dest], src[i]
             local type1, type2 = p1.pkind, p2.pkind
-            if type1 == "set" and type2 == "set" then
-                -- Merge character sets. S"abc" + S"ABC" => S"abcABC"
-                dest[#dest] = constructors.aux(
-                    "set", S_union(p1.aux, p2.aux),
-                    "Union( "..p1.as_is.." || "..p2.as_is.." )"
-                )
+            -- [[DBG]] print("Optimizing", type1, type2)
+            if mergeable[type1] and mergeable[type2] then
+                dest[#dest] = constructors.aux("set", S_union(p1.aux, p2.aux))
                 changed = true
-            elseif ( type1 == type2 ) and unary[type1] and ( p1.aux == p2.aux ) then
+            elseif mergeable[type1] and type2 == "any" and p2.aux == 1
+            or     mergeable[type2] and type1 == "any" and p1.aux == 1 then
+                -- [[DBG]] print("=== Folding "..type1.." and "..type2..".")
+                dest[#dest] = type1 == "any" and p1 or p2
+                changed = true
+            elseif type1 == type2 then
                 -- C(a) + C(b) => C(a + b)
-                dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
-                changed = true
-            -- elseif ( type1 == type2 ) and type1 == "sequence" then
-            --     -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"
-            --     if p1[1] == p2[1]  then
-            --         mergeseqheads(p1,p2, dest)
-            --         changed = true
-            --     elseif p1[#p1] == p2[#p2]  then
-            --         dest[#dest] = mergeseqtails(p1,p2)
-            --         changed = true
-            --     end
-            elseif p1 ~= p2 or V_hasCmt(p1) then
+                if unary[type1] and ( p1.aux == p2.aux ) then
+                    dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
+                    changed = true
+                -- elseif ( type1 == type2 ) and type1 == "sequence" then
+                --     -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"
+                --     if p1[1] == p2[1]  then
+                --         mergeseqheads(p1,p2, dest)
+                --         changed = true
+                --     elseif p1[#p1] == p2[#p2]  then
+                --         dest[#dest] = mergeseqtails(p1,p2)
+                --         changed = true
+                --     end
+                elseif p1 == p2 then
+                    changed = true
+                else
+                    dest[#dest + 1] = p2
+                end
+            else
                 dest[#dest + 1] = p2
             end -- if identical and without Cmt, fold them into one.
         end

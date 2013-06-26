@@ -117,22 +117,50 @@ function byterange_new (low, high)
     return set
 end
 
+
+local tmpa, tmpb ={}, {}
+
+local
+function set_if_not_yet (s, dest)
+    if type(s) == "number" then
+        dest[s] = true
+        return dest
+    else
+        return s
+    end
+end
+
+local
+function clean_ab (a,b)
+    tmpa[a] = nil
+    tmpb[b] = nil
+end
+
 local
 function byteset_union (a ,b)
-    -- [[DBG]] print("\nUNION\n", #a, #b, m_max(#a,#b))
-    local upper = m_max(#a, #b)
+    local upper = m_max(
+        type(a) == "number" and a or #a,
+        type(b) == "number" and b or #b
+    )
+    local A, B
+        = set_if_not_yet(a, tmpa)
+        , set_if_not_yet(b, tmpb)
+
     local res = byteset_new(upper)
     for i = 0, upper do
-        res[i] = a[i] or b[i] or false
+        res[i] = A[i] or B[i] or false
         -- [[DBG]] print(i, res[i])
     end
     -- [[DBG]] print("BS Un ==========================")
     -- [[DBG]] print"/// A ///////////////////////  "
     -- [[DBG]] expose(a)
+    -- [[DBG]] expose(A)
     -- [[DBG]] print"*** B ***********************  "
     -- [[DBG]] expose(b)
+    -- [[DBG]] expose(B)
     -- [[DBG]] print"   RES   "
     -- [[DBG]] expose(res)
+    clean_ab(a,b)
     return res
 end
 

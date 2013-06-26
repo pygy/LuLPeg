@@ -48,8 +48,8 @@ local truept, falsept, Cppt
     , constructors.constant.falsept
     , constructors.constant.Cppt
 
-local    split_int,    tochar,    validate
-    = cs.split_int, cs.tochar, cs.validate
+local    split_int,    validate
+    = cs.split_int, cs.validate
 
 local Range, Set, S_union, S_tostring
     = Builder.Range, Builder.set.new
@@ -140,13 +140,10 @@ function LL_R (...)
             assert(#r == 2, "bad argument #1 to 'R' (range must have two characters)")
             range = S_union ( range, Range(t_unpack(split_int(r))) )
         end
-        -- This is awful.
-        local representation = t_concat(map(tochar,
-                {load("return "..S_tostring(range))()}))
         -- [[DBG]] local p = constructors.aux("set", range, representation)
         return
             --[[DBG]] true and
-            constructors.aux("set", range, representation)
+            constructors.aux("set", range)
     end
 end
 LL.R = LL_R
