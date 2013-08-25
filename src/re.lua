@@ -168,7 +168,7 @@ local exp = m.P{ "Exp",
   Exp = S * ( m.V"Grammar"
             + m.Cf(m.V"Seq" * ("/" * S * m.V"Seq")^0, mt.__add) );
   Seq = m.Cf(m.Cc(m.P"") * m.V"Prefix"^0 , mt.__mul)
-        * (#seq_follow + patt_error);
+        * (m.L(seq_follow) + patt_error);
   Prefix = "&" * S * m.V"Prefix" / mt.__len
          + "!" * S * m.V"Prefix" / mt.__unm
          + m.V"Suffix";
