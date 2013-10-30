@@ -49,7 +49,7 @@ LuLPeg does not check for infinite loops in patterns, reference errors in gramma
 
 Bar bugs, all grammars accedpted by LPeg should work with LuLPeg, with the following caveats:
 
-- The LuLPeg stack is the Lua call stack. `lpeg.setmaxstack(n)` is a dummy function, present for compatibility. LuLPeg patterns are compiled to Lua functions. For example, `C(P"A" + P"B"):match"A"` pushes at most three functions on the call stack: one for the `C` capture, one for the `+` choice, and one for the `P"A"`. If `P"A"` had failed, it would have been popped and `P"B"` would be pushed.
+- The LuLPeg stack is the Lua call stack. `lpeg.setmaxstack(n)` is a dummy function, present for compatibility. LuLPeg patterns are compiled to Lua functions, using a parser combinators approach. For example, `C(P"A" + P"B"):match"A"` pushes at most three functions on the call stack: one for the `C` capture, one for the `+` choice, and one for the `P"A"`. If `P"A"` had failed, it would have been popped and `P"B"` would be pushed.
 
 - LuLPeg doesn't do any tail call elimination at the moment. Grammars that implement finite automatons with long loops, that run fine with LPeg, may trigger stack overflows. This point is high on my TODO list.
 
