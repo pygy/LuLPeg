@@ -135,7 +135,7 @@ apl2lua = function(apl)
    if j then 
       return apl2lua(apl:sub(1,i-1))..'; '..apl2lua(apl:sub(j+1)) 
    end
-   local lua,pos = (apl_expr*_s^0*Cp()):dmatch(apl)
+   local lua,pos = (apl_expr*_s^0*Cp()):match(apl)
    pos = pos or 0
    if pos>#apl then return lua 
    else 
@@ -159,7 +159,7 @@ load_apl = function(_w)
    if select(2,_w:gsub('⋄',''))==0 then  
       lua="return "..lua 
       end
-   local f,msg = loadstring(preamble..lua,nil,nil,APL_ENV)
+   local f,msg = (loadstring or load)(preamble..lua,nil,nil,APL_ENV)
    if not f then 
       error("Could not compile: ".._w.."\n Tried: "..lua.."\n"..msg) 
    end
