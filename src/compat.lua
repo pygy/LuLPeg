@@ -24,14 +24,10 @@ local compat = {
         local prox2 = newproxy(prox)
         assert (type(getmetatable(prox)) == "table" 
                 and (getmetatable(prox)) == (getmetatable(prox2)))
-    end)
+    end),
+    _goto = not not(loadstring or load)"::R::"
 }
 
-if compat.lua52 then
-    compat._goto = true
-else
-    compat._goto = loadstring"::R::" and true or false
-end
 
 return compat
 
