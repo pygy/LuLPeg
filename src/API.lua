@@ -20,8 +20,8 @@ local _ENV = u.noglobals() ---------------------------------------------------
 
 local t_concat = t.concat
 
-local   checkstring,   copy,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.checkstring, u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local   checkstring,   copy,   fold,   load,   map_fold,   map_foldr,   setify, t_pack, t_unpack
+    = u.checkstring, u.copy, u.fold, u.load, u.map_fold, u.map_foldr, u.setify, u.pack, u.unpack
 
 --[[DBG]] local expose = u.expose
 
@@ -83,7 +83,7 @@ function LL_P (...)
         if v == "" then return truept end
         return 
             --[[DBG]] true and 
-            Builder.sequence(map(makechar, split_int(v)))
+            map_foldr(split_int(v), makechar, Builder.sequence)
     elseif typ == "table" then
         -- private copy because tables are mutable.
         local g = copy(v)
@@ -178,9 +178,9 @@ do
         elseif typ == "string" then return #pt.as_is
         elseif typ == "any" then return pt.aux
         elseif typ == "choice" then
-            return fold(map(pt.aux,fixedlen), function(a,b) return (a == b) and a end )
+            return map_fold(pt.aux, fixedlen, function(a,b) return (a == b) and a end )
         elseif typ == "sequence" then
-            return fold(map(pt.aux, fixedlen), function(a,b) return a and b and a + b end)
+            return map_fold(pt.aux, fixedlen, function(a,b) return a and b and a + b end)
         elseif typ == "grammar" then
             if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
@@ -212,13 +212,10 @@ end
 
 -- pt*pt
 local
-function choice (a, b, ...)
-    -- [[DBG]] print("Choice =====", a, "b", b, "...", ...)
-    if b ~= nil then
-        a, b = LL_P(a), LL_P(b)
-    end
+function choice (...)
+    assert(select('#', ...) == 2)
 
-    local ch = factorize_choice(a, b, ...)
+    local ch = factorize_choice(...)
 
     if #ch == 0 then
         return falsept
@@ -239,8 +236,10 @@ end
 
  -- pt+pt,
 local
-function sequence (a, b, ...)
-    local seq = factorize_sequence(a, b, ...)
+function sequence (...)
+    assert(select('#', ...) == 2)
+
+    local seq = factorize_sequence(...)
 
     if #seq == 0 then
         return truept
@@ -255,6 +254,7 @@ end
 Builder.sequence = sequence
 
 function LL.__mul (a, b)
+    -- [[DBG]] print("mul", a, b)
     return 
         --[[DBG]] true and
         sequence(LL_P(a), LL_P(b))

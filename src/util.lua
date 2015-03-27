@@ -309,6 +309,20 @@ end
 util.fold = fold
 
 local
+function foldr (ary, func, acc)
+    local offset = 0
+    if not acc then
+        acc = ary[#ary]
+        offset = 1
+    end
+    for i = #ary - offset, 1 , -1 do
+        acc = func(ary[i], acc)
+    end
+    return acc
+end
+util.foldr = foldr
+
+local
 function map_fold(ary, mfunc, ffunc, acc)
     local i0 = 1
     if not acc then
@@ -321,6 +335,20 @@ function map_fold(ary, mfunc, ffunc, acc)
     return acc
 end
 util.map_fold = map_fold
+
+local
+function map_foldr(ary, mfunc, ffunc, acc)
+    local offset = 0
+    if not acc then
+        acc = mfunc(ary[#acc])
+        offset = 1
+    end
+    for i = #ary - offset, 1 , -1 do
+        acc = ffunc(mfunc(ary[i], acc))
+    end
+    return acc
+end
+util.map_foldr = map_fold
 
 function util.zip(a1, a2)
     local res, len = {}, m_max(#a1,#a2)

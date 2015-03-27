@@ -286,6 +286,19 @@ function fold (ary, func, acc)
 end
 util.fold = fold
 local
+function foldr (ary, func, acc)
+    local offset = 0
+    if not acc then
+        acc = ary[#ary]
+        offset = 1
+    end
+    for i = #ary - offset, 1 , -1 do
+        acc = func(ary[i], acc)
+    end
+    return acc
+end
+util.foldr = foldr
+local
 function map_fold(ary, mfunc, ffunc, acc)
     local i0 = 1
     if not acc then
@@ -298,6 +311,19 @@ function map_fold(ary, mfunc, ffunc, acc)
     return acc
 end
 util.map_fold = map_fold
+local
+function map_foldr(ary, mfunc, ffunc, acc)
+    local offset = 0
+    if not acc then
+        acc = mfunc(ary[#acc])
+        offset = 1
+    end
+    for i = #ary - offset, 1 , -1 do
+        acc = ffunc(mfunc(ary[i], acc))
+    end
+    return acc
+end
+util.map_foldr = map_fold
 function util.zip(a1, a2)
     local res, len = {}, m_max(#a1,#a2)
     for i = 1,len do
@@ -2199,10 +2225,10 @@ local type2cons = {
     ["Clb"] = "Cg",
 }
 local
-function choice (a,b, ...)
+function choice (a,b)
     local dest
     if b ~= nil then
-        dest = flatten("choice", {a,b,...})
+        dest = flatten("choice", {a,b})
     else
         dest = flatten("choice", a)
     end
@@ -2273,10 +2299,10 @@ setmetatable(seq_optimize, {
     __index = function() return metaappend end
 })
 local
-function sequence(a, b, ...)
+function sequence(a, b)
     local seq1
     if b ~=nil then
-        seq1 = flatten("sequence", {a, b, ...})
+        seq1 = flatten("sequence", {a, b})
     else
         seq1 = flatten("sequence", a)
     end
@@ -2318,8 +2344,8 @@ local assert, error, ipairs, pairs, pcall, print
 local t, u = require"table", require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local t_concat = t.concat
-local   checkstring,   copy,   fold,   load,   map,   setify, t_pack, t_unpack
-    = u.checkstring, u.copy, u.fold, u.load, u.map, u.setify, u.pack, u.unpack
+local   checkstring,   copy,   fold,   load,   map_fold,   map_foldr,   setify, t_pack, t_unpack
+    = u.checkstring, u.copy, u.fold, u.load, u.map_fold, u.map_foldr, u.setify, u.pack, u.unpack
 local
 function charset_error(index, charset)
     error("Character at position ".. index + 1
@@ -2361,7 +2387,7 @@ function LL_P (...)
         end
         if v == "" then return truept end
         return 
-            Builder.sequence(map(makechar, split_int(v)))
+            map_foldr(split_int(v), makechar, Builder.sequence)
     elseif typ == "table" then
         local g = copy(v)
         if g[1] == nil then error("grammar has no initial rule") end
@@ -2439,9 +2465,9 @@ do
         elseif typ == "string" then return #pt.as_is
         elseif typ == "any" then return pt.aux
         elseif typ == "choice" then
-            return fold(map(pt.aux,fixedlen), function(a,b) return (a == b) and a end )
+            return map_fold(pt.aux, fixedlen, function(a,b) return (a == b) and a end )
         elseif typ == "sequence" then
-            return fold(map(pt.aux, fixedlen), function(a,b) return a and b and a + b end)
+            return map_fold(pt.aux, fixedlen, function(a,b) return a and b and a + b end)
         elseif typ == "grammar" then
             if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
@@ -2466,11 +2492,9 @@ do
     end
 end
 local
-function choice (a, b, ...)
-    if b ~= nil then
-        a, b = LL_P(a), LL_P(b)
-    end
-    local ch = factorize_choice(a, b, ...)
+function choice (...)
+    assert(select('#', ...) == 2)
+    local ch = factorize_choice(...)
     if #ch == 0 then
         return falsept
     elseif #ch == 1 then
@@ -2485,8 +2509,9 @@ function LL.__add (a,b)
         choice(LL_P(a), LL_P(b))
 end
 local
-function sequence (a, b, ...)
-    local seq = factorize_sequence(a, b, ...)
+function sequence (...)
+    assert(select('#', ...) == 2)
+    local seq = factorize_sequence(...)
     if #seq == 0 then
         return truept
     elseif #seq == 1 then

@@ -111,11 +111,11 @@ local type2cons = {
 }
 --[[DBG]] local level = 0
 local
-function choice (a,b, ...)
+function choice (a,b)
     -- 1. flatten  (a + b) + (c + d) => a + b + c + d
     local dest
     if b ~= nil then
-        dest = flatten("choice", {a,b,...})
+        dest = flatten("choice", {a,b})
     else
         dest = flatten("choice", a)
     end
@@ -217,13 +217,13 @@ setmetatable(seq_optimize, {
 })
 
 local
-function sequence(a, b, ...)
+function sequence(a, b)
     -- [[DP]] print("Factorize Sequence")
     -- A few optimizations:
     -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
     local seq1
     if b ~=nil then
-        seq1 = flatten("sequence", {a, b, ...})
+        seq1 = flatten("sequence", {a, b})
     else
         seq1 = flatten("sequence", a)
     end
