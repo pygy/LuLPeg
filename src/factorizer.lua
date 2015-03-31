@@ -4,12 +4,8 @@ local ipairs, pairs, print, setmetatable
 --[[DBG]] local debug = require "debug"
 local u = require"util"
 
-local   id,   setify,   arrayify
-    = u.id, u.setify, u.arrayify
-
-local V_hasCmt = u.nop
-
-
+local   id,   nop,   setify,   weakkey
+    = u.id, u.nop, u.setify, u.weakkey
 
 local _ENV = u.noglobals() ----------------------------------------------------
 
@@ -21,69 +17,55 @@ local _ENV = u.noglobals() ----------------------------------------------------
 -- handle the identity or break properties of P(true) and P(false) in
 -- sequences/arrays.
 local
-function process_booleans(lst, opts)
-    local acc, id, brk = {}, opts.id, opts.brk
-    for i = 1,#lst do
-        local p = lst[i]
-        if p ~= id then
-            acc[#acc + 1] = p
-        end
-        if p == brk then
-            break
-        end
-    end
-    return acc
+function process_booleans(a, b, opts)
+    local id, brk = opts.id, opts.brk
+    if a == id then return true, b
+    elseif b == id then return true, a
+    elseif a == brk then return true, brk
+    else return false end
 end
-
-
 
 -- patterns where `C(x) + C(y) => C(x + y)` apply.
 local unary = setify{
-    "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Clb", "Cmt", "div_string", "div_number",
-    "div_table", "div_function", "at least", "at most"
+    "unm", "lookahead", "C", "Cf",
+    "Cg", "Cs", "Ct", "/zero"
+}
+
+local unary_aux = setify{
+    "behind", "at least", "at most", "Clb", "Cmt",
+    "div_string", "div_number", "div_table", "div_function"
 }
 
 -- patterns where p1 + p2 == p1 U p2
 local unifiable = setify{"char", "set", "range"}
 
 
-local
-function mergeseqhead (p1, p2)
-    local n, len = 0, m_min(#p1, p2)
-    while n <= len do
-        if pi[n + 1] == p2[n + 1] then n = n + 1
-        else break end
+local hasCmt; hasCmt = setmetatable({}, {__mode = "k", __index = function(self, pt)
+    local kind, res = pt.pkind, false
+    if kind == "Cmt"
+    or kind == "ref"
+    then
+        res = true
+    elseif unary[kind] or unary_aux[kind] then
+        res = hasCmt[pt.pattern]
+    elseif kind == "choice" or kind == "sequence" then
+        res = hasCmt[pt[1]] or hasCmt[pt[2]]
     end
-end
+    hasCmt[pt] = res
+    return res
+end})
+
+
 
 return function (Builder, LL) --------------------------------------------------
 
 if Builder.options.factorize == false then
-    print"No factorization"
     return {
-        choice = arrayify,
-        sequence = arrayify,
-        lookahead = id,
-        unm = id
+        choice = nop,
+        sequence = nop,
+        lookahead = nop,
+        unm = nop
     }
-end
-
-local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
-function flatten(typ, ary)
-    local acc = {}
-    for _, p in ipairs(ary) do
-        -- [[DBG]] print("flatten")
-        -- [[DBG]] if type(p) == "table" then print"expose" expose(p) else print"pprint"LL.pprint(p) end
-        if p.pkind == typ then
-            for _, q in ipairs(p.aux) do
-                acc[#acc+1] = q
-            end
-        else
-            acc[#acc+1] = p
-        end
-    end
-    return acc
 end
 
 local constructors, LL_P =  Builder.constructors, LL.P
@@ -109,62 +91,44 @@ local type2cons = {
     ["at most"] = "__exp",
     ["Clb"] = "Cg",
 }
---[[DBG]] local level = 0
+
 local
-function choice (a,b)
-    -- 1. flatten  (a + b) + (c + d) => a + b + c + d
-    local dest
-    if b ~= nil then
-        dest = flatten("choice", {a,b})
-    else
-        dest = flatten("choice", a)
+function choice (a, b)
+    do  -- handle the identity/break properties of true and false.
+        local hasbool, res = process_booleans(a, b, { id = falsept, brk = truept })
+        if hasbool then return res end
     end
-    -- 2. handle P(true) and P(false)
-    dest = process_booleans(dest, { id = falsept, brk = truept })
-
-    local changed
-    local src
-    repeat
-        -- [[DBG]] print"REP"
-        src, dest, changed = dest, {dest[1]}, false
-        for i = 2,#src do
-            local p1, p2 = dest[#dest], src[i]
-            local type1, type2 = p1.pkind, p2.pkind
-            -- [[DBG]] print("Optimizing", type1, type2)
-            if mergeable[type1] and mergeable[type2] then
-                dest[#dest] = constructors.aux("set", S_union(p1.aux, p2.aux))
-                changed = true
-            elseif mergeable[type1] and type2 == "any" and p2.aux == 1
-            or     mergeable[type2] and type1 == "any" and p1.aux == 1 then
-                -- [[DBG]] print("=== Folding "..type1.." and "..type2..".")
-                dest[#dest] = type1 == "any" and p1 or p2
-                changed = true
-            elseif type1 == type2 then
-                -- C(a) + C(b) => C(a + b)
-                if unary[type1] and ( p1.aux == p2.aux ) then
-                    dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
-                    changed = true
-                -- elseif ( type1 == type2 ) and type1 == "sequence" then
-                --     -- "abd" + "acd" => "a" * ( "b" + "c" ) * "d"
-                --     if p1[1] == p2[1]  then
-                --         mergeseqheads(p1,p2, dest)
-                --         changed = true
-                --     elseif p1[#p1] == p2[#p2]  then
-                --         dest[#dest] = mergeseqtails(p1,p2)
-                --         changed = true
-                --     end
-                elseif p1 == p2 then
-                    changed = true
-                else
-                    dest[#dest + 1] = p2
-                end
-            else
-                dest[#dest + 1] = p2
-            end -- if identical and without Cmt, fold them into one.
+    local ka, kb = a.pkind, b.pkind
+    if a == b and not hasCmt[a] then
+        return a
+    elseif ka == "choice" then -- correct associativity without blowing up the stack
+        local acc, i = {}, 1
+        while a.pkind == "choice" do
+            acc[i], a, i = a[1], a[2], i + 1
         end
-    until not changed
-
-    return dest
+        acc[i] = a
+        for j = i, 1, -1 do
+            b = acc[j] + b
+        end
+        return b
+    elseif mergeable[ka] and mergeable[kb] then
+        return constructors.aux("set", S_union(a.aux, b.aux))
+    elseif mergeable[ka] and kb == "any" and b.aux == 1
+    or     mergeable[kb] and ka == "any" and a.aux == 1 then
+        -- [[DBG]] print("=== Folding "..ka.." and "..kb..".")
+        return ka == "any" and a or b
+    elseif ka == kb then
+        -- C(a) + C(b) => C(a + b)
+        if (unary[ka] or unary_aux[ka]) and ( a.aux == b.aux ) then
+            return LL[type2cons[ka] or ka](a.pattern + b.pattern, a.aux)
+        elseif ( ka == kb ) and ka == "sequence" then
+            -- "ab" + "ac" => "a" * ( "b" + "c" )
+            if a[1] == b[1]  and not hasCmt[a[1]] then
+                return a[1] * (a[2] + b[2])
+            end
+        end
+    end
+    return false
 end
 
 
@@ -175,69 +139,31 @@ function lookahead (pt)
 end
 
 
-
--- Some sequence factorizers.
--- Those who depend on LL are defined in the wrapper.
-local
-function append (acc, p1, p2)
-    acc[#acc + 1] = p2
-end
-
-local
-function seq_any_any (acc, p1, p2)
-    acc[#acc] = LL_P(p1.aux + p2.aux)
-end
-
---- Lookup table for the sequence optimizers.
---
-local seq_optimize = {
-    any = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    one = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    unm = {
-        unm = append -- seq_unm_unm
-    }
-}
-
--- Lookup misses end up with append.
-local metaappend_mt = {
-    __index = function()return append end
-}
-for _, v in pairs(seq_optimize) do
-    setmetatable(v, metaappend_mt)
-end
-local metaappend = setmetatable({}, metaappend_mt)
-setmetatable(seq_optimize, {
-    __index = function() return metaappend end
-})
-
 local
 function sequence(a, b)
-    -- [[DP]] print("Factorize Sequence")
+    -- [[DBG]] print("Factorize Sequence")
     -- A few optimizations:
-    -- 1. flatten the sequence (a * b) * (c * d) => a * b * c * d
-    local seq1
-    if b ~=nil then
-        seq1 = flatten("sequence", {a, b})
-    else
-        seq1 = flatten("sequence", a)
+    -- 1. handle P(true) and P(false)
+    do
+        local hasbool, res = process_booleans(a, b, { id = truept, brk = falsept })
+        if hasbool then return res end
     end
-    -- 2. handle P(true) and P(false)
-    seq1 = process_booleans(seq1, { id = truept, brk = falsept })
-    -- Concatenate `string` and `any` patterns.
-    -- TODO: Repeat patterns?
-    local seq2 = {}
-    seq2[1] = seq1[1]
-    for i = 2,#seq1 do
-        local p1, p2 = seq2[#seq2], seq1[i]
-        seq_optimize[p1.pkind][p2.pkind](seq2, p1, p2)
+    -- 2. Fix associativity
+    local ka, kb = a.pkind, b.pkind
+    if ka == "sequence" then -- correct associativity without blowing up the stack
+        local acc, i = {}, 1
+        while a.pkind == "sequence" do
+            acc[i], a, i = a[1], a[2], i + 1
+        end
+        acc[i] = a
+        for j = i, 1, -1 do
+            b = acc[j] * b
+        end
+        return b
+    elseif (ka == "one" or ka == "any") and (kb == "one" or kb == "any") then
+        return LL_P(a.aux + b.aux)
     end
-    return seq2
+    return false
 end
 
 local

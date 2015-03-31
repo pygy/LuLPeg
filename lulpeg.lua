@@ -420,8 +420,8 @@ end
 --=============================================================================
 do local _ENV = _ENV
 packages['compiler'] = function (...)
-local assert, error, pairs, rawset, select, setmetatable, tostring, type
-    = assert, error, pairs, rawset, select, setmetatable, tostring, type
+local assert, error, pairs, print, rawset, select, setmetatable, tostring, type
+    = assert, error, pairs, print, rawset, select, setmetatable, tostring, type
 local s, t, u = require"string", require"table", require"util"
 local _ENV = u.noglobals() ----------------------------------------------------
 local s_byte, s_sub, t_concat, t_insert, t_remove, t_unpack
@@ -798,10 +798,17 @@ local choice_tpl = [=[
                 return true, si, ci
             else
             end]=]
+local function flatten(kind, pt, ccache)
+    if pt[2].pkind == kind then
+        return compile(pt[1], ccache), flatten(kind, pt[2], ccache)
+    else
+        return compile(pt[1], ccache), compile(pt[2], ccache)
+    end
+end
 compilers["choice"] = function (pt, ccache)
-    local choices, n = map(pt.aux, compile, ccache), #pt.aux
+    local choices = {flatten("choice", pt, ccache)}
     local names, chunks = {}, {}
-    for i = 1, n do
+    for i = 1, #choices do
         local m = "ch"..i
         names[#names + 1] = m
         chunks[ #names  ] = choice_tpl:gsub("XXXX", m)
@@ -825,9 +832,9 @@ local sequence_tpl = [=[
                 return false, ref_si, ref_ci
             end]=]
 compilers["sequence"] = function (pt, ccache)
-    local sequence, n = map(pt.aux, compile, ccache), #pt.aux
+    local sequence = {flatten("sequence", pt, ccache)}
     local names, chunks = {}, {}
-    for i = 1, n do
+    for i = 1, #sequence do
         local m = "seq"..i
         names[#names + 1] = m
         chunks[ #names  ] = sequence_tpl:gsub("XXXX", m)
@@ -1887,6 +1894,13 @@ local escape_index = {
     ["\v"] = "\\v",
     ["\127"] = "\\ESC"
 }
+local function flatten(kind, list)
+    if list[2].pkind == kind then
+        return list[1], flatten(kind, list[2])
+    else
+        return list[1], list[2]
+    end
+end
 for i = 0, 8 do escape_index[s_char(i)] = "\\"..i end
 for i = 14, 31 do escape_index[s_char(i)] = "\\"..i end
 local
@@ -1949,38 +1963,39 @@ for k, v in pairs{
     lookahead  = [[LL_pprint(pt.pattern, offset, "# ")]],
     choice = [[
         print(offset..prefix.."+")
-        map(pt.aux, LL_pprint, offset.." :", "")
+        local ch, i = {}, 1
+        while pt.pkind == "choice" do
+            ch[i], pt, i = pt[1], pt[2], i + 1
+        end
+        ch[i] = pt
+        map(ch, LL_pprint, offset.." :", "")
         ]],
     sequence = [=[
-        if u.all(pt.aux, function(p) return p.pkind == "char" end) then
-            local acc = {}
-            for i = 1, #(pt.aux) do
-                acc[i] = pt.aux[i].aux
-            end
-            print(offset..prefix..'"'..s.char(u.unpack(acc))..'"')
-        else
-            local xformed = u.fold(pt.aux, function(acc, p)
-                local n = #acc
-                if n == 0 then
-                    acc[1] = p
-                elseif p.pkind == "char" and acc[n].pkind == "char"
-                    then acc[n] = {buffer = true, acc[n].aux, p.aux}
-                elseif p.pkind == "char" and acc[n].buffer then
-                    acc[n][#acc[n]+1] = p.aux
-                elseif acc[n].buffer and p.pkind ~= "char" then
-                    acc[n].pkind = "string"
-                    acc[n].as_is = s.char(u.unpack(acc[n]))
+        print(offset..prefix.."*")
+        local acc, p2 = {}
+        offset = offset .. " |"
+        while true do
+            if pt.pkind ~= "sequence" then -- last element
+                if pt.pkind == "char" then
+                    acc[#acc + 1] = pt.aux
+                    print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
                 else
-                    acc[n+1] = p
+                    if #acc ~= 0 then
+                        print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
+                    end
+                    LL_pprint(pt, offset, "")
                 end
-                return acc
-            end, {})
-            if xformed[#xformed].buffer then
-                xformed[#xformed].pkind = "string"
-                xformed[#xformed].as_is = s.char(u.unpack(xformed[#xformed]))
+                break
+            elseif pt[1].pkind == "char" then
+                acc[#acc + 1] = pt[1].aux
+            elseif #acc ~= 0 then
+                print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
+                acc = {}
+                LL_pprint(pt[1], offset, "")
+            else
+                LL_pprint(pt[1], offset, "")
             end
-            print(offset..prefix.."*")
-            map(xformed, LL_pprint, offset.." |", "")
+            pt = pt[2]
         end
         ]=],
     grammar   = [[
@@ -1994,11 +2009,11 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, pkind, s, u = ...
+        local map, LL_pprint, pkind, s, u, flatten = ...
         return function (pt, offset, prefix)
             XXXX
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u)
+    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u, flatten)
 end
 for _, cap in pairs{"C", "Cs", "Ct"} do
     printers[cap] = function (pt, offset, prefix)
@@ -2149,61 +2164,48 @@ packages['factorizer'] = function (...)
 local ipairs, pairs, print, setmetatable
     = ipairs, pairs, print, setmetatable
 local u = require"util"
-local   id,   setify,   arrayify
-    = u.id, u.setify, u.arrayify
-local V_hasCmt = u.nop
+local   id,   nop,   setify,   weakkey
+    = u.id, u.nop, u.setify, u.weakkey
 local _ENV = u.noglobals() ----------------------------------------------------
 local
-function process_booleans(lst, opts)
-    local acc, id, brk = {}, opts.id, opts.brk
-    for i = 1,#lst do
-        local p = lst[i]
-        if p ~= id then
-            acc[#acc + 1] = p
-        end
-        if p == brk then
-            break
-        end
-    end
-    return acc
+function process_booleans(a, b, opts)
+    local id, brk = opts.id, opts.brk
+    if a == id then return true, b
+    elseif b == id then return true, a
+    elseif a == brk then return true, brk
+    else return false end
 end
 local unary = setify{
-    "C", "Cf", "Cg", "Cs", "Ct", "/zero",
-    "Clb", "Cmt", "div_string", "div_number",
-    "div_table", "div_function", "at least", "at most"
+    "unm", "lookahead", "C", "Cf",
+    "Cg", "Cs", "Ct", "/zero"
+}
+local unary_aux = setify{
+    "behind", "at least", "at most", "Clb", "Cmt",
+    "div_string", "div_number", "div_table", "div_function"
 }
 local unifiable = setify{"char", "set", "range"}
-local
-function mergeseqhead (p1, p2)
-    local n, len = 0, m_min(#p1, p2)
-    while n <= len do
-        if pi[n + 1] == p2[n + 1] then n = n + 1
-        else break end
+local hasCmt; hasCmt = setmetatable({}, {__mode = "k", __index = function(self, pt)
+    local kind, res = pt.pkind, false
+    if kind == "Cmt"
+    or kind == "ref"
+    then
+        res = true
+    elseif unary[kind] or unary_aux[kind] then
+        res = hasCmt[pt.pattern]
+    elseif kind == "choice" or kind == "sequence" then
+        res = hasCmt[pt[1]] or hasCmt[pt[2]]
     end
-end
+    hasCmt[pt] = res
+    return res
+end})
 return function (Builder, LL) --------------------------------------------------
 if Builder.options.factorize == false then
-    print"No factorization"
     return {
-        choice = arrayify,
-        sequence = arrayify,
-        lookahead = id,
-        unm = id
+        choice = nop,
+        sequence = nop,
+        lookahead = nop,
+        unm = nop
     }
-end
-local -- flattens a choice/sequence (a * b) * (c * d) => a * b * c * d
-function flatten(typ, ary)
-    local acc = {}
-    for _, p in ipairs(ary) do
-        if p.pkind == typ then
-            for _, q in ipairs(p.aux) do
-                acc[#acc+1] = q
-            end
-        else
-            acc[#acc+1] = p
-        end
-    end
-    return acc
 end
 local constructors, LL_P =  Builder.constructors, LL.P
 local truept, falsept
@@ -2225,95 +2227,65 @@ local type2cons = {
     ["Clb"] = "Cg",
 }
 local
-function choice (a,b)
-    local dest
-    if b ~= nil then
-        dest = flatten("choice", {a,b})
-    else
-        dest = flatten("choice", a)
+function choice (a, b)
+    do  -- handle the identity/break properties of true and false.
+        local hasbool, res = process_booleans(a, b, { id = falsept, brk = truept })
+        if hasbool then return res end
     end
-    dest = process_booleans(dest, { id = falsept, brk = truept })
-    local changed
-    local src
-    repeat
-        src, dest, changed = dest, {dest[1]}, false
-        for i = 2,#src do
-            local p1, p2 = dest[#dest], src[i]
-            local type1, type2 = p1.pkind, p2.pkind
-            if mergeable[type1] and mergeable[type2] then
-                dest[#dest] = constructors.aux("set", S_union(p1.aux, p2.aux))
-                changed = true
-            elseif mergeable[type1] and type2 == "any" and p2.aux == 1
-            or     mergeable[type2] and type1 == "any" and p1.aux == 1 then
-                dest[#dest] = type1 == "any" and p1 or p2
-                changed = true
-            elseif type1 == type2 then
-                if unary[type1] and ( p1.aux == p2.aux ) then
-                    dest[#dest] = LL[type2cons[type1] or type1](p1.pattern + p2.pattern, p1.aux)
-                    changed = true
-                elseif p1 == p2 then
-                    changed = true
-                else
-                    dest[#dest + 1] = p2
-                end
-            else
-                dest[#dest + 1] = p2
-            end -- if identical and without Cmt, fold them into one.
+    local ka, kb = a.pkind, b.pkind
+    if a == b and not hasCmt[a] then
+        return a
+    elseif ka == "choice" then -- correct associativity without blowing up the stack
+        local acc, i = {}, 1
+        while a.pkind == "choice" do
+            acc[i], a, i = a[1], a[2], i + 1
         end
-    until not changed
-    return dest
+        acc[i] = a
+        for j = i, 1, -1 do
+            b = acc[j] + b
+        end
+        return b
+    elseif mergeable[ka] and mergeable[kb] then
+        return constructors.aux("set", S_union(a.aux, b.aux))
+    elseif mergeable[ka] and kb == "any" and b.aux == 1
+    or     mergeable[kb] and ka == "any" and a.aux == 1 then
+        return ka == "any" and a or b
+    elseif ka == kb then
+        if (unary[ka] or unary_aux[ka]) and ( a.aux == b.aux ) then
+            return LL[type2cons[ka] or ka](a.pattern + b.pattern, a.aux)
+        elseif ( ka == kb ) and ka == "sequence" then
+            if a[1] == b[1]  and not hasCmt[a[1]] then
+                return a[1] * (a[2] + b[2])
+            end
+        end
+    end
+    return false
 end
 local
 function lookahead (pt)
     return pt
 end
 local
-function append (acc, p1, p2)
-    acc[#acc + 1] = p2
-end
-local
-function seq_any_any (acc, p1, p2)
-    acc[#acc] = LL_P(p1.aux + p2.aux)
-end
-local seq_optimize = {
-    any = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    one = {
-        any = seq_any_any,
-        one = seq_any_any
-    },
-    unm = {
-        unm = append -- seq_unm_unm
-    }
-}
-local metaappend_mt = {
-    __index = function()return append end
-}
-for _, v in pairs(seq_optimize) do
-    setmetatable(v, metaappend_mt)
-end
-local metaappend = setmetatable({}, metaappend_mt)
-setmetatable(seq_optimize, {
-    __index = function() return metaappend end
-})
-local
 function sequence(a, b)
-    local seq1
-    if b ~=nil then
-        seq1 = flatten("sequence", {a, b})
-    else
-        seq1 = flatten("sequence", a)
+    do
+        local hasbool, res = process_booleans(a, b, { id = truept, brk = falsept })
+        if hasbool then return res end
     end
-    seq1 = process_booleans(seq1, { id = truept, brk = falsept })
-    local seq2 = {}
-    seq2[1] = seq1[1]
-    for i = 2,#seq1 do
-        local p1, p2 = seq2[#seq2], seq1[i]
-        seq_optimize[p1.pkind][p2.pkind](seq2, p1, p2)
+    local ka, kb = a.pkind, b.pkind
+    if ka == "sequence" then -- correct associativity without blowing up the stack
+        local acc, i = {}, 1
+        while a.pkind == "sequence" do
+            acc[i], a, i = a[1], a[2], i + 1
+        end
+        acc[i] = a
+        for j = i, 1, -1 do
+            b = acc[j] * b
+        end
+        return b
+    elseif (ka == "one" or ka == "any") and (kb == "one" or kb == "any") then
+        return LL_P(a.aux + b.aux)
     end
-    return seq2
+    return false
 end
 local
 function unm (pt)
@@ -2338,9 +2310,9 @@ do local _ENV = _ENV
 packages['API'] = function (...)
 
 local assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, type
+    , require, select, tonumber, tostring, type
     = assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, type
+    , require, select, tonumber, tostring, type
 local t, u = require"table", require"util"
 local _ENV = u.noglobals() ---------------------------------------------------
 local t_concat = t.concat
@@ -2465,9 +2437,11 @@ do
         elseif typ == "string" then return #pt.as_is
         elseif typ == "any" then return pt.aux
         elseif typ == "choice" then
-            return map_fold(pt.aux, fixedlen, function(a,b) return (a == b) and a end )
+            local l1, l2 = fixedlen(pt[1], gram, cycle), fixedlen(pt[2], gram, cycle)
+            return (l1 == l2) and l1
         elseif typ == "sequence" then
-            return map_fold(pt.aux, fixedlen, function(a,b) return a and b and a + b end)
+            local l1, l2 = fixedlen(pt[1], gram, cycle), fixedlen(pt[2], gram, cycle)
+            return l1 and l2 and l1 + l2
         elseif typ == "grammar" then
             if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
@@ -2491,34 +2465,32 @@ do
             constructors.both("behind", pt, len)
     end
 end
-local
-function choice (...)
-    assert(select('#', ...) == 2)
-    local ch = factorize_choice(...)
-    if #ch == 0 then
-        return falsept
-    elseif #ch == 1 then
-        return ch[1]
-    else
-        return
-            constructors.aux("choice", ch)
-    end
+local function nameify(a, b)
+    return tostring(a)..tostring(b)
 end
-function LL.__add (a,b)
+local
+function choice (a, b)
+    local name = tostring(a)..tostring(b)
+    local ch = Builder.ptcache.choice[name]
+    if not ch then
+        ch = factorize_choice(a, b) or constructors.binary("choice", a, b)
+        Builder.ptcache.choice[name] = ch
+    end
+    return ch
+end
+function LL.__add (a, b)
     return 
         choice(LL_P(a), LL_P(b))
 end
 local
-function sequence (...)
-    assert(select('#', ...) == 2)
-    local seq = factorize_sequence(...)
-    if #seq == 0 then
-        return truept
-    elseif #seq == 1 then
-        return seq[1]
+function sequence (a, b)
+    local name = tostring(a)..tostring(b)
+    local seq = Builder.ptcache.sequence[name]
+    if not seq then
+        seq = factorize_sequence(a, b) or constructors.binary("sequence", a, b)
+        Builder.ptcache.sequence[name] = seq
     end
-    return
-        constructors.aux("sequence", seq)
+    return seq
 end
 Builder.sequence = sequence
 function LL.__mul (a, b)
@@ -2728,6 +2700,7 @@ local ptcache, meta
 local
 function resetcache()
     ptcache, meta = {}, weakkey{}
+    Builder.ptcache = ptcache
     for _, p in ipairs(patternwith.aux) do
         ptcache[p] = weakval{}
     end
@@ -2805,6 +2778,12 @@ constructors["both"] = function(typ, pt, aux)
         }
     end
     return cache[pt]
+end
+constructors["binary"] = function(typ, a, b)
+    return newpattern{
+        a, b;
+        pkind = typ,
+    }
 end
 end -- module wrapper
 

@@ -28,6 +28,14 @@ local escape_index = {
     ["\127"] = "\\ESC"
 }
 
+local function flatten(kind, list)
+    if list[2].pkind == kind then
+        return list[1], flatten(kind, list[2])
+    else
+        return list[1], list[2]
+    end
+end
+
 for i = 0, 8 do escape_index[s_char(i)] = "\\"..i end
 for i = 14, 31 do escape_index[s_char(i)] = "\\"..i end
 
@@ -104,41 +112,42 @@ for k, v in pairs{
     choice = [[
         print(offset..prefix.."+")
         -- dprint"Printer for choice"
-        map(pt.aux, LL_pprint, offset.." :", "")
+        local ch, i = {}, 1
+        while pt.pkind == "choice" do
+            ch[i], pt, i = pt[1], pt[2], i + 1
+        end
+        ch[i] = pt
+
+        map(ch, LL_pprint, offset.." :", "")
         ]],
     sequence = [=[
         -- print("Seq printer", s, u)
         -- u.expose(pt)
-        if u.all(pt.aux, function(p) return p.pkind == "char" end) then
-            local acc = {}
-            for i = 1, #(pt.aux) do
-                acc[i] = pt.aux[i].aux
-            end
-            print(offset..prefix..'"'..s.char(u.unpack(acc))..'"')
-        else
-            local xformed = u.fold(pt.aux, function(acc, p)
-                local n = #acc
-
-                if n == 0 then
-                    acc[1] = p
-                elseif p.pkind == "char" and acc[n].pkind == "char"
-                    then acc[n] = {buffer = true, acc[n].aux, p.aux}
-                elseif p.pkind == "char" and acc[n].buffer then
-                    acc[n][#acc[n]+1] = p.aux
-                elseif acc[n].buffer and p.pkind ~= "char" then
-                    acc[n].pkind = "string"
-                    acc[n].as_is = s.char(u.unpack(acc[n]))
+        print(offset..prefix.."*")
+        local acc, p2 = {}
+        offset = offset .. " |"
+        while true do
+            if pt.pkind ~= "sequence" then -- last element
+                if pt.pkind == "char" then
+                    acc[#acc + 1] = pt.aux
+                    print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
                 else
-                    acc[n+1] = p
+                    if #acc ~= 0 then
+                        print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
+                    end
+                    LL_pprint(pt, offset, "")
                 end
-                return acc
-            end, {})
-            if xformed[#xformed].buffer then
-                xformed[#xformed].pkind = "string"
-                xformed[#xformed].as_is = s.char(u.unpack(xformed[#xformed]))
+                break
+            elseif pt[1].pkind == "char" then
+                acc[#acc + 1] = pt[1].aux
+            elseif #acc ~= 0 then
+                print(offset..'P( "'..s.char(u.unpack(acc))..'" )')
+                acc = {}
+                LL_pprint(pt[1], offset, "")
+            else
+                LL_pprint(pt[1], offset, "")
             end
-            print(offset..prefix.."*")
-            map(xformed, LL_pprint, offset.." |", "")
+            pt = pt[2]
         end
         ]=],
     grammar   = [[
@@ -153,11 +162,11 @@ for k, v in pairs{
     ]]
 } do
     printers[k] = load(([[
-        local map, LL_pprint, pkind, s, u = ...
+        local map, LL_pprint, pkind, s, u, flatten = ...
         return function (pt, offset, prefix)
             XXXX
         end
-    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u)
+    ]]):gsub("XXXX", v), k.." printer")(map, LL_pprint, type, s, u, flatten)
 end
 
 -------------------------------------------------------------------------------

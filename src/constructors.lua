@@ -149,7 +149,7 @@ local ptcache, meta
 local
 function resetcache()
     ptcache, meta = {}, weakkey{}
-
+    Builder.ptcache = ptcache
     -- Patterns with aux only.
     for _, p in ipairs(patternwith.aux) do
         ptcache[p] = weakval{}
@@ -255,6 +255,14 @@ constructors["both"] = function(typ, pt, aux)
         }
     end
     return cache[pt]
+end
+
+constructors["binary"] = function(typ, a, b)
+    -- [[DBG]] print("CONS: ", typ, pt, aux)
+    return newpattern{
+        a, b;
+        pkind = typ,
+    }
 end
 
 end -- module wrapper

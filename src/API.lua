@@ -4,9 +4,9 @@
 -- What follows is the core LPeg functions, the public API to create patterns.
 -- Think P(), R(), pt1 + pt2, etc.
 local assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, type
+    , require, select, tonumber, tostring, type
     = assert, error, ipairs, pairs, pcall, print
-    , require, select, tonumber, type
+    , require, select, tonumber, tostring, type
 
 local t, u = require"table", require"util"
 
@@ -178,9 +178,11 @@ do
         elseif typ == "string" then return #pt.as_is
         elseif typ == "any" then return pt.aux
         elseif typ == "choice" then
-            return map_fold(pt.aux, fixedlen, function(a,b) return (a == b) and a end )
+            local l1, l2 = fixedlen(pt[1], gram, cycle), fixedlen(pt[2], gram, cycle)
+            return (l1 == l2) and l1
         elseif typ == "sequence" then
-            return map_fold(pt.aux, fixedlen, function(a,b) return a and b and a + b end)
+            local l1, l2 = fixedlen(pt[1], gram, cycle), fixedlen(pt[2], gram, cycle)
+            return l1 and l2 and l1 + l2
         elseif typ == "grammar" then
             if pt.aux[1].pkind == "ref" then
                 return fixedlen(pt.aux[pt.aux[1].aux], pt.aux, {})
@@ -210,24 +212,22 @@ do
 end
 
 
+local function nameify(a, b)
+    return tostring(a)..tostring(b)
+end
+
 -- pt*pt
 local
-function choice (...)
-    assert(select('#', ...) == 2)
-
-    local ch = factorize_choice(...)
-
-    if #ch == 0 then
-        return falsept
-    elseif #ch == 1 then
-        return ch[1]
-    else
-        return
-            --[[DBG]] true and
-            constructors.aux("choice", ch)
+function choice (a, b)
+    local name = tostring(a)..tostring(b)
+    local ch = Builder.ptcache.choice[name]
+    if not ch then
+        ch = factorize_choice(a, b) or constructors.binary("choice", a, b)
+        Builder.ptcache.choice[name] = ch
     end
+    return ch
 end
-function LL.__add (a,b)
+function LL.__add (a, b)
     return 
         --[[DBG]] true and
         choice(LL_P(a), LL_P(b))
@@ -235,22 +235,18 @@ end
 
 
  -- pt+pt,
+
 local
-function sequence (...)
-    assert(select('#', ...) == 2)
-
-    local seq = factorize_sequence(...)
-
-    if #seq == 0 then
-        return truept
-    elseif #seq == 1 then
-        return seq[1]
+function sequence (a, b)
+    local name = tostring(a)..tostring(b)
+    local seq = Builder.ptcache.sequence[name]
+    if not seq then
+        seq = factorize_sequence(a, b) or constructors.binary("sequence", a, b)
+        Builder.ptcache.sequence[name] = seq
     end
-
-    return
-        --[[DBG]] true and
-        constructors.aux("sequence", seq)
+    return seq
 end
+
 Builder.sequence = sequence
 
 function LL.__mul (a, b)

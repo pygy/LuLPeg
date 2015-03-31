@@ -1,5 +1,5 @@
-local assert, error, pairs, rawset, select, setmetatable, tostring, type
-    = assert, error, pairs, rawset, select, setmetatable, tostring, type
+local assert, error, pairs, print, rawset, select, setmetatable, tostring, type
+    = assert, error, pairs, print, rawset, select, setmetatable, tostring, type
 
 --[[DBG]] local debug, print = debug, print
 
@@ -595,10 +595,19 @@ local choice_tpl = [=[
             else
                 --clear_captures(aux, ci)
             end]=]
+
+local function flatten(kind, pt, ccache)
+    if pt[2].pkind == kind then
+        return compile(pt[1], ccache), flatten(kind, pt[2], ccache)
+    else
+        return compile(pt[1], ccache), compile(pt[2], ccache)
+    end
+end
+
 compilers["choice"] = function (pt, ccache)
-    local choices, n = map(pt.aux, compile, ccache), #pt.aux
+    local choices = {flatten("choice", pt, ccache)}
     local names, chunks = {}, {}
-    for i = 1, n do
+    for i = 1, #choices do
         local m = "ch"..i
         names[#names + 1] = m
         chunks[ #names  ] = choice_tpl:gsub("XXXX", m)
@@ -631,11 +640,11 @@ local sequence_tpl = [=[
                 return false, ref_si, ref_ci
             end]=]
 compilers["sequence"] = function (pt, ccache)
-    local sequence, n = map(pt.aux, compile, ccache), #pt.aux
+    local sequence = {flatten("sequence", pt, ccache)}
     local names, chunks = {}, {}
     -- print(n)
     -- for k,v in pairs(pt.aux) do print(k,v) end
-    for i = 1, n do
+    for i = 1, #sequence do
         local m = "seq"..i
         names[#names + 1] = m
         chunks[ #names  ] = sequence_tpl:gsub("XXXX", m)
