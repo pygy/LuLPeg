@@ -136,7 +136,7 @@ In Lua 5.1, LPeg creates globals when `require"lpeg"` and `require"re"` are call
 
 If you want to use LuLPeg in a Lua 5.1 sandbox that doesn't provide `newproxy()` and/or `debug.setmetatable()`, the `#pattern` syntax will not work for lookahead patterns. We provide the `L()` function as a fallback. Replace `#pattern` with `L(pattern)` in your grammar and it will work as expected.
 
-### "Global" mode for expolration:
+### "Global" mode for exploration:
 
 `LuLPeg:global(_G or _ENV)` sets LuLPeg as the __index of the the current environment, sparring you from aliasing each LPeg command manually. This is useful if you want to explore LPeg at the command line, for example.
 
