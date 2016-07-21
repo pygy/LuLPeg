@@ -19,7 +19,7 @@ fs = success and fs or {
    attributes = function() return{} end
 }
 
-root = "./"
+root = "./src"
  
 function scandir (root)
 -- adapted from http://keplerproject.github.com/luafilesystem/examples.html
