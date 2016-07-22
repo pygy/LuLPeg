@@ -2,13 +2,13 @@ package = "lulpeg"
 version = "0.1.0-1"
 
 source = {
-  url = "git://github.com/Seriane/LuLPeg",
+  url = "git://github.com/pygy/LuLPeg",
 }
 
 description = {
   summary     = "LuLPeg",
-  detailed    = [[]],
-  license     = "Public WTF License",
+  detailed    = "LuLPeg, a pure Lua port of LPeg, Roberto Ierusalimschy's Parsing Expression Grammars library. Copyright (C) Pierre-Yves Gerardy.",
+  license     = "The Romantic WTF public license",
   maintainer  = "pygy",
 }
 
