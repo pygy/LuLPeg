@@ -115,7 +115,7 @@ else
     -- Fallback if neither __len(table) nor newproxy work
     -- for example in restricted sandboxes.
     if LL.warnings and not compat.lua52_len then
-        print("Warning: The `__len` metatethod won't work with patterns, "
+        print("Warning: The `__len` metamethod won't work with patterns, "
             .."use `LL.L(pattern)` for lookaheads.")
     end
     pattmt = LL

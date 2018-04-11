@@ -2110,7 +2110,7 @@ end
 end
 --=============================================================================
 do local _ENV = _ENV
-packages['analizer'] = function (...)
+packages['analyzer'] = function (...)
 
 local u = require"util"
 local nop, weakkey = u.nop, u.weakkey
@@ -2676,7 +2676,7 @@ if compat.proxies and not compat.lua52_len then
     end
 else
     if LL.warnings and not compat.lua52_len then
-        print("Warning: The `__len` metatethod won't work with patterns, "
+        print("Warning: The `__len` metamethod won't work with patterns, "
             .."use `LL.L(pattern)` for lookaheads.")
     end
     pattmt = LL

@@ -1,6 +1,6 @@
 ### Frontend:
 
-Finish de factorizer/analyzer.
+Finish factorizer/analyzer.
 
 ### Compatibility:
 
@@ -15,7 +15,7 @@ Finish de factorizer/analyzer.
 
 ### Captures:
 
-Try to use several buffers insetad of one for captures (less allocations).
+Try to use several buffers instead of one for captures (less allocations).
 
 - one array with the capture bounds (similar to the LPeg one). 
 - one array of booleans indicating whether the given bound opens or closes a capture, or the end bound for a "full" capture.
@@ -30,7 +30,7 @@ Try a cdata-based approach for LuaJIT? It may be the basis of a generic capture 
 
 - Drop the one function per pattern approach for one big function per non-grammar pattern/gammar rule.
 - use false loops and break to simulate goto (and goto in 5.2?).
-- Add a more backends? Terra? Lua bytecode?
+- Add more backends? Terra? Lua bytecode?
 
 ### Unicode:
 
