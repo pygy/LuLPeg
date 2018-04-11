@@ -154,7 +154,7 @@ The preliminary version of this library supported UTF-8 out of the box, but bitr
 
 ## Performance:
 
-LuLPeg with Lua 5.1 and 5.2 is ~100 times slower that the original. 
+LuLPeg with Lua 5.1 and 5.2 is ~100 times slower than the original. 
 
 With LuaJIT in JIT mode, it is from ~2 to ~10 times slower. The exact performance is unpredictable. Tiny changes in code, not necessarily related to the grammar, or a different subject string, can have a 5x impact. LPeg grammars are branchy, by nature, and this kind of code doesn't lend itself very well to tracing JIT compilation. Furthermore, LuaJIT uses probabilistic/speculative heuristics to chose what to compile. These are influenced by the memory layout, among other things, hence the unpredictability.
 
