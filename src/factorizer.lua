@@ -87,8 +87,8 @@ local type2cons = {
     ["div_string"] = "__div",
     ["div_table"] = "__div",
     ["div_function"] = "__div",
-    ["at least"] = "__exp",
-    ["at most"] = "__exp",
+    ["at least"] = "__pow",
+    ["at most"] = "__pow",
     ["Clb"] = "Cg",
 }
 
