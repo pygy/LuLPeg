@@ -37,6 +37,7 @@ end
 scandir( root )
  
 acc={(io.open("../ABOUT"):read("*all").."\n"):gsub( "([^\n]-\n)","-- %1" ),[[
+_G._ENV = rawget(_G, "_ENV") -- to satisfy tarantool strict mode
 local _ENV,       loaded, packages, release, require_ 
     = _ENV or _G, {},     {},       true,    require
 
