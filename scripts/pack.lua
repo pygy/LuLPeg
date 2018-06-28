@@ -1,5 +1,6 @@
 -- A Lua source file packer.
 -- released under the Romantic WTF Public License
+require("strict").off()
 setmetatable( _G or _ENV, {__index = require"init" } )
  
 args = {...}
@@ -85,4 +86,6 @@ return require"init"
 acc[#acc+1] = io.open("../LICENSE"):read("*all".."\n"):gsub("([^\n]-\n)","-- %1")
 
 print( table.concat( acc ) )
+require("strict").on()
+
 
