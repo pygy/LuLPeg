@@ -1,0 +1,79 @@
+sudo: required
+services:
+  - docker
+
+language: python
+
+cache:
+    directories:
+      - $HOME/.cache
+
+git:
+    depth: 100500
+
+env:
+    global:
+      - PRODUCT=tarantool-lulpeg
+    matrix:
+      - OS=el DIST=6
+      - OS=el DIST=7
+      - OS=fedora DIST=26
+      - OS=fedora DIST=27
+
+script:
+  - git describe --long
+  - git clone https://github.com/packpack/packpack.git packpack;
+  - packpack/packpack;
+
+before_deploy:
+  - ls -l build/
+
+deploy:
+  # Deploy packages to PackageCloud
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_7"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_9"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "1_10"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: tarantool
+    repository: "2_0"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+
+notifications:
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always
