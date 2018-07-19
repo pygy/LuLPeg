@@ -1,0 +1,76 @@
+sudo: required
+services:
+  - docker
+
+language: python
+
+cache:
+    directories:
+      - $HOME/.cache
+
+git:
+    depth: 100500
+
+env:
+    global:
+      - PRODUCT=tarantool-lulpeg
+    matrix:
+      - OS=el DIST=6
+      - OS=el DIST=7
+      - OS=fedora DIST=26
+      - OS=fedora DIST=27
+
+script:
+  # Lulpeg has a major.minor versioning with unannotated tags.
+  # major.minor is preceded with 'v' like this: v0.1
+  # Packpack can't handle it automaticaly, because it expects annotated tags
+  # with no letters. We had to pass version by setting VERSION.
+  # We set VERSION like: major.minor.number_of_commits above
+  # last major.minor tag.
+  - git describe --tags
+  - git clone https://github.com/packpack/packpack.git packpack;
+  - VERSION=`git describe --tags | sed -e 's/^v\(.*\)-.*/\1/' -e 's/-/./'`
+  - VERSION=$VERSION packpack/packpack;
+
+before_deploy:
+  - ls -l build/
+
+deploy:
+  # Deploy packages to PackageCloud
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "1_9"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "1_10"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+  - provider: packagecloud
+    username: ${PACKAGECLOUD_USER}
+    repository: "2_0"
+    token: ${PACKAGECLOUD_TOKEN}
+    dist: ${OS}/${DIST}
+    package_glob: build/*.{rpm,deb}
+    skip_cleanup: true
+    on:
+      branch: master
+      condition: -n "${OS}" && -n "${DIST}" && -n "${PACKAGECLOUD_TOKEN}"
+
+notifications:
+  email:
+    recipients:
+      - build@tarantool.org
+    on_success: change
+    on_failure: always
