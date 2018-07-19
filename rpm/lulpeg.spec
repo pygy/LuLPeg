@@ -1,4 +1,4 @@
-Name: lulpeg
+Name: tarantool-lulpeg
 # During package building {version} is overwritten by Packpack with
 # VERSION. It is set to major.minor.number_of_commits_above_last_tag.
 # major.minor tag and number of commits above are taken from the
