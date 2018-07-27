@@ -27,13 +27,12 @@ cd src
 tarantool -e 'require("strict").off()' ../scripts/pack.lua > ../lulpeg.lua
 
 %install
-mkdir -p %{buildroot}%{_datadir}/tarantool/lulpeg
-cp ./src/* %{buildroot}%{_datadir}/tarantool/lulpeg/
-mv lulpeg.lua %{buildroot}%{_datadir}/tarantool/lulpeg/
+mkdir -p %{buildroot}%{_datadir}/tarantool
+cd src
+tarantool ../scripts/pack.lua > %{buildroot}%{_datadir}/tarantool/lulpeg.lua
 
 %files
-%dir %{_datadir}/tarantool/lulpeg
-%{_datadir}/tarantool/lulpeg/
+%{_datadir}/tarantool/lulpeg.lua
 
 %changelog
 
