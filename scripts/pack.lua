@@ -1,5 +1,6 @@
 -- A Lua source file packer.
 -- released under the Romantic WTF Public License
+require("strict").off()
 setmetatable( _G or _ENV, {__index = require"init" } )
  
 args = {...}
@@ -37,6 +38,7 @@ end
 scandir( root )
  
 acc={(io.open("../ABOUT"):read("*all").."\n"):gsub( "([^\n]-\n)","-- %1" ),[[
+_G._ENV = rawget(_G, "_ENV") -- to satisfy tarantool strict mode
 local _ENV,       loaded, packages, release, require_ 
     = _ENV or _G, {},     {},       true,    require
 
@@ -84,4 +86,6 @@ return require"init"
 acc[#acc+1] = io.open("../LICENSE"):read("*all".."\n"):gsub("([^\n]-\n)","-- %1")
 
 print( table.concat( acc ) )
+require("strict").on()
+
 
