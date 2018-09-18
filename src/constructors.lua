@@ -86,6 +86,8 @@ local newpattern, pattmt
 -- This deals with the Lua 5.1/5.2 compatibility, and restricted
 -- environements without access to newproxy and/or debug.setmetatable.
 
+-- Augment a pattern with unique identifier.
+local next_pattern_id = 1
 if compat.proxies and not compat.lua52_len then 
     -- Lua 5.1 / LuaJIT without compat.
     local proxycache = weakkey{}
@@ -109,6 +111,8 @@ if compat.proxies and not compat.lua52_len then
         local pt = newproxy(baseproxy)
         setmetatable(cons, __index_LL)
         proxycache[pt]=cons
+        pt.id = "__ptid" .. next_pattern_id
+        next_pattern_id = next_pattern_id + 1
         return pt
     end
 else
@@ -122,6 +126,8 @@ else
     function LL.getdirect (p) return p end
 
     function newpattern(pt)
+        pt.id = "__ptid" .. next_pattern_id
+        next_pattern_id = next_pattern_id + 1
         return setmetatable(pt,LL)
     end
 end
@@ -230,13 +236,13 @@ end
 constructors["subpt"] = function(typ, pt)
     -- [[DP]]print("CONS: ", typ, pt, aux)
     local cache = ptcache[typ]
-    if not cache[pt] then
-        cache[pt] = newpattern{
+    if not cache[pt.id] then
+        cache[pt.id] = newpattern{
             pkind = typ,
             pattern = pt
         }
     end
-    return cache[pt]
+    return cache[pt.id]
 end
 
 constructors["both"] = function(typ, pt, aux)
@@ -246,15 +252,15 @@ constructors["both"] = function(typ, pt, aux)
         ptcache[typ][aux] = weakval{}
         cache = ptcache[typ][aux]
     end
-    if not cache[pt] then
-        cache[pt] = newpattern{
+    if not cache[pt.id] then
+        cache[pt.id] = newpattern{
             pkind = typ,
             pattern = pt,
             aux = aux,
             cache = cache -- needed to keep the cache as long as the pattern exists.
         }
     end
-    return cache[pt]
+    return cache[pt.id]
 end
 
 constructors["binary"] = function(typ, a, b)
