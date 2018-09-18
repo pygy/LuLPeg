@@ -212,14 +212,15 @@ do
 end
 
 
+-- Give a unique string for a combination of two patterns.
 local function nameify(a, b)
-    return tostring(a)..tostring(b)
+    return ('%s:%s'):format(a.id, b.id)
 end
 
 -- pt*pt
 local
 function choice (a, b)
-    local name = tostring(a)..tostring(b)
+    local name = nameify(a, b)
     local ch = Builder.ptcache.choice[name]
     if not ch then
         ch = factorize_choice(a, b) or constructors.binary("choice", a, b)
@@ -238,7 +239,7 @@ end
 
 local
 function sequence (a, b)
-    local name = tostring(a)..tostring(b)
+    local name = nameify(a, b)
     local seq = Builder.ptcache.sequence[name]
     if not seq then
         seq = factorize_sequence(a, b) or constructors.binary("sequence", a, b)
