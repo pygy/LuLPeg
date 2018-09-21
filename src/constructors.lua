@@ -213,14 +213,16 @@ constructors["aux"] = function(typ, aux, as_is)
      -- dprint("CONS: ", typ, pt, aux, as_is)
     local cache = ptcache[typ]
     local key = (getauxkey[typ] or id)(aux, as_is)
-    if not cache[key] then
-        cache[key] = newpattern{
+    local res_pt = cache[key]
+    if not res_pt then
+        res_pt = newpattern{
             pkind = typ,
             aux = aux,
             as_is = as_is
         }
+        cache[key] = res_pt
     end
-    return cache[key]
+    return res_pt
 end
 
 -- no cache for grammars
@@ -236,13 +238,15 @@ end
 constructors["subpt"] = function(typ, pt)
     -- [[DP]]print("CONS: ", typ, pt, aux)
     local cache = ptcache[typ]
-    if not cache[pt.id] then
-        cache[pt.id] = newpattern{
+    local res_pt = cache[pt.id]
+    if not res_pt then
+        res_pt = newpattern{
             pkind = typ,
             pattern = pt
         }
+        cache[pt.id] = res_pt
     end
-    return cache[pt.id]
+    return res_pt
 end
 
 constructors["both"] = function(typ, pt, aux)
@@ -252,15 +256,17 @@ constructors["both"] = function(typ, pt, aux)
         ptcache[typ][aux] = weakval{}
         cache = ptcache[typ][aux]
     end
-    if not cache[pt.id] then
-        cache[pt.id] = newpattern{
+    local res_pt = cache[pt.id]
+    if not res_pt then
+        res_pt = newpattern{
             pkind = typ,
             pattern = pt,
             aux = aux,
             cache = cache -- needed to keep the cache as long as the pattern exists.
         }
+        cache[pt.id] = res_pt
     end
-    return cache[pt.id]
+    return res_pt
 end
 
 constructors["binary"] = function(typ, a, b)
