@@ -11,7 +11,7 @@ local s_sub, t_concat
 local t_unpack
     = u.unpack
 
---[[DBG]] local debug, rawset, setmetatable, error, print, expose 
+--[[DBG]] local debug, rawset, setmetatable, error, print, expose
 --[[DBG]]     = debug, rawset, setmetatable, error, print, u.expose
 
 
@@ -140,8 +140,8 @@ function eval.Cg (caps, sbj, vals, ci, vi)
         -- [[DBG]] print("Cg - open ci = ", ci)
 
     local cj, vj = insert(caps, sbj, vals, ci + 1, vi)
-    if vj == vi then 
-        -- [[DBG]] print("Cg - no inner values")        
+    if vj == vi then
+        -- [[DBG]] print("Cg - no inner values")
         vals[vj] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
         vj = vj + 1
     end
@@ -152,7 +152,7 @@ end
 function eval.Clb (caps, sbj, vals, ci, vi)
     local oc = caps.openclose
     if oc[ci] > 0 then
-        return ci + 1, vi 
+        return ci + 1, vi
     end
 
     local depth = 0
@@ -199,7 +199,7 @@ end
 local inf = 1/0
 
 function eval.value (caps, sbj, vals, ci, vi)
-    local val 
+    local val
     -- nils are encoded as inf in both aux and openclose.
     if caps.aux[ci] ~= inf or caps.openclose[ci] ~= inf
         then val = caps.aux[ci]
@@ -313,7 +313,7 @@ local function div_str_cap_refs (caps, ci)
         local oc = opcl[ci]
         -- [[DBG]] print("/''refs", caps.kind[ci], ci, oc, depth)
         if depth == 1  and oc >= 0 then refs[#refs+1] = ci end
-        if oc == 0 then 
+        if oc == 0 then
             depth = depth + 1
         elseif oc < 0 then
             depth = depth - 1
@@ -394,8 +394,8 @@ function LL.evaluate (caps, sbj, ci)
     -- [[DBG]] expose(caps)
     -- [[DBG]] cprint(caps, sbj, ci)
     local vals = {}
-    -- [[DBG]] vals = setmetatable({}, {__newindex = function(self, k,v) 
-    -- [[DBG]]     print("set Val, ", k, v, debug.traceback(1)) rawset(self, k, v) 
+    -- [[DBG]] vals = setmetatable({}, {__newindex = function(self, k,v)
+    -- [[DBG]]     print("set Val, ", k, v, debug.traceback(1)) rawset(self, k, v)
     -- [[DBG]] end})
     local _,  vi = insert(caps, sbj, vals, ci, 1)
     return vals, 1, vi - 1

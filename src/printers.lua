@@ -45,7 +45,7 @@ function escape( str )
 end
 
 local
-function set_repr (set) 
+function set_repr (set)
     return s_char(load("return "..S_tostring(set))())
 end
 
@@ -232,7 +232,7 @@ local function _cprint(caps, ci, indent, sbj, n)
     local openclose, kind = caps.openclose, caps.kind
     indent = indent or 0
     while kind[ci] and openclose[ci] >= 0 do
-        if caps.openclose[ci] > 0 then 
+        if caps.openclose[ci] > 0 then
             print(t_concat({
                             padnum(n),
                             padding:rep(indent),
@@ -241,7 +241,7 @@ local function _cprint(caps, ci, indent, sbj, n)
                             " finish = ", tostring(caps.openclose[ci]),
                             caps.aux[ci] and " aux = " or "",
                             caps.aux[ci] and (
-                                type(caps.aux[ci]) == "string" 
+                                type(caps.aux[ci]) == "string"
                                     and '"'..tostring(caps.aux[ci])..'"'
                                 or tostring(caps.aux[ci])
                             ) or "",
@@ -257,7 +257,7 @@ local function _cprint(caps, ci, indent, sbj, n)
                             ": start = ", start,
                             caps.aux[ci] and " aux = " or "",
                             caps.aux[ci] and (
-                                type(caps.aux[ci]) == "string" 
+                                type(caps.aux[ci]) == "string"
                                     and '"'..tostring(caps.aux[ci])..'"'
                                 or tostring(caps.aux[ci])
                             ) or ""

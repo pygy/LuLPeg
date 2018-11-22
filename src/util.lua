@@ -459,7 +459,7 @@ end
 
 function util.checkstring(s, func)
     local success, str = pcall(_checkstrhelper, s)
-    if not success then 
+    if not success then
         if func == nil then func = "?" end
         error("bad argument to '"
             ..tostring(func)

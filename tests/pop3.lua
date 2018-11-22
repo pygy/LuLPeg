@@ -25,7 +25,7 @@ local function try_load_get_address_list()
                             <addr> %s* {:name: <phrase> :}                  /
                             "<" <addr_spec> ">" %s* {:name: <uq_phrase> :}  /
                             <addr>                                          /
-                            {:name: <phrase> :}                              
+                            {:name: <phrase> :}
                           ) -> {}
 
     uq_phrase          <- <uq_atom> (%s+ <uq_atom>)*
@@ -75,8 +75,8 @@ function cmp_t(t1,t2)
     end
   end
   for k,v in pairs(t1)do
-    if not cmp_v(t2[k],v) then 
-      return false 
+    if not cmp_v(t2[k],v) then
+      return false
     end
   end
   return true
@@ -85,8 +85,8 @@ end
 local tests = {}
 local tests_index={}
 
-local test = function(str, result) 
-  local t 
+local test = function(str, result)
+  local t
   if type(result) == 'string' then
     local res = assert(tests_index[str])
     t = {result, result = res.result}

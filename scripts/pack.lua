@@ -1,14 +1,14 @@
 -- A Lua source file packer.
 -- released under the Romantic WTF Public License
 setmetatable( _G or _ENV, {__index = require"init" } )
- 
+
 args = {...}
 --[[]] pcall( require,"luarocks.loader" )
 --[[]] local success, fs = pcall( require,"lfs" )
 files = {}
- 
+
 fs = success and fs or {
-    dir = function (path) 
+    dir = function (path)
         local listing = io.popen ( "ls "..path ):read"*all"
         local files = {}
         for file in listing:gmatch( "[^\n]+" ) do
@@ -20,7 +20,7 @@ fs = success and fs or {
 }
 
 root = "./"
- 
+
 function scandir (root)
 -- adapted from http://keplerproject.github.com/luafilesystem/examples.html
     path = path or ""
@@ -33,20 +33,20 @@ function scandir (root)
         end
     end
 end
- 
+
 scandir( root )
- 
+
 acc={(io.open("../ABOUT"):read("*all").."\n"):gsub( "([^\n]-\n)","-- %1" ),[[
-local _ENV,       loaded, packages, release, require_ 
+local _ENV,       loaded, packages, release, require_
     = _ENV or _G, {},     {},       true,    require
 
 local function require(...)
     local lib = ...
 
     -- is it a private file?
-    if loaded[lib] then 
+    if loaded[lib] then
         return loaded[lib]
-    elseif packages[lib] then 
+    elseif packages[lib] then
         loaded[lib] = packages[lib](lib)
         return loaded[lib]
     else
@@ -73,7 +73,7 @@ for k,v in pairs( files ) do
     wrapper[2], wrapper[4] = k, strip:match(v)
     acc[#acc+1]= table.concat(wrapper)
 end
- 
+
 acc[#acc + 1] = [[
 return require"init"
 

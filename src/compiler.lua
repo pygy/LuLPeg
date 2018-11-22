@@ -81,8 +81,8 @@ end
 ------------------------------------------------------------------------------
 --- Match
 
---[[DBG]] local dbgcapsmt = {__newindex = function(self, k,v) 
---[[DBG]]     if k ~= #self + 1 then 
+--[[DBG]] local dbgcapsmt = {__newindex = function(self, k,v)
+--[[DBG]]     if k ~= #self + 1 then
 --[[DBG]]         print("Bad new cap", k, v)
 --[[DBG]]         expose(self)
 --[[DBG]]         error""
@@ -95,7 +95,7 @@ end
 --[[DBG]] function dbgcaps(t) return setmetatable(t, dbgcapsmt) end
 local function newcaps()
     return {
-        kind = {}, 
+        kind = {},
         bounds = {},
         openclose = {},
         aux = -- [[DBG]] dbgcaps
@@ -123,12 +123,12 @@ function _match(dbg, pt, sbj, si, ...)
     local matcher = compile(pt, {})
     -- capture accumulator
     local caps = newcaps()
-    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}} 
+    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}}
 
     local  success, final_si, ci = matcher(sbj, si, caps, 1, matcher_state)
 
         if dbg then -------------
-            print("!!! Done Matching !!! success: ", success, 
+            print("!!! Done Matching !!! success: ", success,
                 "final position", final_si, "final cap index", ci,
                 "#caps", #caps.openclose)
         end----------------------
@@ -165,12 +165,12 @@ function _match(dbg, pt, sbj, si, ...)
 end
 
 function LL.match(...)
-    return _match(false, ...) 
+    return _match(false, ...)
 end
 
 -- With some debug info.
 function LL.dmatch(...)
-    return _match(true, ...) 
+    return _match(true, ...)
 end
 
 ------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ end
 -- These are all alike:
 
 
-for _, v in pairs{ 
+for _, v in pairs{
     "C", "Cf", "Cg", "Cs", "Ct", "Clb",
     "div_string", "div_table", "div_number", "div_function"
 } do
@@ -199,7 +199,7 @@ for _, v in pairs{
 
             local ref_ci = ci
 
-            local kind, bounds, openclose, aux 
+            local kind, bounds, openclose, aux
                 = caps.kind, caps.bounds, caps.openclose, caps.aux
 
             kind      [ci] = "XXXX"
@@ -222,7 +222,7 @@ for _, v in pairs{
                     -- [[DBG]] print("closing", si)
                     kind      [ci] = "XXXX"
                     bounds    [ci] = si
-                    -- a closing bound. openclose < 0 
+                    -- a closing bound. openclose < 0
                     -- (offset in the capture stack between open and close)
                     openclose [ci] = ref_ci - ci
                     aux       [ci] = this_aux or false
@@ -263,7 +263,7 @@ compilers["Carg"] = function (pt, ccache)
     end
 end
 
-for _, v in pairs{ 
+for _, v in pairs{
     "Cb", "Cc", "Cp"
 } do
     compilers[v] = load(([=[
@@ -310,7 +310,7 @@ compilers["Cmt"] = function (pt, ccache)
         -- [[DBG]] expose(caps)
 
         local success, Cmt_si, Cmt_ci = matcher(sbj, si, caps, ci, state)
-        if not success then 
+        if not success then
             -- [[DBG]] print("/Cmt No match", ".....",  (" -"..mt.."- "..n):rep(12))
             -- [[DBG]] n = n - 1
             clear_captures(caps.aux, ci)
@@ -321,7 +321,7 @@ compilers["Cmt"] = function (pt, ccache)
         -- [[DBG]] print("Cmt match! ci = ", ci, ", Cmt_ci = ", Cmt_ci)
         -- [[DBG]] expose(caps)
 
-        local final_si, values 
+        local final_si, values
 
         if Cmt_ci == ci then
             -- [[DBG]] print("Cmt: simple capture: ", si, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
@@ -343,7 +343,7 @@ compilers["Cmt"] = function (pt, ccache)
         -- [[DBG]] print("Cmt values ..."); expose(values)
         -- [[DBG]] print("Cmt, final_si = ", final_si, ", Cmt_si = ", Cmt_si)
         -- [[DBG]] print("SOURCE\n",sbj:sub(Cmt_si-20, Cmt_si+20),"\n/SOURCE")
-        if not final_si then 
+        if not final_si then
             -- [[DBG]] print("/Cmt No return", ".....",  (" +"..mt.."- "..n):rep(12))
             -- [[DBG]] n = n - 1
             -- clear_captures(caps.aux, ci)
@@ -354,11 +354,11 @@ compilers["Cmt"] = function (pt, ccache)
         if final_si == true then final_si = Cmt_si end
 
         if type(final_si) == "number"
-        and si <= final_si 
-        and final_si <= #sbj + 1 
+        and si <= final_si
+        and final_si <= #sbj + 1
         then
             -- [[DBG]] print("Cmt Success", values, values and values.n, ci)
-            local kind, bounds, openclose, aux 
+            local kind, bounds, openclose, aux
                 = caps.kind, caps.bounds, caps.openclose, caps.aux
             for i = 1, values.n do
                 kind      [ci] = "value"
@@ -675,7 +675,7 @@ compilers["at most"] = function (pt, ccache)
         local success = true
         for i = 1, n do
             success, si, ci = matcher(sbj, si, caps, ci, state)
-            if not success then 
+            if not success then
                 -- clear_captures(caps.aux, ci)
                 break
             end
@@ -696,7 +696,7 @@ compilers["at least"] = function (pt, ccache)
                 -- [[DBG]] N=N+1
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end
@@ -723,7 +723,7 @@ compilers["at least"] = function (pt, ccache)
                 -- [[DBG]] N=N+1
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end
@@ -749,7 +749,7 @@ compilers["at least"] = function (pt, ccache)
                 -- [[DBG]] print(" rep  "..n, caps.kind[ci - 1], ", si = "..si, ", ci = "..ci, sbj:sub(1, si - 1))
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end

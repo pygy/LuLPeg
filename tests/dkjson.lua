@@ -35,26 +35,26 @@ cycles.
 
 `state` is an optional table with the following fields:
 
-  - `indent`  
+  - `indent`
     When `indent` (a boolean) is set, the created string will contain
     newlines and indentations. Otherwise it will be one long line.
-  - `keyorder`  
+  - `keyorder`
     `keyorder` is an array to specify the ordering of keys in the
     encoded output. If an object has keys which are not in this array
     they are written after the sorted keys.
-  - `level`  
+  - `level`
     This is the initial level of indentation used when `indent` is
     set. For each level two spaces are added. When absent it is set
     to 0.
-  - `buffer`  
+  - `buffer`
     `buffer` is an array to store the strings for the result so they
     can be concatenated at once. When it isn't given, the encode
     function will create it temporary and will return the
     concatenated result.
-  - `bufferlen`  
+  - `bufferlen`
     When `bufferlen` is set, it has to be the index of the last
     element of `buffer`.
-  - `tables`  
+  - `tables`
     `tables` is a set to detect reference cycles. It is created
     temporary when absent. Every table that is currently processed
     is used as key, the value is `true`.
