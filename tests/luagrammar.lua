@@ -1,4 +1,4 @@
--- Based on Patrick Donnelly LPeg recipe: 
+-- Based on Patrick Donnelly LPeg recipe:
 -- http://lua-users.org/wiki/LpegRecipes
 
 local success, lpeg = pcall(require, arg[1])
@@ -213,7 +213,7 @@ src = "\nfunction foo()\n"..src.."\nend\n"
 local len = #src
 
 -- local END
--- assert(pcall(function() 
+-- assert(pcall(function()
   END = lua:match(src)
 -- end))
 

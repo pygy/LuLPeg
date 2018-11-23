@@ -22,7 +22,7 @@ local compat = {
     proxies = pcall(function()
         local prox = newproxy(true)
         local prox2 = newproxy(prox)
-        assert (type(getmetatable(prox)) == "table" 
+        assert (type(getmetatable(prox)) == "table"
                 and (getmetatable(prox)) == (getmetatable(prox2)))
     end),
     _goto = not not(loadstring or load)"::R::"

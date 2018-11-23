@@ -17,7 +17,7 @@ Finish factorizer/analyzer.
 
 Try to use several buffers instead of one for captures (less allocations).
 
-- one array with the capture bounds (similar to the LPeg one). 
+- one array with the capture bounds (similar to the LPeg one).
 - one array of booleans indicating whether the given bound opens or closes a capture, or the end bound for a "full" capture.
 - one array for the types. (corresponding to both opening an closing tokens).
 - one array for metadata, when present.

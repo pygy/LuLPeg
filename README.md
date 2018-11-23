@@ -41,7 +41,7 @@ Lua 5.1, 5.2 and LuaJIT are supported.
 
 This section assumes that you are familiar with LPeg and its official documentation.
 
-LuLPeg passes most of the LPeg test suite: 6093 assertions succeed, 70 fail. 
+LuLPeg passes most of the LPeg test suite: 6093 assertions succeed, 70 fail.
 
 None of the failures are caused by semantic differences. They are related to grammar and pattern error checking, stack handling, and garbage collection of Cmt capture values.
 
@@ -144,7 +144,7 @@ If you want to use LuLPeg in a Lua 5.1 sandbox that doesn't provide `newproxy()`
 require"lulpeg":global(_G or _ENV)
 
 pattern = Ct(C(P"A" + "B") ^ 0)
-pattern:match"BABAB" --> {"B", "A", "B", "A", "B"} 
+pattern:match"BABAB" --> {"B", "A", "B", "A", "B"}
 
 ```
 
@@ -154,7 +154,7 @@ The preliminary version of this library supported UTF-8 out of the box, but bitr
 
 ## Performance:
 
-LuLPeg with Lua 5.1 and 5.2 is ~100 times slower than the original. 
+LuLPeg with Lua 5.1 and 5.2 is ~100 times slower than the original.
 
 With LuaJIT in JIT mode, it is from ~2 to ~10 times slower. The exact performance is unpredictable. Tiny changes in code, not necessarily related to the grammar, or a different subject string, can have a 5x impact. LPeg grammars are branchy, by nature, and this kind of code doesn't lend itself very well to tracing JIT compilation. Furthermore, LuaJIT uses probabilistic/speculative heuristics to chose what to compile. These are influenced by the memory layout, among other things, hence the unpredictability.
 

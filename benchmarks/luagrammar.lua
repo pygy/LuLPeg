@@ -1,4 +1,4 @@
--- Based on Patrick Donnelly LPeg recipe: 
+-- Based on Patrick Donnelly LPeg recipe:
 -- http://lua-users.org/wiki/LpegRecipes
 
 local function Kollect()
@@ -245,7 +245,7 @@ src = "\nfunction foo()\n"..src.."\nend\n"
 Kollect()
 
 local END
-assert(pcall(function() 
+assert(pcall(function()
   for i = 1, 32 do
     tic = os.clock()
     END = lua:match(src)

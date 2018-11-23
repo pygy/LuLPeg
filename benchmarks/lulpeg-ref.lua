@@ -1,24 +1,24 @@
 -- LuLPeg, a pure Lua port of LPeg, Roberto Ierusalimschy's
 -- Parsing Expression Grammars library.
--- 
+--
 -- Copyright (C) Pierre-Yves Gerardy.
 -- Released under the Romantic WTF Public License (cf. the LICENSE
 -- file or the end of this file, whichever is present).
--- 
+--
 -- See http://www.inf.puc-rio.br/~roberto/lpeg/ for the original.
--- 
+--
 -- The re.lua module and the test suite (tests/lpeg.*.*.tests.lua)
 -- are part of the original LPeg distribution.
-local _ENV,       loaded, packages, release, require_ 
+local _ENV,       loaded, packages, release, require_
     = _ENV or _G, {},     {},       true,    require
 
 local function require(...)
     local lib = ...
 
     -- is it a private file?
-    if loaded[lib] then 
+    if loaded[lib] then
         return loaded[lib]
-    elseif packages[lib] then 
+    elseif packages[lib] then
         loaded[lib] = packages[lib](lib)
         return loaded[lib]
     else
@@ -94,7 +94,7 @@ local function computeidex(i, len)
 end
 local function newcaps()
     return {
-        kind = {}, 
+        kind = {},
         bounds = {},
         openclose = {},
         aux = -- [[DBG]] dbgcaps
@@ -116,10 +116,10 @@ function _match(dbg, pt, sbj, si, ...)
         end ---------------------
     local matcher = compile(pt, {})
     local caps = newcaps()
-    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}} 
+    local matcher_state = {grammars = {}, args = {n = select('#',...),...}, tags = {}}
     local  success, final_si, ci = matcher(sbj, si, caps, 1, matcher_state)
         if dbg then -------------
-            print("!!! Done Matching !!! success: ", success, 
+            print("!!! Done Matching !!! success: ", success,
                 "final position", final_si, "final cap index", ci,
                 "#caps", #caps.openclose)
         end----------------------
@@ -144,12 +144,12 @@ function _match(dbg, pt, sbj, si, ...)
     end
 end
 function LL.match(...)
-    return _match(false, ...) 
+    return _match(false, ...)
 end
 function LL.dmatch(...)
-    return _match(true, ...) 
+    return _match(true, ...)
 end
-for _, v in pairs{ 
+for _, v in pairs{
     "C", "Cf", "Cg", "Cs", "Ct", "Clb",
     "div_string", "div_table", "div_number", "div_function"
 } do
@@ -159,7 +159,7 @@ for _, v in pairs{
         local matcher, this_aux = compile(pt.pattern, ccache), pt.aux
         return function (sbj, si, caps, ci, state)
             local ref_ci = ci
-            local kind, bounds, openclose, aux 
+            local kind, bounds, openclose, aux
                 = caps.kind, caps.bounds, caps.openclose, caps.aux
             kind      [ci] = "XXXX"
             bounds    [ci] = si
@@ -201,7 +201,7 @@ compilers["Carg"] = function (pt, ccache)
         return true, si, ci + 1
     end
 end
-for _, v in pairs{ 
+for _, v in pairs{
     "Cb", "Cc", "Cp"
 } do
     compilers[v] = load(([=[
@@ -229,11 +229,11 @@ compilers["Cmt"] = function (pt, ccache)
     local matcher, func = compile(pt.pattern, ccache), pt.aux
     return function (sbj, si, caps, ci, state)
         local success, Cmt_si, Cmt_ci = matcher(sbj, si, caps, ci, state)
-        if not success then 
+        if not success then
             clear_captures(caps.aux, ci)
             return false, si, ci
         end
-        local final_si, values 
+        local final_si, values
         if Cmt_ci == ci then
             final_si, values = pack_Cmt_caps(
                 func(sbj, Cmt_si, s_sub(sbj, si, Cmt_si - 1))
@@ -246,15 +246,15 @@ compilers["Cmt"] = function (pt, ccache)
                 func(sbj, Cmt_si, t_unpack(cps, 1, nn))
             )
         end
-        if not final_si then 
+        if not final_si then
             return false, si, ci
         end
         if final_si == true then final_si = Cmt_si end
         if type(final_si) == "number"
-        and si <= final_si 
-        and final_si <= #sbj + 1 
+        and si <= final_si
+        and final_si <= #sbj + 1
         then
-            local kind, bounds, openclose, aux 
+            local kind, bounds, openclose, aux
                 = caps.kind, caps.bounds, caps.openclose, caps.aux
             for i = 1, values.n do
                 kind      [ci] = "value"
@@ -478,7 +478,7 @@ compilers["at most"] = function (pt, ccache)
         local success = true
         for i = 1, n do
             success, si, ci = matcher(sbj, si, caps, ci, state)
-            if not success then 
+            if not success then
                 break
             end
         end
@@ -494,7 +494,7 @@ compilers["at least"] = function (pt, ccache)
                 local success
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end
@@ -513,7 +513,7 @@ compilers["at least"] = function (pt, ccache)
                 local success
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end
@@ -534,7 +534,7 @@ compilers["at least"] = function (pt, ccache)
                 local success
                 last_si, last_ci = si, ci
                 success, si, ci = matcher(sbj, si, caps, ci, state)
-                if not success then                     
+                if not success then
                     si, ci = last_si, last_ci
                     break
                 end
@@ -1281,7 +1281,7 @@ function eval.Cg (caps, sbj, vals, ci, vi)
         return ci + 1, vi + 1
     end
     local cj, vj = insert(caps, sbj, vals, ci + 1, vi)
-    if vj == vi then 
+    if vj == vi then
         vals[vj] = s_sub(sbj, caps.bounds[ci], caps.bounds[cj] - 1)
         vj = vj + 1
     end
@@ -1290,7 +1290,7 @@ end
 function eval.Clb (caps, sbj, vals, ci, vi)
     local oc = caps.openclose
     if oc[ci] > 0 then
-        return ci + 1, vi 
+        return ci + 1, vi
     end
     local depth = 0
     repeat
@@ -1327,7 +1327,7 @@ function eval.Ct (caps, sbj, vals, ci, vi)
 end
 local inf = 1/0
 function eval.value (caps, sbj, vals, ci, vi)
-    local val 
+    local val
     if caps.aux[ci] ~= inf or caps.openclose[ci] ~= inf
         then val = caps.aux[ci]
     end
@@ -1408,7 +1408,7 @@ local function div_str_cap_refs (caps, ci)
     repeat
         local oc = opcl[ci]
         if depth == 1  and oc >= 0 then refs[#refs+1] = ci end
-        if oc == 0 then 
+        if oc == 0 then
             depth = depth + 1
         elseif oc < 0 then
             depth = depth - 1
@@ -1595,7 +1595,7 @@ local function _cprint(caps, ci, indent, sbj, n)
     local openclose, kind = caps.openclose, caps.kind
     indent = indent or 0
     while kind[ci] and openclose[ci] >= 0 do
-        if caps.openclose[ci] > 0 then 
+        if caps.openclose[ci] > 0 then
             print(t_concat({
                             padnum(n),
                             padding:rep(indent),
@@ -1604,7 +1604,7 @@ local function _cprint(caps, ci, indent, sbj, n)
                             " finish = ", tostring(caps.openclose[ci]),
                             caps.aux[ci] and " aux = " or "",
                             caps.aux[ci] and (
-                                type(caps.aux[ci]) == "string" 
+                                type(caps.aux[ci]) == "string"
                                     and '"'..tostring(caps.aux[ci])..'"'
                                 or tostring(caps.aux[ci])
                             ) or "",
@@ -1620,7 +1620,7 @@ local function _cprint(caps, ci, indent, sbj, n)
                             ": start = ", start,
                             caps.aux[ci] and " aux = " or "",
                             caps.aux[ci] and (
-                                type(caps.aux[ci]) == "string" 
+                                type(caps.aux[ci]) == "string"
                                     and '"'..tostring(caps.aux[ci])..'"'
                                 or tostring(caps.aux[ci])
                             ) or ""
@@ -1668,7 +1668,7 @@ local compat = {
     proxies = pcall(function()
         local prox = newproxy(true)
         local prox2 = newproxy(prox)
-        assert (type(getmetatable(prox)) == "table" 
+        assert (type(getmetatable(prox)) == "table"
                 and (getmetatable(prox)) == (getmetatable(prox2)))
     end)
 }
@@ -2262,7 +2262,7 @@ function LL_P (...)
     if LL_ispattern(v) then
         return v
     elseif typ == "function" then
-        return 
+        return
             LL.Cmt("", v)
     elseif typ == "string" then
         local success, index = validate(v)
@@ -2270,7 +2270,7 @@ function LL_P (...)
             charset_error(index, cs.name)
         end
         if v == "" then return truept end
-        return 
+        return
             Builder.sequence(map(makechar, split_int(v)))
     elseif typ == "table" then
         local g = copy(v)
@@ -2389,7 +2389,7 @@ function choice (a, b, ...)
     end
 end
 function LL.__add (a,b)
-    return 
+    return
         choice(LL_P(a), LL_P(b))
 end
 local
@@ -2405,7 +2405,7 @@ function sequence (a, b, ...)
 end
 Builder.sequence = sequence
 function LL.__mul (a, b)
-    return 
+    return
         sequence(LL_P(a), LL_P(b))
 end
 local
@@ -2566,7 +2566,7 @@ local patternwith = {
 return function(Builder, LL) --- module wrapper.
 local S_tostring = Builder.set.tostring
 local newpattern, pattmt
-if compat.proxies and not compat.lua52_len then 
+if compat.proxies and not compat.lua52_len then
     local proxycache = weakkey{}
     local __index_LL = {__index = LL}
     local baseproxy = newproxy(true)
@@ -2794,13 +2794,13 @@ return require"init"
 --                   The Romantic WTF public license.
 --                   --------------------------------
 --                   a.k.a. version "<3" or simply v3
--- 
--- 
+--
+--
 --            Dear user,
--- 
+--
 --            The LuLPeg library
--- 
---                                             \ 
+--
+--                                             \
 --                                              '.,__
 --                                           \  /
 --                                            '/,__
@@ -2808,15 +2808,15 @@ return require"init"
 --                                           /
 --                                          /
 --                       has been          / released
---                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~ 
+--                  ~ ~ ~ ~ ~ ~ ~ ~       ~ ~ ~ ~ ~ ~ ~ ~
 --                under  the  Romantic   WTF Public License.
---               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ 
+--               ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~`,´ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --               I hereby grant you an irrevocable license to
 --                ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                  do what the gentle caress you want to
---                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~  
+--                       ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 --                           with   this   lovely
---                              ~ ~ ~ ~ ~ ~ ~ ~ 
+--                              ~ ~ ~ ~ ~ ~ ~ ~
 --                               / library...
 --                              /  ~ ~ ~ ~
 --                             /    Love,
@@ -2825,24 +2825,24 @@ return require"init"
 --                        #####
 --                        ###
 --                        #
--- 
+--
 --               -- Pierre-Yves
--- 
--- 
--- 
---            P.S.: Even though I poured my heart into this work, 
---                  I _cannot_ provide any warranty regarding 
+--
+--
+--
+--            P.S.: Even though I poured my heart into this work,
+--                  I _cannot_ provide any warranty regarding
 --                  its fitness for _any_ purpose. You
 --                  acknowledge that I will not be held liable
 --                  for any damage its use could incur.
--- 
--- -----------------------------------------------------------------------------            
--- 
+--
+-- -----------------------------------------------------------------------------
+--
 -- LuLPeg, Copyright (C) 2013 Pierre-Yves Gérardy.
--- 
+--
 -- The `re` module and lpeg.*.*.test.lua,
 -- Copyright (C) 2013 Lua.org, PUC-Rio.
--- 
+--
 -- Permission is hereby granted, free of charge,
 -- to any person obtaining a copy of this software and
 -- associated documentation files (the "Software"),
@@ -2853,10 +2853,10 @@ return require"init"
 -- and to permit persons to whom the Software is
 -- furnished to do so,
 -- subject to the following conditions:
--- 
+--
 -- The above copyright notice and this permission notice
 -- shall be included in all copies or substantial portions of the Software.
--- 
+--
 -- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 -- EXPRESS OR IMPLIED,
 -- INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,

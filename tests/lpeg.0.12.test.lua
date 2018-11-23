@@ -14,9 +14,9 @@ local assert = function(...)
   local success, r = pcall(_assert, ...)
   if success
   then test_success = test_success + 1
-  else 
+  else
     test_failure = test_failure + 1
-    if firsterr then 
+    if firsterr then
       firsterr = false
       print(
         debug.traceback("---- Assertion failed --------------------------------"),
@@ -304,7 +304,7 @@ assert(m.match(m.P"ab"^-1 - "c", "abcd") == 3)
 
 p = ('Aa' * ('Bb' * ('Cc' * m.P'Dd'^0)^0)^0)^-1
 assert(p:match("AaBbCcDdBbCcDdDdDdBb") == 21)
- 
+
 
 pi = "3.14159 26535 89793 23846 26433 83279 50288 41971 69399 37510"
 assert(m.match(m.Cs((m.P"1" / "a" + m.P"5" / "b" + m.P"9" / "c" + 1)^0), pi) ==
@@ -790,7 +790,7 @@ s = string.rep('a', l) .. string.rep('b', l) .. string.rep('c', l)
 p = (m.C(m.P'a'^1) * m.C(m.P'b'^1) * m.C(m.P'c'^1)) / '%3%2%1'
 
 assert(p:match(s) == string.rep('c', l) ..
-                     string.rep('b', l) .. 
+                     string.rep('b', l) ..
                      string.rep('a', l))
 
 print"+"
@@ -977,8 +977,8 @@ assert(#x == 500)
 local function id(s, i, x)
   if x == 'a' then return i, 1, 3, 7
   else return nil, 2, 4, 6, 8
-  end   
-end     
+  end
+end
 
 p = ((m.P(id) * 1 + m.Cmt(2, id) * 1  + m.Cmt(1, id) * 1))^0
 assert(table.concat{p:match('abababab')} == string.rep('137', 4))
