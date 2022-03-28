@@ -29,12 +29,15 @@ function scandir (root)
             hndl = f:gsub( "%.lua$", "" ):gsub("^[/\\]","")
                                          :gsub( "/", "." )
                                          :gsub( "\\", "." )
-            files[hndl] = io.open( root..f ):read"*a"
+            table.insert(files, { hndl,  io.open( root..f ):read"*a" })
         end
     end
 end
 
 scandir( root )
+
+-- Sort files by name so output is deterministic
+table.sort(files, function(a, b) return a[1] < b[1] end)
 
 acc={(io.open("../ABOUT"):read("*all").."\n"):gsub( "([^\n]-\n)","-- %1" ),[[
 local _ENV,       loaded, packages, release, require_
@@ -69,8 +72,8 @@ local blank = B"\n"*P" "^0 * '\n' /""
 local comment = B"\n" * P" "^0 * "--" * (1-P"\n")^0 * "\n" / ""
 local strip = Cs((blank + comment + (1-(blank+comment)))^0)
 
-for k,v in pairs( files ) do
-    wrapper[2], wrapper[4] = k, strip:match(v)
+for _,v in ipairs( files ) do
+    wrapper[2], wrapper[4] = v[1], strip:match(v[2])
     acc[#acc+1]= table.concat(wrapper)
 end
 
