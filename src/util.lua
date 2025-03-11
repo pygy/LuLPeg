@@ -265,8 +265,8 @@ function util.expose(v) print(val_to_string(v)) return v end
 --- Functional helpers
 --
 
-function util.map (ary, func, ...)
-    if type(ary) == "function" then ary, func = func, ary end
+function util.map (func, ary, ...)
+    if type(func) == "table" then ary, func = func, ary end
     local res = {}
     for i = 1,#ary do
         res[i] = func(ary[i], ...)
